@@ -1,0 +1,3 @@
+# Archivos fuera de git que Claude Code copia a cada worktree nuevo (claude --worktree).
+.env
+frontend/.env.local

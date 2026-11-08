@@ -1,0 +1,13 @@
+.env
+.env.*
+.git
+.venv
+venv
+**/__pycache__
+frontend
+panel
+tests
+evals
+docs
+registro
+datos_usuario

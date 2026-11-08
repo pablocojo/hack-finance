@@ -1,0 +1,30 @@
+# Secretos
+.env
+.env.local
+frontend/.env.local
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Node / Next.js
+node_modules/
+frontend/.next/
+frontend/next-env.d.ts
+frontend/tsconfig.tsbuildinfo
+
+# Datos locales y registros
+registro/*.jsonl
+datos_usuario/
+backend/datos/cache/
+
+# Claude Code
+.claude/settings.local.json
+.claude/worktrees/
+
+# Sistema
+.DS_Store
+*.log

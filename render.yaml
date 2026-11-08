@@ -1,0 +1,20 @@
+# Blueprint de Render para el backend. Ver docs/DESPLIEGUE.md.
+services:
+  - type: web
+    name: agente-finanzas-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-backend.txt
+    startCommand: uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /salud
+    envVars:
+      - key: ANTHROPIC_API_KEY_PRODUCTO
+        sync: false
+      - key: ORIGENES_CORS
+        sync: false
+      - key: NOMBRE_PRODUCTO
+        value: Finanzas IA
+      - key: MODO_DEMO
+        value: "off"
+      - key: GUARDAR_PERFILES
+        value: "0"

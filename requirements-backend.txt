@@ -1,0 +1,8 @@
+# Lo que necesita el backend en producción (Render y Docker usan este archivo).
+anthropic>=2.0,<3
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+pandas>=2.2
+python-dotenv>=1.0
+pyyaml>=6.0
