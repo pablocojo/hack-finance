@@ -109,8 +109,7 @@ def test_rutas_futuras_responden_501():
                          ("delete", "/usuarios/u/perfil/umbral_relevante_eur"), ("get", "/usuarios/u/aprendido"),
                          ("patch", "/usuarios/u/aprendido/h1"), ("delete", "/usuarios/u/aprendido/h1"),
                          ("delete", "/usuarios/u/aprendido"), ("post", "/usuarios/u/pruebas"), ("get", "/usuarios/u/amigos"),
-                         ("post", "/acciones/deshacer"), ("post", "/voz/sesion"), ("post", "/voz/texto"),
-                         ("post", "/voz/herramientas/preparar"), ("post", "/voz/herramientas/feedback"),
+                         ("post", "/acciones/deshacer"),
                          ("post", "/voz/herramientas/consultar"), ("get", "/banco/modulos"),
                          ("post", "/banco/modulos/borrador"), ("post", "/banco/modulos/x/aprobar")]:
         assert getattr(http, metodo)(ruta).status_code == 501, (metodo, ruta)

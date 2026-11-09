@@ -49,6 +49,7 @@ class Herramienta:
     esquema: dict
     usa_ctx: bool
     activa: Callable[[], bool] | None = None
+    grupo: str | None = None  # `llamada`: solo las ve quien las pide por nombre (no el chat del kit)
 
     def definicion(self) -> dict:
         return {"name": self.nombre, "description": self.descripcion, "input_schema": self.esquema}
@@ -114,7 +115,7 @@ def _leer_docstring(funcion) -> tuple[str, dict[str, str]]:
     return texto, parametros
 
 
-def crear_herramienta(funcion, *, nombre: str | None = None, activa=None) -> Herramienta:
+def crear_herramienta(funcion, *, nombre: str | None = None, activa=None, grupo: str | None = None) -> Herramienta:
     firma = inspect.signature(funcion)
     try:
         tipos = typing.get_type_hints(funcion)
@@ -149,14 +150,15 @@ def crear_herramienta(funcion, *, nombre: str | None = None, activa=None) -> Her
         esquema=esquema_entrada,
         usa_ctx=usa_ctx,
         activa=activa,
+        grupo=grupo,
     )
 
 
-def herramienta(_funcion=None, *, nombre: str | None = None, activa=None):
+def herramienta(_funcion=None, *, nombre: str | None = None, activa=None, grupo: str | None = None):
     """Decorador que registra la función como herramienta del agente."""
 
     def decorar(funcion):
-        definida = crear_herramienta(funcion, nombre=nombre, activa=activa)
+        definida = crear_herramienta(funcion, nombre=nombre, activa=activa, grupo=grupo)
         REGISTRO[definida.nombre] = definida
         return funcion
 
@@ -169,6 +171,8 @@ def disponibles(nombres: list[str] | None = None) -> list[Herramienta]:
     elegidas = [h for h in REGISTRO.values() if h.disponible()]
     if nombres is not None:
         elegidas = [h for h in elegidas if h.nombre in nombres]
+    else:  # sin lista explícita (chat del kit) no se ven las herramientas de grupo
+        elegidas = [h for h in elegidas if h.grupo is None]
     return sorted(elegidas, key=lambda h: h.nombre)
 
 

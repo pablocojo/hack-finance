@@ -140,7 +140,8 @@ def _anadir_texto(mensajes: list[dict], texto: str) -> None:
 class Agente:
     def __init__(self, *, modelo: str | None = None, max_vueltas: int | None = None,
                  esfuerzo=_CONFIG, revisor: bool | None = None, herramientas: list[str] | None = None,
-                 uso: str = "producto"):
+                 uso: str = "producto", sistema: str | None = None):
+        self.sistema = sistema  # prompt del sistema propio (la llamada); None = el del kit
         ajustes = config.ajustes()
         self.modelo = modelo
         self.max_vueltas = max_vueltas or ajustes.max_vueltas
@@ -177,7 +178,7 @@ class Agente:
         with sesion.turno:
             mensajes = recortar_historial(list(sesion.mensajes), self.max_historial)
             mensajes.append({"role": "user", "content": contenido_usuario(limpio, adjunto)})
-            system = prompts.system_prompt(resumen_datos=sesion.resumen_datos(), perfil=dict(sesion.perfil))
+            system = self.sistema or prompts.system_prompt(resumen_datos=sesion.resumen_datos(), perfil=dict(sesion.perfil))
             herramientas = self.herramientas_api()
             textos: list[str] = []
             usadas: list[str] = []
