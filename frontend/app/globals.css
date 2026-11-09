@@ -108,3 +108,51 @@ select { padding: 9px 10px; border: 1px solid var(--borde); border-radius: 10px;
 .aviso-pequeno { font-size: 0.78rem; color: var(--aviso); }
 .banda { background: #fff; border: 1px solid var(--borde); border-radius: 10px; padding: 10px 14px; }
 .pie-pagina { font-size: 0.78rem; color: var(--tenue); text-align: center; padding: 8px 0 0; }
+
+/* ---- Meisam: portada y app del cliente (Banco Aurora) ---- */
+:root { --aurora: #1f2a5c; --aurora-2: #3a4a9f; --ambar: #92400e; --ambar-suave: #fef3e2; }
+a { color: var(--aurora-2); }
+a:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 4px; }
+
+.portada { max-width: 720px; gap: 28px; padding-top: 56px; }
+.portada-cab h1 { font-size: 3rem; letter-spacing: -0.03em; color: var(--aurora); }
+.portada-lema { font-size: 1.15rem; margin: 8px 0 16px; color: var(--tenue); }
+.portada-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.portada-enlace { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; background: #fff; border: 1px solid var(--borde); border-radius: var(--radio); text-decoration: none; color: var(--texto); }
+.portada-enlace:hover { border-color: var(--aurora-2); }
+.portada-enlace span { color: var(--tenue); font-size: 0.92rem; }
+
+.movil { max-width: 440px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; gap: 14px; padding: 0 16px 24px; background: var(--fondo); }
+.banco-cab { margin: 0 -16px; padding: 18px 16px 14px; background: var(--aurora); color: #fff; display: flex; justify-content: space-between; align-items: center; }
+.banco-nombre { font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.85; }
+.banco-saludo { font-size: 1.3rem; font-weight: 700; }
+.banco-salir { color: #fff; font-size: 0.88rem; }
+.banco-salir:focus-visible { outline-color: #fff; }
+.saldo { background: #fff; border: 1px solid var(--borde); border-radius: var(--radio); padding: 16px; }
+.saldo-importe { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.controles-demo { display: grid; gap: 8px; }
+.boton-secundario { background: #fff; border: 1px solid var(--aurora-2); color: var(--aurora); padding: 10px 16px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+.boton-secundario:disabled { opacity: 0.5; cursor: not-allowed; }
+.boton-principal { background: var(--aurora); }
+
+.insignia-ia-mini { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; color: #115e59; background: var(--acento-suave); border: 1px solid #99d5cf; padding: 1px 7px; border-radius: 999px; }
+.insignia-ia-punto { width: 6px; height: 6px; border-radius: 50%; background: var(--acento); }
+
+.pestanas { display: flex; gap: 4px; border-bottom: 1px solid var(--borde); }
+.pestana { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 14px; cursor: pointer; font-weight: 600; color: var(--tenue); display: flex; gap: 6px; align-items: center; }
+.pestana.activa { color: var(--aurora); border-bottom-color: var(--aurora-2); }
+.contador { background: #e8ebf5; color: var(--aurora); border-radius: 999px; font-size: 0.72rem; padding: 1px 7px; }
+.lista-avisos { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
+.vacio-bandeja { color: var(--tenue); font-size: 0.92rem; padding: 12px 2px; }
+.aviso-tarjeta { background: #fff; border: 1px solid var(--borde); border-left: 4px solid var(--aurora-2); border-radius: var(--radio); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.aviso-tarjeta.urgencia-alta { border-left-color: #b42318; }
+.aviso-cab { display: flex; justify-content: space-between; align-items: center; }
+.aviso-marca { display: inline-flex; gap: 6px; align-items: center; font-size: 0.78rem; font-weight: 700; color: var(--tenue); }
+.urgencia { font-size: 0.72rem; font-weight: 700; color: var(--ambar); background: var(--ambar-suave); padding: 2px 8px; border-radius: 999px; }
+.urgencia-alta.urgencia { color: #8f1d14; background: #fdecea; }
+.aviso-tarjeta h3 { font-size: 1.02rem; color: var(--texto); margin: 0; }
+.aviso-mensaje { line-height: 1.45; }
+.aviso-valor strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; color: var(--aurora); }
+.aviso-valor span { color: var(--tenue); font-size: 0.85rem; }
+.aviso-motivo { font-size: 0.84rem; color: var(--tenue); border-top: 1px dashed var(--borde); padding-top: 6px; }
+.aviso-ia-fijo { margin-top: auto; display: flex; gap: 8px; align-items: flex-start; font-size: 0.76rem; color: var(--tenue); padding-top: 12px; }

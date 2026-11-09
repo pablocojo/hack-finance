@@ -1,8 +1,14 @@
 const euros = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-export function eur(valor: number | null | undefined): string {
-  return valor === null || valor === undefined ? "—" : euros.format(valor);
+// Acepta las cadenas decimales de la API ("24.00"): Intl las formatea tal cual, sin pasar por float.
+export function eur(valor: number | string | null | undefined): string {
+  return valor === null || valor === undefined || valor === "" ? "—" : euros.format(valor as number);
+}
+
+export function fechaLarga(iso: string): string {
+  const [anio, mes, dia] = iso.slice(0, 10).split("-");
+  return `${Number(dia)} ${MESES[Number(mes) - 1] ?? mes} ${anio}`;
 }
 
 export function pct(valor: number | null | undefined): string {
