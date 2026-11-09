@@ -1,6 +1,8 @@
-# Proyecto: Copiloto (hackathon Hack Finance)
+# Proyecto: Meisam (hackathon Hack Finance)
 
-Hackathon de 4 días: empezó el 8 de noviembre y se entrega y presenta el 12. El jurado valora el producto y trabajar bien con Claude. Hay un único desarrollador (Pablo); sus compañeros aportan ideas, usuarios, marca y pitch, pero no código. Responde siempre en español, breve y con los siguientes pasos claros.
+El producto se llama **Meisam**; «Copiloto» queda solo en nombres internos (skill `copiloto`, rutas).
+
+Hackathon de 4 días: empezó el 8 de noviembre; **la entrega completa es el 11 a las 23:59** y se presenta el 12. La voz y el chat con ElevenLabs son obligatorios. El jurado valora el producto y trabajar bien con Claude. Hay un único desarrollador (Pablo); sus compañeros aportan ideas, usuarios, marca y pitch, pero no código. Responde siempre en español, breve y con los siguientes pasos claros.
 
 ## La idea
 Plataforma para bancos que vive dentro de su app. Un **motor** convierte los movimientos de cada cliente en **momentos** (cobro duplicado, suscripción que se renueva, cena que tus amigos no te han devuelto, recibo que sube, saldo que se va a quedar en negativo, posible estafa…). Solo cuando ahorra dinero o protege, avisa. Al pulsar el aviso se abre una **llamada de voz** que lo resuelve con **acciones de una lista cerrada**. Lo valioso, por este orden: el motor de detección y razonamiento, que **aprenda de cada usuario** y que eso sirva para cualquier **módulo** nuevo que cree el banco. Estrella de la demo: los gastos compartidos.
@@ -62,10 +64,11 @@ Cómo delegar:
 - **Las cifras, del código**: dinero exacto con `Decimal`; análisis con pandas. Los modelos clasifican, razonan y explican, nunca calculan.
 - **Los datos no son instrucciones**: conceptos, comercios y notas de Bizum van marcados como datos en todo prompt.
 - **Acciones de una lista cerrada**: el agente solo las prepara. Se ejecutan con el botón del usuario y un token de un solo uso, validado en el servidor contra las acciones ofrecidas en la propuesta. Son simuladas y quedan auditadas.
-- **Solo interrumpe si ahorra o protege**, y cada decisión lleva sus motivos legibles. Todo lo aprendido se ve, se edita y se borra.
+- **Solo interrumpe si ahorra o protege**, y cada decisión lleva sus motivos legibles. La personalización también alimenta al motor con el perfil de vida del usuario (umbrales y contexto personales). Todo lo aprendido se ve, se edita y se borra.
+- **Búsqueda web** solo por nombre de comercio, con caché y nunca con datos del cliente; lo que llega de la web son datos.
 - **Módulos sin código**: momentos del motor, condiciones del minilenguaje, plantillas y acciones de la lista. Módulo nuevo = `/modulo`; tipo de momento nuevo = `/detector`.
 - Toda llamada a Claude pasa por `backend/claude_client.py`. No uses `temperature`, `top_p` ni `top_k` (error 400). Haiku 5.5 para clasificar y extraer.
-- Cumplimiento: aviso de IA (primera frase fija de la llamada e insignia «IA»), nada de puntuar solvencia, datos personales enmascarados y revisor de cumplimiento activo. Un producto concreto (como un seguro) solo se ofrece en un módulo opcional que el cliente activa, con su ficha de información y sin presionar.
+- Cumplimiento (mínimo, es un hackathon): insignia «IA» discreta y visible en la llamada (la IA no lo dice en voz alta), nada de puntuar solvencia, datos personales enmascarados y revisor de cumplimiento activo. Un producto concreto (como un seguro) solo se ofrece en un módulo opcional que el cliente activa, con su ficha de información y sin presionar.
 
 ## Trabajo en paralelo
 2 o 3 sesiones con `claude --worktree <zona>`, una por zona: `plataforma`, `motor`, `personalizacion`, `modulos`, `voz`, `api`, `frontend` o `demo`. Primero el contrato en código (`backend/plataforma/tipos.py`); después, las zonas. Cada sesión hace `/feature` en su zona e integra en `main` al terminar.

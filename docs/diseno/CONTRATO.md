@@ -115,7 +115,7 @@ Se reutiliza el kit: `backend/claude_client.py` (único acceso a Claude), el nú
 
 ## Restricciones
 
-- Hackathon: hoy es el 9 de noviembre a mediodía. MVP completo con evals en verde el 10 por la noche; congelación el 11 a las 14:00; entrega el 12. Un solo desarrollador que trabaja con Claude Code y subagentes, así que todo tiene que caber en día y medio de desarrollo.
+- Hackathon: hoy es el 9 de noviembre a mediodía. MVP completo con evals en verde el 10 por la noche; congelación el 11 a las 14:00; **entrega completa el 11 a las 23:59** (presentación el 12). Un solo desarrollador que trabaja con Claude Code y subagentes, así que todo tiene que caber en día y medio de desarrollo.
 - Lo más simple que gane: sin colas ni microservicios. Persistencia con la biblioteca estándar (JSON o `sqlite3`) en `datos_usuario/`, fuera de git.
 - Las cifras las calcula el código; los modelos clasifican, razonan y explican. Toda llamada a Claude pasa por `backend/claude_client.py`, sin `temperature`. Haiku 5.5 para clasificar y extraer (0,10 $ y 0,50 $ por millón de tokens); Sonnet 5.5 u Opus 5.5 solo donde aporte.
 - Los conceptos de los movimientos y las notas de los Bizums son datos, nunca instrucciones (riesgo de inyección).
@@ -135,10 +135,10 @@ Estas reglas resuelven lo que podía contradecirse entre partes. Si un diseño c
 | `bloquear_comercio` | `comercio` | Rechazar cobros futuros de un comercio (renovación). No cancela el contrato: el cliente sigue debiendo el servicio. No se ofrece para duplicados |
 | `reclamar_cargo` | `movimiento_id`, `motivo` | Recibo: devolución SEPA sin motivo hasta 8 semanas. Tarjeta: reclamación al comercio o contracargo, sin plazo garantizado. El texto de la tarjeta cambia según el canal |
 | `mover_dinero` | `origen` (`ahorro`), `destino` (`cuenta`), `importe` | Cubrir un saldo negativo previsto |
-| `preparar_baja` | `comercio` | Dejar redactada la solicitud de baja de un servicio para que el cliente la envíe |
+| `cancelar_suscripcion` | `comercio`, `bloquear_cobros` | Baja guiada (enlace y pasos) y, si el cliente quiere, rechazo de los cobros con tarjeta de ese comercio. Sustituye a `preparar_baja` |
 | `recordar` | `cuando`, `texto` | Recordatorio sin efectos en la cuenta |
 
-**Módulos del MVP** (`backend/modulos/catalogo/*.yaml`): `cena_compartida` (`gasto_compartido`, la estrella), `cobro_duplicado` (`cargo_duplicado`), `renovacion` (`renovacion_proxima`) y `colchon` (`saldo_negativo_previsto`). El módulo que el banco crea en directo **solo usa tipos de momento que ya existen** y acciones de la lista.
+**Módulos del MVP** (`backend/modulos/catalogo/*.yaml`): `cena_compartida` (`gasto_compartido`, la estrella), `cobro_duplicado` (`cargo_duplicado`), `renovacion` (`renovacion_proxima`) y `fin_de_prueba` (`prueba_gratuita`); `colchon` (`saldo_negativo_previsto`) es opcional. El módulo que el banco crea en directo **solo usa tipos de momento que ya existen** y acciones de la lista.
 
 **Responsabilidades**
 - El **motor** no sabe nada de usuarios más allá de su historial: detecta y explica. No decide si se avisa.
@@ -189,3 +189,80 @@ Estas reglas resuelven lo que podía contradecirse entre partes. Si un diseño c
 - **`Amigo`**: sin concepto (fechas, estado, saldo y contraparte enmascarada).
 - **Nombres de la demo**: el restaurante es «La Tasca» en el escenario y en el guion; el campo es `candidatos` (no `candidato_principal`).
 - **Excepción documentada**: el agente de voz de ElevenLabs usa su propio Claude, fuera de `claude_client.py` y del revisor de cumplimiento. Mitigación: primer mensaje fijo con el aviso de IA, herramientas de la lista cerrada, sin token y confirmación por botón.
+
+## Cambios de Pablo (9 nov, noche). Mandan sobre todo lo anterior
+
+**Nombre**: el producto se llama **Meisam** (sustituye a «Copiloto» en textos, app y pitch). Los nombres internos del código y de las skills no cambian. El banco ficticio sigue siendo Banco Aurora.
+
+**1. Perfil de vida: la personalización también razona dentro del motor.** Ya no solo decide si interrumpir.
+- Tipo nuevo `PerfilUsuario` dentro de `ModeloUsuario` (dueña: personalización). Lo **calcula el código** a partir del historial: `dia_cobro_nomina?`, `ingreso_mensual_tipico?`, `gasto_tipico_por_categoria`, `ticket_tipico`, `comercios_habituales`, `grupos` (amigos que dividen juntos y cómo), `umbral_relevante_eur` (qué es «mucho» para esta persona), `suscripciones_activas`, y `resumen_vida` (3-4 frases redactadas por Haiku a partir de esas cifras, sin inferir categorías sensibles del RGPD art. 9). Se ve, se edita y se borra en «Lo que he aprendido de ti».
+- `personalizacion.perfilar(historial, hoy, perfil_anterior) -> PerfilUsuario` (pura). El orquestador lo llama al activar y una vez por semana simulada.
+- `motor.procesar(usuario_id, nuevos, hoy, perfil: PerfilUsuario | None = None)`. Los detectores usan el perfil para **umbrales personales** (p. ej. duplicado relevante según `ticket_tipico`; candidatos de la cena según `grupos`), y el razonador añade a `Momento` dos campos: `impacto_relativo?` (p. ej. fracción del dinero que queda hasta la nómina, calculada por código) y `contexto_personal?` (frase por plantilla: «Te quedan 9 días hasta la nómina y son el 10 % de lo que te queda»). Sin perfil, el motor usa los umbrales por defecto (arranque en frío).
+
+**2. Acciones con sentido para el contexto.** La lista sigue cerrada, pero cada módulo ofrece solo las 2 o 3 acciones que encajan con ese momento, y `personalizacion.ordenar_acciones(propuesta, modelo) -> Propuesta` las ordena según lo que esa persona suele elegir. El agente propone primero la de arriba.
+
+**3. Cancelar suscripciones.** El banco no puede dar de baja un contrato con el comercio, pero sí guiar la baja y cortar los cobros de tarjeta.
+- `preparar_baja` se sustituye por **`cancelar_suscripcion`** (`comercio`, `bloquear_cobros: bool`): prepara la **baja guiada** (enlace y pasos de ese servicio, de `InfoComercio`) y, si el cliente quiere, bloquea los cobros recurrentes de ese comercio en la tarjeta como red de seguridad (servicios de cancelación de pagos recurrentes de Visa y Mastercard). El texto deja claro que la baja la confirma el cliente en el servicio.
+- Lista cerrada final: `pedir_bizum`, `cancelar_suscripcion`, `bloquear_comercio`, `reclamar_cargo`, `mover_dinero`, `recordar`.
+
+**4. Pruebas gratuitas: tipo de momento nuevo `prueba_gratuita` (entra en el MVP).**
+- Señal: al dar la tarjeta para una prueba, el comercio pide al banco emisor una **verificación de 0 €** (o 1 € que luego devuelve). `Movimiento` gana `tipo_operacion?: cargo | verificacion | devolucion`. Si la verificación es de un comercio de suscripciones y no hay serie de cobros suyos, empieza una prueba.
+- Otra fuente: el cliente lo dice en la app o en la llamada («he empezado la prueba de X»), que crea el mismo momento con `fuente: usuario`.
+- `datos`: `comercio`, `fecha_alta`, `dias_prueba`, `fecha_primer_cobro`, `dias_hasta`, `importe_previsto?`, `fuente` (`verificacion` | `usuario`), `fuente_duracion` (`catalogo` | `web` | `por_defecto`), `verificacion_id?`. Avisa 2-3 días antes del primer cobro.
+- Módulo del catálogo `fin_de_prueba`: ofrece `cancelar_suscripcion` y `recordar`.
+- **MVP de detectores**: `gasto_compartido`, `cargo_duplicado`, `renovacion_proxima`, `subida_recibo` y `prueba_gratuita`. **`saldo_negativo_previsto` sale del MVP** (queda en «si sobra», con el módulo `colchon` y `mover_dinero`). Módulos del catálogo del MVP: `cena_compartida`, `cobro_duplicado`, `renovacion` y `fin_de_prueba`.
+
+**5. Búsqueda en internet (conocimiento de comercios).**
+- `backend/motor/conocimiento.py`: `info_comercio(nombre) -> InfoComercio {nombre, tipo, es_suscripcion, dias_prueba?, precio_tras_prueba?, url_baja?, pasos_baja?, fuentes, consultado}`. Primero mira la caché versionada `backend/datos/comercios_conocidos.json` (precargada para la demo); si no está, usa la herramienta de búsqueda web de Claude a través de `claude_client.py`, con salida estructurada validada (URL `https`), y guarda el resultado.
+- Solo se busca el **nombre del comercio**, nunca datos del cliente. Lo que llega de la web son datos, nunca instrucciones (`<datos>`). Las cifras que se usen (precio, días) se muestran con su fuente.
+- Fuera del camino caliente: los detectores solo leen la caché; si un comercio no está, el orquestador lo pide (una vez) y el detector lo usa al día siguiente. Los tests no salen a internet (caché o cliente falso). Variable `BUSQUEDA_WEB=on|off`.
+
+**6. Aviso de IA.** La IA **no lo dice en voz alta**. Solo una insignia «IA» discreta y visible en la pantalla de la llamada y en el modo texto. El primer mensaje del agente es fijo y neutro («Hola {{nombre}}, me has abierto desde el aviso: {{titulo_aviso}}. ¿Lo vemos?»). El resto de reglas de cumplimiento se mantiene en lo mínimo.
+
+### Cambios aceptados de los diseños tras los cambios de Pablo (9 nov, noche)
+
+- **Motor**: funciones nuevas `enriquecer(movimientos) -> list[MovimientoEnriquecido]` (pura), `registrar_prueba(usuario_id, comercio, fecha_alta, dias?)` (cuando el cliente lo dice), `cerrar_prueba(usuario_id, comercio, motivo)` y `comercios_pendientes(usuario_id) -> list[str]` (los que el orquestador manda buscar en la web, como mucho 20 al día). `prueba_gratuita.fuente_duracion` admite `usuario | catalogo | web | por_defecto`. `InfoComercio` añade `origen` (`catalogo | web | desconocido`). Los umbrales personales se calculan en una sola función, `parametros.ajustar(params, perfil)`; sin perfil, el motor se comporta igual que sin personalización (test de regresión).
+- **Quién cierra una prueba**: el orquestador llama a `motor.cerrar_prueba` cuando `ejecutar` de `cancelar_suscripcion` devuelve `ok`.
+- **`Grupo`** (único formato, lo calcula `perfilar` y lo usa el motor): `{miembros: list[str] (clave_contraparte del motor, enmascarada), veces: int, retraso_p75_dias: int | None}` (percentil 75 de días entre pago y Bizum del grupo, con al menos 3 Bizums). Desaparece `Contacto.dias_devolucion`: no queda ningún dato por persona. `retraso_p75_dias` es interno del grupo y nunca se muestra.
+- **Personalización**: `perfilar(historial: list[MovimientoEnriquecido], hoy, perfil_anterior)`; `ModeloUsuario` añade `perfil`, `elecciones` (para `ordenar_acciones`) y `usar_perfil`, y pierde `series` y `lineas_base` (son estado del motor). `Preferencias.euros_por_molestia?`. Política `beta-jerarquica-v2`. `ingreso_mensual_tipico` se muestra al cliente y se puede editar o borrar. La prueba gratuita urgente respeta la franja horaria (la demo es a las 20:30).
+- **`Propuesta`** copia también `impacto_relativo?` y `contexto_personal?` del momento.
+- **Orden en el orquestador**: `motor.procesar` → `modulos.proponer` → `personalizacion.ordenar_acciones` → `personalizacion.decidir` → guardar.
+- **Módulos**: `TarjetaConfirmacion.detalle_baja? = {url_baja?, pasos, bloquea_cobros, canal, fuente}` (solo desde la caché de `InfoComercio`; URL `https` validada que el servidor nunca sigue; en la auditoría solo el host). Cada módulo ofrece 2 acciones y el validador rechaza más de 3. `fin_de_prueba` lleva urgencia alta. El minilenguaje puede leer `momento.impacto_relativo` y los campos numéricos y listas de `modelo.perfil` (no `resumen_vida` ni `grupos`); si falta el perfil, la comparación es falsa, así que las condiciones con perfil llevan un umbral fijo de respaldo con `o`. El bloqueo de cobros de `cancelar_suscripcion` y `bloquear_comercio` solo aplica a tarjeta, y la tarjeta de confirmación lo dice.
+- **Demo de pruebas**: `prueba-streamflix-lucia` (verificación de 0 € el 14/10, 30 días, 9,99 €; aviso el 10/11, el día después de la cena). En la caché solo hay servicios ficticios con días y precios; de las marcas reales, solo el tipo.
+
+### Segunda revisión (`revisor`, 9 nov, noche). Manda sobre todo lo anterior
+
+**Escenario único de la demo: `demo-lucia`** (lo usan el guion, el test de principio a fin y `/medir`). Une la cena, la prueba de Streamflix y el duplicado de 9,99 € en el mismo historial. `cena-lucia` y `prueba-streamflix-lucia` siguen como escenarios unitarios.
+- Reparto (clave literal de `clave_contraparte` → nombre visible): `LAURA M` (Laura Martínez García → «Laura M.»), `DANIEL P` (Daniel Pérez Ruiz → «Daniel P.»), `SARA L` (Sara López Gil → «Sara L.»), `MARCOS R` (Marcos Ruiz Sanz → «Marcos R.»). Es el único grupo de Lucía; en las cenas anteriores (al menos 3) pagan los cuatro, con Bizums a 0-2 días, así que `retraso_p75_dias = 2`.
+- Cena: viernes 6/11 en «La Tasca», 120 €. Bizums de 24 €: Laura (6/11), Daniel (7/11), Sara (8/11). `DIAS_ESPERA = clamp(2 + 1, 2, 5) = 3` → el momento sale el **lunes 9/11**, con o sin perfil (hay test de las dos cosas). Candidato único: `MARCOS R`.
+- Streamflix: verificación de 0 € el 14/10 (`luc-v1`), 30 días, 9,99 €; primer cobro el 13/11; aviso el **10/11**.
+- Duplicado de 9,99 € con tarjeta a mediados de octubre: se detecta gracias al umbral personal de Lucía y va al **resumen** (urgencia `media`).
+
+**Pruebas gratuitas**
+- `fin_de_prueba.cuando` usa `dias_hasta <= 5` (el motor ya decide el momento: 3 días, o 5 con duración por defecto). Para la personalización, cualquier `prueba_gratuita` emitida cuenta como protección.
+- Al ejecutar `cancelar_suscripcion`: si `bloquear_cobros = true`, el orquestador llama a `motor.cerrar_prueba`; si es `false`, la prueba queda en `baja_guiada` y el orquestador crea un `recordar` el día antes del cobro («¿Pudiste darte de baja de X?»). Si llega el cobro, el motor la cierra igualmente.
+- El motor ignora las entradas de `suscripciones_activas` con `en_prueba = true` al decidir si un comercio «ya se paga» (test: recalcular el perfil a mitad del escenario de Streamflix no mata la prueba).
+- `registrar_prueba(usuario_id, comercio, fecha_alta, dias?, hoy)` y `cerrar_prueba(usuario_id, comercio, motivo, hoy)` llevan `hoy`. Endpoint y botón «He empezado una prueba» son **opcionales**.
+- **Realismo (para el pitch y la demo)**: la señal son las **autorizaciones** que recibe el banco emisor (también las de 0 €), no el extracto. No cubre todo: hay pruebas sin verificación y comercios que pasan por pasarelas (PayPal, Apple, Google) que ocultan el nombre. Por eso existe también la vía «el cliente lo dice». No se promete cobertura total.
+
+**`cancelar_suscripcion`**: texto de la tarjeta: «La baja la confirmas tú en {comercio}. Si lo eliges, rechazaremos sus cobros con tarjeta (según lo que permita tu banco emisor; no vale para recibos domiciliados). Bloquear no cancela el contrato: el comercio podría reclamarte lo que debas». `bloquear_cobros` puede venir marcado en `fin_de_prueba` solo si la tarjeta lo explica así.
+
+**Búsqueda web (seguridad)**
+- Solo se buscan comercios de tarjeta con nombre de ≤ 30 caracteres, sin dígitos, que el normalizador no marque como posible persona (p. ej. `SUMUP *JUAN PEREZ`). Nunca contrapartes de Bizum o transferencias.
+- Los resultados web se guardan en `datos_usuario/_cache/comercios_web.json` (fuera de git). `backend/datos/comercios_conocidos.json` (versionado) es solo el catálogo revisado a mano.
+- `url_baja` con `origen: web` solo se acepta si su host coincide con el dominio oficial del comercio que aparece en las fuentes; se rechazan `xn--`, IP, credenciales y lo que no sea `https`. Con `origen: web` se muestra como texto con «Compruébalo en la web oficial», sin enlace directo. Con `origen: catalogo`, enlace normal.
+- `pasos_baja`: como mucho 5 pasos de 200 caracteres, en texto plano dentro de la tarjeta (no pasan por plantillas). Se descartan los pasos con teléfonos, IBAN, correos, URL distintas de `url_baja` o verbos de pago («transfiere», «paga», «envía», «introduce tu tarjeta»).
+- `InfoComercio` fallido: `origen: desconocido` (no se usa `tipo: desconocido`).
+
+**Privacidad del perfil**
+- `memoria_para_agente` envía al agente de voz solo hechos operativos (p. ej. «suele resolver los gastos compartidos pidiendo Bizum»). Nunca `ingreso_mensual_tipico`, importes por categoría ni `resumen_vida`.
+- Lista negra de comercios sensibles (salud, citas, religión, política, sindicatos, apuestas) que no entran en `comercios_habituales` ni en `suscripciones_activas`, ni en `resumen_vida`.
+- `perfilar` devuelve `None` con menos de 28 días de historial: «sin perfil» significa los umbrales por defecto del motor, no un perfil por defecto.
+
+**Limpieza**: `preparar_baja` ya no existe (en todas las tablas, `cancelar_suscripcion`); `saldo_negativo_previsto`, `colchon` y `mover_dinero` en la demo son opcionales; el token caduca a los 10 minutos; `MODO_DEMO = off | grabar | reproducir`; `preparar_accion` admite `bloquear_cobros` (boolean); el nombre visible es Meisam (las claves internas pueden seguir diciendo `copiloto`).
+- **Firmas finales del motor para pruebas y conocimiento**: `registrar_prueba(usuario_id, comercio, fecha_alta, dias: int | None, hoy)` y `cerrar_prueba(usuario_id, comercio, motivo, hoy)` (`motivo` admite `cancelada`, `cobrada`, `caducada` y `baja_guiada`). `conocimiento.info_en_cache(nombre)` y `conocimiento.guardar(info)`. `MovimientoEnriquecido.etiquetas` admite `pasarela` (p. ej. `PAYPAL *X`) y `posible_persona` (nunca se busca en la web).
+- **Duplicado de la demo**: «LIBRERIA LUNA», 9,99 € dos veces el 15/10 (`luc-d1`, `luc-d2`). Solo se detecta con perfil (umbral personal de Lucía 6 € frente a 15 € por defecto) y va al resumen: así se ve que el perfil cambia lo que el motor considera relevante.
+
+### Voz y chat con ElevenLabs: obligatorios (Pablo, 9 nov, noche)
+
+El reto exige usar la voz y las herramientas de ElevenLabs por la API. La **llamada de voz** y el **chat** usan el mismo agente de ElevenLabs y las mismas herramientas de cliente (`preparar_accion`, `registrar_feedback`): el chat es el modo `textOnly` (nivel 2) y es el modo de texto principal. El agente del kit en `/voz/texto` (nivel 3) queda solo como plan B si ElevenLabs falla. No se recorta: si vamos tarde, cae antes la creación del módulo en directo.

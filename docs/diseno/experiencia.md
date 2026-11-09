@@ -1,13 +1,13 @@
 # Experiencia: app, voz y demo
 
-9 de noviembre de 2026. Banco ficticio de la demo: **Banco Aurora** (nombre de relleno). Marca: Copiloto (provisional). Respeta `CONTRATO.md` (incluida su sección «Decisiones de /planificar»); los cambios nuevos, en la última sección.
+9 de noviembre de 2026. Banco ficticio de la demo: **Banco Aurora** (nombre de relleno). Producto: **Meisam**. Respeta `CONTRATO.md` (incluida su sección «Decisiones de /planificar»); los cambios nuevos, en la última sección.
 
 ## 0. Decisiones clave
 
 1. **Tres superficies, un solo Next.js**: `/app` (cliente), `/banco` (consola) y `/jurado` (métricas). El chat actual pasa a `/kit`.
 2. **Las herramientas del agente de voz son de cliente, no webhooks.** El navegador las ejecuta y llama a nuestro backend con un token de sesión; un webhook obligaría a exponer el backend en una URL pública.
 3. **Confirmar es un botón, no una frase.** El agente solo *prepara* (`preparar`); ejecuta el clic del usuario con un token de un solo uso, validado contra `acciones_ofrecidas` y `limites` de la propuesta.
-4. **La primera frase es fija** (primer mensaje del agente, no generada): el aviso de IA no depende del modelo.
+4. **La primera frase es fija y neutra** (primer mensaje del agente, no generada). El aviso de IA es solo la insignia visual.
 5. **El reloj simulado es el motor de la demo**: barra de tiempo (1 día ≈ 1,5 s) que dispara notificaciones y alimenta `/jurado`.
 
 ## 1. ElevenLabs: lo verificado
@@ -25,17 +25,15 @@
 
 **Sigue sin verificar** (se comprueba en la lista de 6.3): nombre exacto en `useConversation`/`startSession` de React, que el panel acepte parámetros anidados (por eso las herramientas llevan parámetros planos) y el formato del mensaje de inicio por WebSocket. **Presupuesto**: 15 min no cubren los ensayos; ensayar en texto, voz para dos ensayos y la entrega; confirmar el precio de pago antes del día 11.
 
-## 2. Aviso de IA (artículo 50 del AI Act)
+## 2. Aviso de IA (decisión de Pablo, 9 nov noche)
 
-- El apartado 1 obliga a los **proveedores** a diseñar los sistemas que interactúan con personas para que sepan que hablan con una IA salvo que sea evidente ([artículo 50](https://artificialintelligenceact.eu/article/50/)). Aplica desde el 2 de agosto de 2026; el Ómnibus solo concede hasta el 2 de diciembre de 2026 al marcado técnico del 50.2 ([Economist & Jurist](https://www.economistjurist.es/?p=250513)). No usamos la excepción de «es evidente».
-- No citamos importes de sanción (las fuentes no coinciden; verificar en el artículo 99 si el pitch los necesita).
-- **Diseño**: primera frase hablada fija, insignia «IA» durante toda la llamada, aviso en la activación y el mismo aviso como primer mensaje en el modo texto.
+Es un hackathon: **la IA no lo dice en voz alta**. Solo una insignia «IA» discreta y siempre visible en la pantalla de la llamada y en el modo texto. Si el cliente pregunta, el agente responde que es una IA. (El art. 50 del AI Act pediría más en producción; lo contamos en el pitch como trabajo futuro, no en la demo.)
 
 ## 3. Cliente (`/app`)
 
 Banco Aurora, usuaria sintética `lucia`, móvil primero.
 
-1. **Activación.** «Copiloto vigila tus movimientos y te avisa solo cuando hay algo que resolver. Es una IA.» Casillas de los cuatro módulos con un ejemplo de una línea (cena compartida, cobro duplicado, renovación, colchón de saldo), consentimiento sin marcar y botón «Activar». Guarda `consentimientos` y `modulos_activos`.
+1. **Activación.** «Meisam vigila tus movimientos y te avisa solo cuando hay algo que resolver.» Casillas de los cuatro módulos con un ejemplo de una línea (cena compartida, cobro duplicado, renovación, fin de prueba gratis), consentimiento sin marcar y botón «Activar». Guarda `consentimientos` y `modulos_activos`.
 2. **Bandeja.** Título, mensaje, urgencia y `valor_estimado_eur`; pestañas «Ahora» y «Resumen» (`notificar_ahora`, `resumen`); contador de silenciadas que enlaza a `/jurado`. Pulsar abre la llamada.
 3. **Llamada.** Insignia «Asistente de IA», temporizador, colgar y transcripción en vivo (`onMessage`). **Tarjeta de confirmación** («Pedir 24 € a Marcos por Bizum», parámetros, «simulado, no se mueve dinero real», «Confirmar» / «Ahora no»); tras confirmar, el `ResultadoAccion` con «Deshacer» si existe. «Prefiero escribir» pasa a texto con el mismo contexto (también si se deniega el micrófono o falla ElevenLabs). Respuestas rápidas («Sí, hazlo», «Ahora no», «No me avises de esto») que generan `Feedback`.
 4. **«Por qué te aviso».** Hoja con `Momento.explicacion`, los movimientos que lo prueban y los `Decision.motivos`; botones «Útil», «No era esto» (`falso_positivo`) y «No avisarme de este tipo/comercio/contacto».
@@ -63,12 +61,12 @@ Navegador ──POST /voz/sesion──> Backend ──GET token / signed_url (xi
 
 ### 6.1 Configuración del agente, paso a paso (tarea P3, ~2 h, día 10 por la mañana)
 
-1. Panel de ElevenLabs, crear agente en blanco, nombre `copiloto-aurora`, idioma español.
+1. Panel de ElevenLabs, crear agente en blanco, nombre `meisam-aurora`, idioma español.
 2. **Security**: activar autenticación (agente privado); overrides **todos desactivados**. Si falla la lista de 6.3, activar solo prompt y primer mensaje.
 3. **LLM**: Claude Sonnet 5.5 con razonamiento bajo o nulo; si la latencia no convence, Haiku 4.5. Dejar la cascada de respaldo. Límite de duración de llamada: 3 min.
 4. **Voz**: una voz en español de la biblioteca, estable y sin teatralidad; velocidad 1,0.
-5. **Primer mensaje** (fijo, con aviso de IA):
-   `Hola {{nombre}}, soy el asistente de inteligencia artificial de {{banco}}. Me has abierto desde el aviso: {{titulo_aviso}}. ¿Lo vemos?`  (la llamada la abre el cliente al pulsar el aviso; cada tarjeta de acción lleva la insignia «Simulado»)
+5. **Primer mensaje** (fijo y neutro; la insignia «IA» está en pantalla):
+   `Hola {{nombre}}, me has abierto desde el aviso: {{titulo_aviso}}. ¿Lo vemos?`  (la llamada la abre el cliente al pulsar el aviso; cada tarjeta de acción lleva la insignia «Simulado»)
 6. **Prompt del sistema** (pegar tal cual):
 
 ```
@@ -98,7 +96,7 @@ Cuando la acción esté hecha o rechazada, resume en una frase y despídete.
 
 | Herramienta | Descripción para el LLM | Parámetros JSON |
 |---|---|---|
-| `preparar_accion` | «Prepara una acción de la lista ofrecida y muestra la tarjeta de confirmación. No ejecuta nada.» | `accion_id` (string, enum: `pedir_bizum`, `bloquear_comercio`, `reclamar_cargo`, `mover_dinero`, `preparar_baja`, `recordar`; **obligatorio**); `contraparte` (string); `importe` (number); `concepto` (string); `comercio` (string); `movimiento_id` (string); `motivo` (string); `origen` (string); `destino` (string); `cuando` (string, ISO); `texto` (string) |
+| `preparar_accion` | «Prepara una acción de la lista ofrecida y muestra la tarjeta de confirmación. No ejecuta nada.» | `accion_id` (string, enum: `pedir_bizum`, `bloquear_comercio`, `reclamar_cargo`, `mover_dinero`, `cancelar_suscripcion`, `recordar`; **obligatorio**); `contraparte` (string); `importe` (number); `concepto` (string); `comercio` (string); `movimiento_id` (string); `motivo` (string); `origen` (string); `destino` (string); `cuando` (string, ISO); `texto` (string); `bloquear_cobros` (boolean, solo con `cancelar_suscripcion`) |
 | `consultar` | «Resuelve una duda sobre los movimientos del usuario con datos calculados.» | `pregunta` (string, **obligatorio**) |
 | `registrar_feedback` | «Registra que el usuario rechaza el aviso o dice que era un error.» | `resultado` (string, enum: `rechazada`, `falso_positivo`, `no_avisar_tipo`, `no_avisar_comercio`, `no_avisar_contacto`, **obligatorio**) |
 
@@ -113,7 +111,7 @@ Las construye `POST /voz/sesion` desde la `Propuesta` y el `ModeloUsuario`:
 |---|---|
 | `nombre`, `banco` | nombre de pila y banco ficticio |
 | `titulo_aviso` | `Propuesta.titulo` |
-| `contexto_llamada` | `Propuesta.contexto_llamada` más resumen de la memoria del usuario, **enmascarado**, con notas de Bizum entre `<datos>…</datos>` (sin saltos de línea, máximo 120 caracteres) |
+| `contexto_llamada` | `Propuesta.contexto_llamada` (datos entre `<datos>…</datos>`) más los **hechos operativos** de `memoria_para_agente`, enmascarados. Nunca notas de Bizum, ingresos, gasto por categoría ni `resumen_vida` |
 | `acciones_ofrecidas` | lista legible de `accion_id` con parámetros y `limites` |
 | `propuesta_id` | solo para trazas; la validación real usa el `token_sesion` del servidor, que **no** es una variable del agente |
 
@@ -137,7 +135,7 @@ Las construye `POST /voz/sesion` desde la `Propuesta` y el `ModeloUsuario`:
 | `POST /voz/herramientas/preparar` | Exige `token_sesion`; llama a `acciones.preparar`; devuelve `TarjetaConfirmacion` o el motivo del rechazo (que el agente cuenta) |
 | `POST /voz/herramientas/consultar` | Agente del kit con sus herramientas; respuesta corta, con cifras de código |
 | `POST /voz/herramientas/feedback` | Crea un `Feedback` con `canal: voz` y marca la propuesta `vista_sin_accion` si no hubo acción; llamarlo al colgar sin acción |
-| `POST /acciones/confirmar` | Lo llama el botón con `token_confirmacion` (un solo uso, 2 min, ligado a propuesta y parámetros); ejecuta con `acciones.ejecutar` |
+| `POST /acciones/confirmar` | Lo llama el botón con `token_confirmacion` (un solo uso, 10 min, ligado a usuario, propuesta y parámetros); ejecuta con `acciones.ejecutar` |
 
 Tras confirmar, el cliente envía `sendContextualUpdate("Bizum de 24 € a Marcos solicitado (simulado)")` para que el agente lo cuente. Un agente confundido o una nota de Bizum maliciosa no pueden ejecutar nada.
 
@@ -168,8 +166,8 @@ Datos: `lucia`, ocho semanas simuladas, escenario con semilla fija; reloj a 1 d�
 | 0:00 | `/app` | Aviso de activación; se marcan los cuatro módulos y «Activar» | «El cliente decide qué vigilamos» |
 | 0:20 | Reloj en marcha | Dos semanas; el contador de silenciadas sube sin notificaciones; un cobro duplicado de 9,99 € va al resumen | «Han pasado once cosas. Solo ha contado una» |
 | 0:45 | Bandeja | Notificación «Cena en La Tasca: te falta 1 Bizum de 24 €» (pagó 120 €, recibió tres de 24 €) | «Pagó 120 €, le han llegado tres Bizums. Ninguna app se lo ha dicho» |
-| 0:55 | Llamada | «Soy el asistente de inteligencia artificial de Aurora…». Lucía: «¿Quién falta?». Agente: «Marcos es la persona que parece faltar. ¿Le pido 24 € por Bizum?». «Sí». Tarjeta; Confirmar | «No te enseña un gráfico: lo resuelve en la llamada» |
-| 1:35 | `/app/amigos` | Marcos: «pendiente: 24 €» | |
+| 0:55 | Llamada | «Hola Lucía, me has abierto desde el aviso…» (insignia «IA» en pantalla). Lucía: «¿Quién falta?». Agente: «Marcos es la persona que parece faltar. ¿Le pido 24 € por Bizum?». «Sí». Tarjeta; Confirmar | «No te enseña un gráfico: lo resuelve en la llamada» |
+| 1:35 | Bandeja | «Tu prueba gratis de Streamflix acaba en 3 días; después te cobrará 9,99 € al mes» (escenario `prueba-streamflix-lucia`, aviso el 10/11, el día después de la cena). Un toque: tarjeta «Cancelar suscripción y bloquear sus cobros» con la baja guiada; Confirmar | «Cuando diste la tarjeta, el comercio hizo una verificación de 0 €. Nadie la mira. Meisam sí» |
 | 1:45 | «Por qué te aviso» y «Lo que he aprendido» | Se abre el porqué; se borra un hecho aprendido | «Todo se explica y se edita» |
 | 2:00 | `/banco` | Se escribe «Avísame si un recibo sube más de 8 €»; prueba en seco «3 avisos en 6 meses, 0 falsos»; se aprueba | «El banco crea módulos sin programar» |
 | 2:30 | Reloj | Un día después llega el aviso del módulo nuevo (recibo de la luz) | |
@@ -243,7 +241,7 @@ Orden (frontend con maquetas sobre JSON en `public/demo/` para no esperar al mot
 
 1. **`SesionVoz`** (tipo): `modo`, `token?`, `signed_url?`, `variables`, `token_sesion`, `caduca`.
 2. **`Feedback.resultado`** ya cubre `registrar_feedback`; para colgar sin acción se usa `vista_sin_accion`. Sin cambios, solo confirmar que la herramienta `terminar_llamada` de la versión anterior desaparece.
-3. **Variables `.env`**: `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, `MODO_DEMO` (`reproducir`|`normal`).
+3. **Variables `.env`**: `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, `MODO_DEMO` (`off`|`grabar`|`reproducir`).
 
 ## Verificación del investigador (9 nov, tarde)
 

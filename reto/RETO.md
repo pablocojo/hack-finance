@@ -23,7 +23,8 @@ Tema abierto dentro de las finanzas: crear un agente de finanzas con IA que resu
 - PDF de una cara con el problema, la solución y el valor diferencial.
 - La presentación en PowerPoint.
 - Todo se envía con el formulario oficial de BEST UC3M. Se puede sustituir la entrega hasta el cierre y cuenta la última completa. Si hay demo, tiene que corresponder a la versión entregada.
-- Entrega y presentación: 12 de noviembre.
+- **Entrega: 11 de noviembre a las 23:59, con todo** (repositorio, ZIP, README, PDF y PowerPoint). Presentación: 12 de noviembre. (Dato de Pablo, 9 nov.)
+- Es obligatorio usar la voz y las herramientas de ElevenLabs por la API (agente de voz y chat).
 
 ## Datos, APIs o restricciones que da la organización
 - Créditos de la API de Claude (al final, una sola clave).
