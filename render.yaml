@@ -1,20 +1,31 @@
-# Blueprint de Render para el backend. Ver docs/DESPLIEGUE.md.
+# Blueprint de Render para el backend de Meisam. Ver docs/DESPLIEGUE.md.
+# Las variables con «sync: false» se rellenan a mano en el panel de Render (nunca en git).
 services:
   - type: web
-    name: agente-finanzas-api
+    name: meisam-api
     runtime: python
     plan: free
     buildCommand: pip install -r requirements-backend.txt
     startCommand: uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /salud
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
       - key: ANTHROPIC_API_KEY_PRODUCTO
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_AGENT_ID
+        sync: false
+      - key: DEMO_KEY
         sync: false
       - key: ORIGENES_CORS
         sync: false
       - key: NOMBRE_PRODUCTO
-        value: Finanzas IA
+        value: Meisam
       - key: MODO_DEMO
+        value: "off"
+      - key: BUSQUEDA_WEB
         value: "off"
       - key: GUARDAR_PERFILES
         value: "0"
