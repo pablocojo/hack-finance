@@ -70,6 +70,7 @@ class Ajustes:
     datos_usuario_dir: Path
     elevenlabs_api_key: str | None
     elevenlabs_agent_id: str | None
+    demo_key: str | None
 
 
 def _modo_demo() -> str:
@@ -106,6 +107,7 @@ def ajustes() -> Ajustes:
         datos_usuario_dir=_carpeta("DATOS_USUARIO_DIR", "datos_usuario"),
         elevenlabs_api_key=_texto("ELEVENLABS_API_KEY"),
         elevenlabs_agent_id=_texto("ELEVENLABS_AGENT_ID"),
+        demo_key=_texto("DEMO_KEY"),
     )
 
 

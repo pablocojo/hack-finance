@@ -132,10 +132,11 @@ def ejecutar(token_confirmacion: str, usuario_id: str) -> ResultadoAccion:
         rid = "res-" + uuid.uuid4().hex[:12]
         try:
             mensaje, efecto = defn.simular(estado, params, banco_sim.fecha_simulada(usuario_id), rid)
-        except ErrorAccion as e:
-            _rechazo(usuario_id, ent, e.codigo, e.mensaje, sim)
+        except ErrorAccion as e:  # el token ya se marcó como usado
+            _rechazo(usuario_id, ent, e.codigo, f"{e.mensaje} El token ya se usó: vuelve a preparar la acción.", sim)
         hasta = tokens.ahora() + DISPONIBLE_DESHACER
-        resultado = ResultadoAccion(accion_id=accion_id, ok=True, mensaje=mensaje, datos={**efecto, "resultado_id": rid},
+        resultado = ResultadoAccion(accion_id=accion_id, ok=True, mensaje=mensaje, datos={**efecto, "resultado_id": rid, "propuesta_id": propuesta_id,
+                                                        "parametros": {k: str(v) if isinstance(v, Decimal) else v for k, v in params.items()}},
                                     simulada=True, deshacer=Deshacer(resultado_id=rid, disponible_hasta=hasta))
         estado["resultados"][rid] = {"accion_id": accion_id, "efecto": efecto, "deshecho": False, "hasta": hasta.isoformat()}
         estado["ejecuciones"][clave] = resultado.model_dump(mode="json")
@@ -164,6 +165,9 @@ def deshacer(resultado_id: str, usuario_id: str) -> ResultadoAccion:
         except ErrorAccion as e:
             _rechazo(usuario_id, {"accion_id": r["accion_id"]}, e.codigo, e.mensaje, sim)
         r["deshecho"] = True
+        # Sin esto, repetir la misma acción devolvería el resultado ya deshecho sin efecto.
+        for clave in [k for k, v in estado["ejecuciones"].items() if (v.get("datos") or {}).get("resultado_id") == resultado_id]:
+            del estado["ejecuciones"][clave]
         banco_sim.guardar(usuario_id, estado)
         auditoria.registrar(usuario_id, "deshecha", accion_id=r["accion_id"], fecha_simulada=sim,
                             extra={"resultado_id": resultado_id})

@@ -254,7 +254,7 @@ REGISTRO: dict[str, AccionDef] = {
                                    lambda p: {"Comercio": sanear_dato(p["comercio"]),
                                               "Aviso": "No cancela el contrato: seguirás debiendo el servicio."},
                                    _sim_bloquear, _des_bloquear),
-    "reclamar_cargo": AccionDef("reclamar_cargo", ParamsReclamar, ("importe_max",), "Reclamar un cargo",
+    "reclamar_cargo": AccionDef("reclamar_cargo", ParamsReclamar, (), "Reclamar un cargo",
                                 lambda p: {"Movimiento": sanear_dato(p["movimiento_id"]), "Motivo": sanear_dato(p["motivo"])},
                                 _sim_reclamar, _des_reclamar),
     "mover_dinero": AccionDef("mover_dinero", ParamsMover, ("importe_max",), "Mover dinero desde ahorro",

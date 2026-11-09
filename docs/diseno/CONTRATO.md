@@ -273,3 +273,6 @@ El reto exige usar la voz y las herramientas de ElevenLabs por la API. La **llam
 - **Tokens de confirmación**: los guarda y valida `backend/acciones/tokens.py` por usuario (SHA-256, un solo uso, 10 min). El `usuario_id` va en el cuerpo de `/acciones/confirmar` y un token de otro usuario falla.
 - **Archivos del usuario que leen las acciones**: `propuestas.json` y `reloj.json` (`hoy`), que escribe el orquestador antes de llamar a `preparar`.
 - **Nombre visible de las contrapartes**: el motor y los módulos usan la clave (`MARCOS R`); la app y la llamada muestran «Marcos R.» (pendiente en D1/F2).
+- **Clave de demo**: `X-Demo-Key` (variable `DEMO_KEY`) protege todas las rutas que cambian estado o gastan; sin `DEMO_KEY` se permite (local). El frontend lee los SSE (`/reloj/reproducir`) con `fetch` y su lector del kit, no con `EventSource`, para poder enviar la cabecera.
+- **Confirmar sin memoria**: `acciones.ejecutar` devuelve `propuesta_id` y `parametros` en `ResultadoAccion.datos`; el orquestador no guarda nada en memoria entre preparar y confirmar (sobrevive a un reinicio).
+- **Reloj de las acciones**: el orquestador escribe `reloj.json` al cargar el escenario y en cada día procesado.

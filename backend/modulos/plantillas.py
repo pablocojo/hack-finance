@@ -169,7 +169,10 @@ def renderizar(plantilla: str, datos: dict, item: dict | None = None, usuario: d
         if fmt is None:
             if isinstance(valor, (Decimal, float)):
                 raise ErrorPlantilla(f"El número {ruta!r} necesita un formateador.")
-            return sanear_dato(valor) if isinstance(valor, str) else str(valor)
+            if isinstance(valor, str):
+                txt = sanear_dato(valor)
+                return f"<datos>{txt}</datos>" if llamada else txt
+            return str(valor)
         return formatear(valor, fmt, llamada)
 
     return _HUECO.sub(sustituir, plantilla)

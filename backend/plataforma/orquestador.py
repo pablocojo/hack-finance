@@ -13,7 +13,6 @@ El token de confirmación nunca se guarda en disco ni llega a un modelo.
 
 from __future__ import annotations
 
-import hashlib
 import importlib
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -21,6 +20,7 @@ from typing import Any, Iterator
 
 from .. import acciones, config, modulos, motor, personalizacion
 from . import almacenamiento as alm
+from ..modulos.plantillas import CABECERA_DATOS, sanear_dato
 from .privacidad import enmascarar_nombre, enmascarar_texto
 from .reloj import ahora_por_defecto
 from .tipos import (
@@ -41,8 +41,6 @@ HORAS_IGNORADA = 48
 MAX_PENDIENTES_WEB = 20
 DIAS_PERFIL = 7
 
-# (usuario_id, sha256(token)) -> (propuesta_id, accion_id, parametros). Solo en memoria.
-_preparadas: dict[tuple[str, str], tuple[str, str, dict]] = {}
 _motor_cargado: set[str] = set()
 
 
@@ -174,11 +172,10 @@ def cargar_escenario(escenario_id: str) -> dict:
         alm.borrar_usuario(uid)
         motor.reiniciar(uid)
         _motor_cargado.discard(uid)
-        for clave in [k for k in _preparadas if k[0] == uid]:
-            del _preparadas[clave]
         movimientos.sort(key=lambda m: (m.fecha, m.id))
         alm.guardar(uid, "movimientos", [m for m in movimientos if m.fecha <= activacion])
         alm.guardar(uid, "pendientes", [m for m in movimientos if m.fecha > activacion])
+        alm.guardar(uid, "reloj", {"hoy": activacion.isoformat()})  # lo lee acciones.banco_sim.fecha_simulada
         alm.guardar(uid, "estado", {"hoy": activacion.isoformat(), "activado": False, "activacion": activacion.isoformat(),
                                     "ultimo_perfil": None, "escenario_id": escenario_id})
         alm.guardar(uid, "modelo", personalizacion.nuevo_modelo(uid))
@@ -201,7 +198,7 @@ def activar(usuario_id: str, modulos_activos: list[str], consentimientos: dict) 
         motor.cargar_historial(usuario_id, historial, hoy)
         modelo = modelo.model_copy(deep=True)
         modelo.modulos_activos = list(modulos_activos)
-        ahora = datetime.now()
+        ahora = ahora_por_defecto(hoy)
         for nombre, valor in (consentimientos or {}).items():
             if valor:
                 modelo.consentimientos[nombre] = ahora
@@ -221,7 +218,18 @@ def activar(usuario_id: str, modulos_activos: list[str], consentimientos: dict) 
 # --- Un día ------------------------------------------------------------------------------------
 
 def _procesar_dia(uid: str, hoy: date, ahora: datetime | None) -> dict:
-    """Hace todo un día y guarda. Devuelve lo necesario para emitir eventos."""
+    """Hace todo un día y guarda. Si falla a mitad, descarta el estado del motor en memoria (se
+    recarga del disco en la siguiente llamada) para que no quede a medias."""
+    try:
+        return _procesar_dia_interno(uid, hoy, ahora)
+    except Exception:
+        with alm.candado(uid):
+            motor.reiniciar(uid)
+            _motor_cargado.discard(uid)
+        raise
+
+
+def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
     ahora = ahora or ahora_por_defecto(hoy)
     with alm.candado(uid):
         estado = _estado(uid)
@@ -293,6 +301,7 @@ def _procesar_dia(uid: str, hoy: date, ahora: datetime | None) -> dict:
         alm.guardar(uid, "notificaciones", notificaciones)
         alm.guardar(uid, "modelo", modelo)
         alm.guardar(uid, "estado", estado)
+        alm.guardar(uid, "reloj", {"hoy": hoy.isoformat()})
         _guardar_motor(uid)
         return {"hoy": hoy, "movimientos": nuevos, "saldo": _saldo(historial), "perfil": modelo.perfil if perfil_recalculado else None,
                 "perfil_recalculado": perfil_recalculado, "items": items, "momentos": momentos_dia,
@@ -332,11 +341,14 @@ def _recordatorios_vencidos(uid, hoy, ahora, propuestas, decisiones, notificacio
         if r.get("emitido") or date.fromisoformat(r["fecha"]) > hoy:
             continue
         r["emitido"] = True
+        nombre = sanear_dato(r["comercio"])  # dato de un tercero: nunca crudo en textos ni prompts
+        texto = f"¿Pudiste darte de baja de {nombre}? Mañana es el cobro."
+        contexto = f"{CABECERA_DATOS} ¿Pudiste darte de baja de <datos>{nombre}</datos>? Mañana es el cobro."
         propuesta = Propuesta(
             id=f"rec-{r['propuesta_id']}", modulo_id="recordatorio", momento_id=r["momento_id"], usuario_id=uid,
-            titulo=f"Recordatorio: {r['comercio']}", mensaje_notificacion=r["texto"], contexto_llamada=r["texto"],
+            titulo=f"Recordatorio: {nombre}", mensaje_notificacion=texto, contexto_llamada=contexto,
             acciones_ofrecidas=[{"accion_id": "cancelar_suscripcion", "parametros": {"comercio": r["comercio"]}},
-                                {"accion_id": "recordar", "parametros": {"texto": r["texto"]}}],
+                                {"accion_id": "recordar", "parametros": {"texto": texto}}],
             urgencia="alta", tipo_momento="prueba_gratuita", comercio=r["comercio"], confianza=1.0, creada=ahora)
         decision = Decision(propuesta_id=propuesta.id, accion="notificar_ahora", puntuacion=1.0, probabilidad_util=1.0,
                             motivos=["Es un recordatorio que pediste al dar de baja la prueba."], politica="recordatorio")
@@ -458,10 +470,11 @@ _ESTADO_TRAS_FEEDBACK = {"resuelta": "resuelta", "rechazada": "rechazada", "fals
 
 def _estado_notificacion(uid: str, propuesta_id: str, estado: str) -> None:
     notificaciones_ = _leer(uid, "notificaciones", [])
+    ahora = ahora_por_defecto(_hoy(_estado(uid)))  # hora simulada, no la del sistema
     for n in notificaciones_:
         if n["propuesta_id"] == propuesta_id:
             n["estado"] = estado
-            n["actualizado"] = datetime.now().isoformat(timespec="seconds")
+            n["actualizado"] = ahora.isoformat(timespec="seconds")
     alm.guardar(uid, "notificaciones", notificaciones_)
 
 
@@ -490,8 +503,6 @@ def preparar_accion(usuario_id: str, propuesta_id: str, accion_id: str, parametr
         if accion_id not in {a.accion_id for a in propuesta.acciones_ofrecidas}:
             raise Prohibido(f"La acción {accion_id!r} no se ofrece en esta propuesta.")
         tarjeta = acciones.preparar(accion_id, dict(parametros or {}), propuesta_id, usuario_id)
-        clave = (usuario_id, hashlib.sha256(tarjeta.token_confirmacion.encode()).hexdigest())
-        _preparadas[clave] = (propuesta_id, accion_id, dict(parametros or {}))
         _auditar(usuario_id, "accion_preparada", propuesta_id=propuesta_id, accion_id=accion_id)
         return tarjeta
 
@@ -503,14 +514,10 @@ def confirmar_accion(usuario_id: str, token_confirmacion: str) -> ResultadoAccio
         estado = _estado(usuario_id)
         hoy = _hoy(estado)
         resultado = acciones.ejecutar(token_confirmacion, usuario_id)
-        clave = (usuario_id, hashlib.sha256(token_confirmacion.encode()).hexdigest())
-        preparada = _preparadas.pop(clave, None)
         propuestas = _leer(usuario_id, "propuestas", [])
-        propuesta_id, parametros = None, {}
-        if preparada:
-            propuesta_id, _, parametros = preparada
-        else:
-            propuesta_id = resultado.datos.get("propuesta_id")
+        # `acciones.ejecutar` devuelve propuesta_id y parametros de la entrada del token ya validada.
+        propuesta_id = resultado.datos.get("propuesta_id")
+        parametros = resultado.datos.get("parametros") or {}
         propuesta = next((p for p in propuestas if p.id == propuesta_id), None)
         if propuesta is None:
             propuesta = next((p for p in reversed(propuestas)
@@ -531,7 +538,7 @@ def _tras_cancelar(uid: str, hoy: date, propuesta: Propuesta, parametros: dict, 
     comercio = parametros.get("comercio") or resultado.datos.get("comercio") or propuesta.comercio
     if not comercio:
         return
-    bloquear = resultado.datos.get("bloquea_cobros", parametros.get("bloquear_cobros", False))
+    bloquear = resultado.datos.get("bloqueado", False)
     if bloquear:
         motor.cerrar_prueba(uid, comercio, "cancelada", hoy)
         _guardar_motor(uid)
@@ -547,5 +554,5 @@ def _tras_cancelar(uid: str, hoy: date, propuesta: Propuesta, parametros: dict, 
     recordatorios = alm.cargar(uid, "recordatorios", defecto=[])
     recordatorios.append({"propuesta_id": propuesta.id, "momento_id": propuesta.momento_id, "comercio": comercio,
                           "fecha": (cobro - timedelta(days=1)).isoformat(), "emitido": False,
-                          "texto": f"¿Pudiste darte de baja de {comercio}? Mañana es el cobro."})
+                          "texto": f"¿Pudiste darte de baja de {sanear_dato(comercio)}? Mañana es el cobro."})
     alm.guardar(uid, "recordatorios", recordatorios)

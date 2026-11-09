@@ -19,6 +19,7 @@ http = TestClient(app)
 
 @pytest.fixture
 def falsos(monkeypatch) -> Falsos:
+    monkeypatch.delenv("DEMO_KEY", raising=False)
     return Falsos().montar(monkeypatch)
 
 
@@ -153,3 +154,26 @@ def test_cena_lucia_de_principio_a_fin_por_http(monkeypatch):
     assert otro.status_code in (403, 404, 409)
     repetido = http.post("/acciones/confirmar", json={"usuario_id": usuario, "token_confirmacion": token})
     assert repetido.status_code in (403, 404, 409, 410), "el token es de un solo uso"
+
+
+def test_demo_key_en_todas_las_rutas_que_cambian_estado(activo, monkeypatch):
+    peticiones = [("post", f"/usuarios/{UID}/activar", {"modulos_activos": []}),
+                  ("post", "/reloj/avanzar", {"usuario_id": UID, "dias": 1}),
+                  ("get", f"/reloj/reproducir?usuario_id={UID}&dias=1&ms_por_dia=0", None),
+                  ("post", "/feedback", {"usuario_id": UID, "propuesta_id": "x", "resultado": "resuelta"}),
+                  ("post", "/acciones/preparar", {"usuario_id": UID, "propuesta_id": "x", "accion_id": "recordar"}),
+                  ("post", "/acciones/confirmar", {"usuario_id": UID, "token_confirmacion": "t"}),
+                  ("post", "/acciones/deshacer", {}),
+                  ("post", "/voz/sesion", {}), ("get", "/banco/modulos", None)]
+    monkeypatch.setenv("DEMO_KEY", "secreta")
+
+    def llamar(metodo, ruta, cuerpo, cabeceras):
+        extra = {"json": cuerpo} if cuerpo is not None else {}
+        return getattr(http, metodo)(ruta, headers=cabeceras, **extra)
+
+    for metodo, ruta, cuerpo in peticiones:
+        assert llamar(metodo, ruta, cuerpo, {}).status_code == 401, ruta
+        assert llamar(metodo, ruta, cuerpo, {"X-Demo-Key": "mala"}).status_code == 401, ruta
+        assert llamar(metodo, ruta, cuerpo, {"X-Demo-Key": "secreta"}).status_code != 401, ruta
+    monkeypatch.delenv("DEMO_KEY")
+    assert http.post("/reloj/avanzar", json={"usuario_id": UID, "dias": 1}).status_code == 200

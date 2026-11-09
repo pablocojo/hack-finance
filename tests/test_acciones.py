@@ -258,3 +258,27 @@ def test_auditoria_enmascarada_y_sin_el_token():
     texto = (almacenamiento.carpeta_usuario(U) / "auditoria.jsonl").read_text(encoding="utf-8")
     assert "612345678" not in texto and "ES9121000418450200051332" not in texto
     assert t.token_confirmacion not in texto
+
+
+def test_ejecutar_devuelve_propuesta_y_parametros_del_token():
+    t = acciones.preparar("recordar", {"cuando": "+3d", "texto": "Mirar lo de La Tasca"}, PID, U)
+    r = acciones.ejecutar(t.token_confirmacion, U)
+    assert r.datos["propuesta_id"] == PID and r.datos["parametros"]["cuando"] == "+3d"
+
+
+def test_repetir_tras_deshacer_si_tiene_efecto():
+    p = {"cuando": "+3d", "texto": "Mirar lo de La Tasca"}
+    r1 = acciones.ejecutar(acciones.preparar("recordar", p, PID, U).token_confirmacion, U)
+    acciones.deshacer(r1.deshacer.resultado_id, U)
+    assert banco_sim.cargar(U)["recordatorios"] == []
+    r2 = acciones.ejecutar(acciones.preparar("recordar", p, PID, U).token_confirmacion, U)
+    assert r2.datos["resultado_id"] != r1.datos["resultado_id"]
+    assert len(banco_sim.cargar(U)["recordatorios"]) == 1
+
+
+def test_recordar_y_auditoria_usan_el_reloj_simulado():
+    almacenamiento.guardar(U, "reloj", {"hoy": "2026-03-01"})
+    t = acciones.preparar("recordar", {"cuando": "+3d", "texto": "Mirar lo de La Tasca"}, PID, U)
+    r = acciones.ejecutar(t.token_confirmacion, U)
+    assert r.datos["fecha"] == "2026-03-04"
+    assert {a["fecha_simulada"] for a in almacenamiento.leer_auditoria(U)} == {"2026-03-01"}

@@ -6,7 +6,7 @@ futuras responden 501.
 
 from __future__ import annotations
 
-import os
+import secrets
 import queue
 import threading
 import time
@@ -16,7 +16,9 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from .. import config
 from ..plataforma import orquestador
+from ..plataforma.reloj import ahora_por_defecto
 from ..plataforma.tipos import CanalFeedback, Feedback, ResultadoFeedback
 from .sse import estado_http, evento_sse, mensaje_error
 
@@ -28,8 +30,8 @@ router = APIRouter()
 def exigir_demo_key(x_demo_key: str | None = Header(default=None)) -> None:
     """Si `DEMO_KEY` está configurada, la cabecera `X-Demo-Key` debe coincidir. Sin clave, se
     permite (local). No es seguridad real: solo evita abusos durante la demo."""
-    esperada = (os.environ.get("DEMO_KEY") or "").strip()
-    if esperada and x_demo_key != esperada:
+    esperada = config.ajustes().demo_key
+    if esperada and not secrets.compare_digest((x_demo_key or "").encode(), esperada.encode()):
         raise HTTPException(401, "Falta la cabecera X-Demo-Key o no es correcta.")
 
 
@@ -119,7 +121,7 @@ def demo_cargar(peticion: PeticionCargar) -> dict:
         raise a_http(error) from error
 
 
-@router.post("/usuarios/{usuario_id}/activar")
+@router.post("/usuarios/{usuario_id}/activar", dependencies=[Depends(exigir_demo_key)])
 def activar(usuario_id: str, peticion: PeticionActivar) -> dict:
     try:
         modelo = orquestador.activar(usuario_id, peticion.modulos_activos, peticion.consentimientos.model_dump())
@@ -136,7 +138,7 @@ def estado(usuario_id: str) -> dict:
         raise a_http(error) from error
 
 
-@router.post("/reloj/avanzar")
+@router.post("/reloj/avanzar", dependencies=[Depends(exigir_demo_key)])
 def reloj_avanzar(peticion: PeticionAvanzar) -> dict:
     decisiones = []
     try:
@@ -149,7 +151,7 @@ def reloj_avanzar(peticion: PeticionAvanzar) -> dict:
     return {"hoy": hoy, "decisiones": [d.model_dump(mode="json") for d in decisiones]}
 
 
-@router.get("/reloj/reproducir")
+@router.get("/reloj/reproducir", dependencies=[Depends(exigir_demo_key)])
 def reloj_reproducir(usuario_id: str, dias: int = Query(1, ge=1, le=60), ms_por_dia: int = Query(1500, ge=0, le=10000),
                      pausar_en: str | None = None) -> StreamingResponse:
     """SSE: `dia`, `perfil`, `momento`, `propuesta`, `decision` y `fin` (o `error`)."""
@@ -199,18 +201,20 @@ def propuesta(usuario_id: str, propuesta_id: str) -> dict:
         raise a_http(error) from error
 
 
-@router.post("/feedback")
+@router.post("/feedback", dependencies=[Depends(exigir_demo_key)])
 def feedback(peticion: PeticionFeedback) -> dict:
     try:
+        hoy = date.fromisoformat(orquestador.estado_usuario(peticion.usuario_id)["hoy"])
+        fecha = ahora_por_defecto(hoy)  # hora simulada
         hechos = orquestador.registrar_feedback(Feedback(
             propuesta_id=peticion.propuesta_id, usuario_id=peticion.usuario_id, resultado=peticion.resultado,
-            canal=peticion.canal, fecha=datetime.now(), nota=peticion.nota))
+            canal=peticion.canal, fecha=fecha, nota=peticion.nota))
     except Exception as error:
         raise a_http(error) from error
     return {"ok": True, "hechos_nuevos": [h.model_dump(mode="json") for h in hechos]}
 
 
-@router.post("/acciones/preparar")
+@router.post("/acciones/preparar", dependencies=[Depends(exigir_demo_key)])
 def acciones_preparar(peticion: PeticionPreparar) -> dict:
     try:
         tarjeta = orquestador.preparar_accion(peticion.usuario_id, peticion.propuesta_id, peticion.accion_id,
@@ -220,7 +224,7 @@ def acciones_preparar(peticion: PeticionPreparar) -> dict:
     return tarjeta.model_dump(mode="json")
 
 
-@router.post("/acciones/confirmar")
+@router.post("/acciones/confirmar", dependencies=[Depends(exigir_demo_key)])
 def acciones_confirmar(peticion: PeticionConfirmar) -> dict:
     """El `usuario_id` del cuerpo debe ser el dueño del token: lo comprueba `acciones.ejecutar`."""
     try:
@@ -232,7 +236,7 @@ def acciones_confirmar(peticion: PeticionConfirmar) -> dict:
 
 # --- Futuras (501) -------------------------------------------------------------------------------
 
-@router.post("/acciones/deshacer")
+@router.post("/acciones/deshacer", dependencies=[Depends(exigir_demo_key)])
 def acciones_deshacer() -> None:
     raise no_implementado("O4")
 
