@@ -84,6 +84,8 @@ Al empezar, el hook de inicio te muestra el estado de `docs/PLAN.md` y el final 
 ## Lecciones aprendidas
 Cada vez que Claude se equivoque de forma evitable, añade aquí una línea con la regla que lo evita.
 - Antes de programar, confirma el alcance: diseñar, montar el sistema de trabajo y desarrollar son encargos distintos.
+- Las variables dinámicas del agente de ElevenLabs son solo las que aparecen en su prompt o primer mensaje; no pidas crear otras.
+- Los tests de escenario avanzan el reloj hasta la fecha que esperan (calculada desde el escenario), nunca un número fijo de días.
 
 ## Instrucciones de compactación
 Conserva la idea, el contrato (`docs/diseno/CONTRATO.md`), el estado de `docs/PLAN.md`, las decisiones tomadas, los errores abiertos y la tarea en curso.
