@@ -473,12 +473,12 @@ export type DetallePropuesta = {
 export type PerfilRespuesta = { perfil: PerfilUsuario | null; usar_perfil: boolean; frases: FrasePerfil[] };
 
 export type EventoReloj =
-  | { tipo: "dia"; datos: { fecha: string; movimientos: number; saldo: Euros | null } }
+  | { tipo: "dia"; datos: { fecha: string; movimientos: Movimiento[]; saldo: Euros | null } }
   | { tipo: "perfil"; datos: { calculado: string; umbral_relevante_eur: Euros } }
   | { tipo: "momento"; datos: Momento }
   | { tipo: "propuesta"; datos: Propuesta }
   | { tipo: "decision"; datos: Decision }
-  | { tipo: "fin"; datos: { hoy: string; contadores: Contadores } }
+  | { tipo: "fin"; datos: { hoy: string; contadores: Contadores; pausado?: boolean } }
   | { tipo: "error"; datos: { mensaje: string; tipo?: string } };
 
 export type EventoVoz = EventoChat | { tipo: "tarjeta"; datos: TarjetaConfirmacion };

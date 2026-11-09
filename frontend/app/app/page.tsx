@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
+import Activacion from "@/components/Activacion";
 import Bandeja from "@/components/Bandeja";
 import InsigniaIA from "@/components/InsigniaIA";
+import RelojDemo from "@/components/RelojDemo";
 import { activar, avanzarReloj, cargarDemo, estadoUsuario, notificaciones } from "@/lib/api";
-import type { EstadoUsuario, Notificacion } from "@/lib/api";
-import { eur, fechaLarga } from "@/lib/formato";
+import type { EstadoUsuario, EventoReloj, Notificacion } from "@/lib/api";
+import { eur } from "@/lib/formato";
 
 const ESCENARIO = "cena-lucia";
-const MODULOS = ["cena_compartida"];
 
 export default function PantallaCliente() {
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
-  const [activado, setActivado] = useState(false);
   const [hoy, setHoy] = useState<string | null>(null);
+  const [saldo, setSaldo] = useState<string | null>(null);
   const [estado, setEstado] = useState<EstadoUsuario | null>(null);
   const [ahora, setAhora] = useState<Notificacion[]>([]);
   const [resumen, setResumen] = useState<Notificacion[]>([]);
@@ -22,13 +23,10 @@ export default function PantallaCliente() {
   const [error, setError] = useState<string | null>(null);
 
   const refrescar = useCallback(async (id: string) => {
-    const [e, a, r] = await Promise.all([
-      estadoUsuario(id),
-      notificaciones(id, "ahora"),
-      notificaciones(id, "resumen"),
-    ]);
+    const [e, a, r] = await Promise.all([estadoUsuario(id), notificaciones(id, "ahora"), notificaciones(id, "resumen")]);
     setEstado(e);
     setHoy(e.hoy);
+    setSaldo(e.saldo);
     setAhora(a);
     setResumen(r);
   }, []);
@@ -45,22 +43,44 @@ export default function PantallaCliente() {
     }
   }
 
-  const cargarYActivar = () =>
+  const activarMeisam = (modulos: string[]) =>
     ejecutar(async () => {
       const demo = await cargarDemo(ESCENARIO);
-      await activar(demo.usuario_id, MODULOS, { copiloto: true, memoria: true });
+      await activar(demo.usuario_id, modulos, { copiloto: true, memoria: true });
       setUsuarioId(demo.usuario_id);
-      setActivado(true);
       await refrescar(demo.usuario_id);
     });
 
   const avanzar = () =>
     ejecutar(async () => {
       if (!usuarioId) return;
-      const respuesta = await avanzarReloj(usuarioId, 1);
-      setHoy(respuesta.hoy);
+      await avanzarReloj(usuarioId, 1);
       await refrescar(usuarioId);
     });
+
+  const reiniciar = () => {
+    setUsuarioId(null);
+    setEstado(null);
+    setHoy(null);
+    setSaldo(null);
+    setAhora([]);
+    setResumen([]);
+  };
+
+  const alEventoReloj = (e: EventoReloj) => {
+    if (e.tipo === "dia") {
+      setHoy(e.datos.fecha);
+      if (e.datos.saldo !== null) setSaldo(e.datos.saldo);
+    } else if (e.tipo === "decision" && usuarioId) {
+      void refrescar(usuarioId).catch(() => undefined);
+    }
+  };
+  const alPararReloj = () => {
+    if (usuarioId) void refrescar(usuarioId).catch(() => undefined);
+  };
+
+  const c = estado?.contadores;
+  const contadas = c ? c.ahora + c.resumen : 0;
 
   return (
     <div className="movil">
@@ -74,41 +94,44 @@ export default function PantallaCliente() {
         </Link>
       </header>
 
-      <section className="saldo" aria-label="Cuenta">
-        <p className="tenue pequeno">Cuenta corriente</p>
-        <p className="saldo-importe">{estado ? eur(estado.saldo) : "—"}</p>
-        <p className="pequeno tenue" aria-live="polite">
-          {hoy ? `Hoy (simulado): ${fechaLarga(hoy)}` : "Carga el escenario para empezar"}
-        </p>
-      </section>
-
-      <section className="controles-demo" aria-label="Controles de la demostración">
-        <button className="boton-principal" onClick={cargarYActivar} disabled={ocupado}>
-          {activado ? "Reiniciar escenario" : "Cargar cena de Lucía y activar Meisam"}
-        </button>
-        <button className="boton-secundario" onClick={avanzar} disabled={ocupado || !activado}>
-          Avanzar un día
-        </button>
-      </section>
-
       {error && (
         <p className="error banda" role="alert">
           {error}
         </p>
       )}
 
-      {activado ? (
-        <Bandeja ahora={ahora} resumen={resumen} />
+      {!usuarioId ? (
+        <Activacion ocupado={ocupado} alActivar={activarMeisam} />
       ) : (
-        <p className="vacio-bandeja">
-          Meisam vigila tus movimientos y te avisa solo cuando hay algo que resolver. Actívalo para ver tus avisos.
-        </p>
-      )}
+        <>
+          <section className="saldo" aria-label="Cuenta">
+            <p className="tenue pequeno">Cuenta corriente</p>
+            <p className="saldo-importe">{eur(saldo)}</p>
+          </section>
 
-      {estado && activado && (
-        <p className="pequeno tenue">
-          Silenciadas por no compensar: {estado.contadores.silenciadas}
-        </p>
+          <RelojDemo
+            usuarioId={usuarioId}
+            hoy={hoy}
+            deshabilitado={ocupado}
+            alEvento={alEventoReloj}
+            alParar={alPararReloj}
+            alAvanzarUno={avanzar}
+          />
+
+          {c && c.momentos > 0 && (
+            <p className="silenciadas" role="status">
+              Han pasado {c.momentos} {c.momentos === 1 ? "cosa" : "cosas"}. Solo{" "}
+              {contadas === 1 ? "ha contado una" : `han contado ${contadas}`}
+              {c.silenciadas > 0 && ` (${c.silenciadas} silenciadas por no compensar)`}.
+            </p>
+          )}
+
+          <Bandeja ahora={ahora} resumen={resumen} />
+
+          <button type="button" className="boton-secundario" onClick={reiniciar}>
+            Reiniciar escenario
+          </button>
+        </>
       )}
 
       <footer className="aviso-ia-fijo">

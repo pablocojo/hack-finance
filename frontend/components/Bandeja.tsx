@@ -32,7 +32,7 @@ export default function Bandeja({ ahora, resumen }: { ahora: Notificacion[]; res
         ))}
       </div>
 
-      <div id="panel-bandeja" role="tabpanel" aria-labelledby={`pestana-${pestana}`} className="lista-avisos">
+      <div id="panel-bandeja" role="tabpanel" aria-live="polite" aria-labelledby={`pestana-${pestana}`} className="lista-avisos">
         {lista.length === 0 && (
           <p className="vacio-bandeja">
             {pestana === "ahora"
@@ -56,6 +56,7 @@ export default function Bandeja({ ahora, resumen }: { ahora: Notificacion[]; res
                 <span> en juego</span>
               </p>
             )}
+            {propuesta.contexto_personal && <p className="aviso-contexto">{propuesta.contexto_personal}</p>}
             {decision.motivos[0] && <p className="aviso-motivo">Por qué te aviso: {decision.motivos[0]}</p>}
             {estado !== "nueva" && <p className="pequeno tenue">Estado: {estado}</p>}
           </article>
