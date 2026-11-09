@@ -86,6 +86,8 @@ Cada vez que Claude se equivoque de forma evitable, añade aquí una línea con 
 - Antes de programar, confirma el alcance: diseñar, montar el sistema de trabajo y desarrollar son encargos distintos.
 - Las variables dinámicas del agente de ElevenLabs son solo las que aparecen en su prompt o primer mensaje; no pidas crear otras.
 - Los tests de escenario avanzan el reloj hasta la fecha que esperan (calculada desde el escenario), nunca un número fijo de días.
+- Antes de lanzar hilos largos, comprueba el saldo de la clave frente al coste estimado de la tanda; si no llega, cambia de clave o de modelo antes de empezar, no a mitad (el 9 nov se cortaron tres hilos por falta de crédito).
+- En los encargos a subagentes, copia las rutas de `docs/diseno/` y `ARQUITECTURA.md`; no las escribas de memoria (el catálogo de comercios es `backend/datos/comercios_conocidos.json`, no `backend/motor/`).
 
 ## Instrucciones de compactación
 Conserva la idea, el contrato (`docs/diseno/CONTRATO.md`), el estado de `docs/PLAN.md`, las decisiones tomadas, los errores abiertos y la tarea en curso.
