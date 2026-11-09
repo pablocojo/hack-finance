@@ -169,13 +169,34 @@ def _importe(rng: random.Random, valor) -> float:
     return _centimos(valor)
 
 
+def _anadir_anomalias(crudos: list[tuple], anomalias: dict, rng: random.Random, inicio: date, hasta: date) -> None:
+    """Duplicado, gasto inusual y comercio nuevo, siempre dentro del último mes."""
+    concepto, comercio, importe, categoria = anomalias["duplicado"]
+    previos = [m for m in crudos if m[2] == comercio and m[0] >= hasta - timedelta(days=40)]
+    if previos:  # el mismo recibo cobrado dos veces el mismo día
+        crudos.append(max(previos, key=lambda m: m[0]))
+    else:
+        fecha_duplicado = max(inicio, hasta - timedelta(days=rng.randint(12, 25)))
+        crudos.append((fecha_duplicado, concepto, comercio, importe, categoria))
+        crudos.append((fecha_duplicado, concepto, comercio, importe, categoria))
+    concepto, comercio, importe, categoria = anomalias["inusual"]
+    crudos.append((max(inicio, hasta - timedelta(days=rng.randint(6, 18))), concepto, comercio, importe, categoria))
+    concepto, comercio, importe, categoria = COMERCIO_NUEVO
+    crudos.append((max(inicio, hasta - timedelta(days=rng.randint(1, 5))), concepto, comercio, importe, categoria))
+
+
 def generar_movimientos(
     perfil: str = "familia",
     meses: int = 6,
     semilla: int = 42,
     hasta: date | None = None,
+    anomalias: bool = True,
 ) -> list[dict]:
-    """Genera movimientos ordenados por fecha, con saldo acumulado."""
+    """Genera movimientos ordenados por fecha, con saldo acumulado.
+
+    Con `anomalias=False` no añade el duplicado, el gasto inusual ni el comercio nuevo: es el
+    «fondo» limpio de los escenarios del motor (ruido de fondo).
+    """
     if perfil not in PERFILES:
         raise ValueError(f"Perfil desconocido: {perfil}. Elige uno de {sorted(PERFILES)}.")
     datos = PERFILES[perfil]
@@ -216,19 +237,8 @@ def generar_movimientos(
             mes = (mes.replace(day=28) + timedelta(days=4)).replace(day=1)
 
     # Anomalías a propósito, siempre dentro del último mes.
-    anomalias = datos["anomalias"]
-    concepto, comercio, importe, categoria = anomalias["duplicado"]
-    previos = [m for m in crudos if m[2] == comercio and m[0] >= hasta - timedelta(days=40)]
-    if previos:  # el mismo recibo cobrado dos veces el mismo día
-        crudos.append(max(previos, key=lambda m: m[0]))
-    else:
-        fecha_duplicado = max(inicio, hasta - timedelta(days=rng.randint(12, 25)))
-        crudos.append((fecha_duplicado, concepto, comercio, importe, categoria))
-        crudos.append((fecha_duplicado, concepto, comercio, importe, categoria))
-    concepto, comercio, importe, categoria = anomalias["inusual"]
-    crudos.append((max(inicio, hasta - timedelta(days=rng.randint(6, 18))), concepto, comercio, importe, categoria))
-    concepto, comercio, importe, categoria = COMERCIO_NUEVO
-    crudos.append((max(inicio, hasta - timedelta(days=rng.randint(1, 5))), concepto, comercio, importe, categoria))
+    if anomalias:
+        _anadir_anomalias(crudos, datos["anomalias"], rng, inicio, hasta)
 
     crudos.sort(key=lambda m: (m[0], -m[3]))  # ingresos primero dentro del mismo día
     saldo = Decimal(str(datos["saldo_inicial"]))

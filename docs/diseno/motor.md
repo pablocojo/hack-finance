@@ -188,6 +188,17 @@ Además: ruido de fondo ≤ 1 momento por usuario y mes, **con y sin perfil**; e
 - **Recortes, por orden**: `posible_estafa` → `saldo_negativo_previsto` → búsqueda web real (queda la caché) → anual de un solo cargo → `subida_recibo`. Lo que **no** se recorta: `demo-lucia` (cena, prueba y duplicado).
 - **Mirar el futuro por error**: un solo punto de corte (`ctx.historial` en `procesar`) y un test de propiedad.
 
+## 8 bis. Implementado en E2-E3 (9 nov, noche): lo que concreta o cambia este diseño
+- **Detectores** devuelven `Hallazgo {tipo, clave, movimientos, confianza, datos, impacto_eur}` (`detectores/base.py`); el razonador pone `id`, `fecha`, `explicacion` y `version`. Registro con `@registrar("<tipo>", version=n)` en `detectores/__init__.py`.
+- **Id**: `mom-<tipo>-<sha1("<tipo>|<clave>")[:10]>` (sin `usuario_id`: los escenarios se reproducen en un usuario aislado y dan los mismos ids). `claves_emitidas = {"tipo|clave": momento_id}`.
+- **Solapes**: el perdedor queda en `claves_emitidas` como `solapado:<id>` para que no reaparezca al día siguiente.
+- **Series**: periodos 1, **2** (agua bimestral), 3, 6 y 12 meses. Con tarjeta y periodo < 6 meses: importe fijo (≤ 5 %) y ≥ 3 cargos (dos cenas en el mismo restaurante no son una serie).
+- **Reembolso**: Bizum o transferencia recibidos de una contraparte (no nóminas ni devoluciones). Se asigna al pago más reciente de la ventana donde **ese reembolso solo** ya encaja (3-12 personas y total a `max(1 €, 3 %)`). Si alguno se aleja más de `TOL_CUOTA` de la mediana, no avisa.
+- **Líneas base** (`enriquecer.lineas_base`): solo repartos **cerrados** (`hoy − pago > VENTANA_REEMBOLSO`); p75 por rango más cercano con ≥ 3 retrasos (si no, `DIAS_ESPERA = 3`). Candidatos sin perfil: quienes devolvieron junto a **alguno** de los que ya han pagado, con ≥ 2 coincidencias, ordenados por coincidencias.
+- **`cargar_historial`** solo guarda (no ejecuta detectores). Escenarios: lo que tiene `fecha <= activacion` entra por `cargar_historial` y se procesa desde el día siguiente, igual que el orquestador.
+- **`escenarios/cargar.py`**: `listar()`, `leer(id)`, `cargar(id) -> Escenario`, `desde_dict(d)`, `perfil_para(esc, hoy, historial)`, `reproducir(esc, con_perfil=None, al_terminar=None)` (usuario aislado; no toca el estado real) y `evaluar(esc, momentos, con_perfil)` → `{aciertos, omitidos, falsos_positivos, trampas_violadas, retrasos, por_tipo}`.
+- **Pendiente**: `ajustar` con perfil, `impacto_relativo` y `contexto_personal` (M9); `comercios_pendientes` lo llena `prueba_gratuita` (M7).
+
 ## 9. Cambios que pido al contrato
 1. **`comercios_pendientes(usuario_id) -> list[str]`** en el motor (lo lee el orquestador para pedir búsquedas). `cerrar_prueba` admite `motivo: cancelada | baja_guiada | descartada`.
 2. **`prueba_gratuita.fuente_duracion`** admite además `usuario` (cuando el cliente dice cuántos días).
