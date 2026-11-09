@@ -1,0 +1,14 @@
+# Ruido de fondo (motor.md §5 y §6): el perfil sintético «familia» del kit, 6 meses, sin anomalías.
+# No hay nada que detectar: todo momento que salga cuenta como ruido (objetivo ≤ 1 por usuario y mes).
+# Dos meses de historial al activar (series y líneas base) y después día a día hasta el 16/11.
+id: fondo-familia
+usuario_id: fondo-familia
+descripcion: "Fondo limpio de una familia: 6 meses sin anomalías; no debe salir casi nada"
+fondo: {perfil: familia, meses: 6, semilla: 42, hasta: 2026-11-16, anomalias: false}
+activacion: 2026-07-31
+hasta: 2026-11-16
+perfil: null
+movimientos: []
+eventos: []
+esperado: []
+trampas: []

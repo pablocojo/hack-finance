@@ -1,0 +1,6 @@
+{
+  "parte": "personalizacion",
+  "estado": "pendiente",
+  "generado": "2026-11-09T19:25:45",
+  "motivo": "La simulación de personalizacion aún no existe (falta el módulo 'medir_personalizacion'); llega en U3 con evals/medir_personalizacion.py."
+}
