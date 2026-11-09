@@ -67,6 +67,21 @@ class Ajustes:
     alpha_vantage_key: str | None
     frankfurter_url: str
     guardar_perfiles: bool
+    datos_usuario_dir: Path
+    elevenlabs_api_key: str | None
+    elevenlabs_agent_id: str | None
+
+
+def _modo_demo() -> str:
+    """MODO_DEMO: off | grabar | reproducir. Cualquier otro valor cuenta como off."""
+    valor = (_texto("MODO_DEMO", "off") or "off").lower()
+    return valor if valor in {"off", "grabar", "reproducir"} else "off"
+
+
+def _carpeta(nombre: str, defecto: str) -> Path:
+    """Carpeta configurable; si es relativa, cuelga de la raíz del proyecto."""
+    ruta = Path(_texto(nombre, defecto) or defecto)
+    return ruta if ruta.is_absolute() else RAIZ / ruta
 
 
 def ajustes() -> Ajustes:
@@ -80,7 +95,7 @@ def ajustes() -> Ajustes:
         max_tokens=_entero("MAX_TOKENS", 4000),
         max_historial=_entero("MAX_HISTORIAL", 40),
         revisor_cumplimiento=_bool("REVISOR_CUMPLIMIENTO", True),
-        modo_demo=(_texto("MODO_DEMO", "off") or "off").lower(),
+        modo_demo=_modo_demo(),
         busqueda_web=_bool("BUSQUEDA_WEB", False),
         ejecucion_codigo=_bool("EJECUCION_CODIGO", False),
         origenes_cors=tuple(o.strip() for o in origenes.split(",") if o.strip()),
@@ -88,6 +103,9 @@ def ajustes() -> Ajustes:
         alpha_vantage_key=_texto("ALPHA_VANTAGE_API_KEY"),
         frankfurter_url=_texto("FRANKFURTER_URL", "https://api.frankfurter.dev/v1"),
         guardar_perfiles=_bool("GUARDAR_PERFILES", True),
+        datos_usuario_dir=_carpeta("DATOS_USUARIO_DIR", "datos_usuario"),
+        elevenlabs_api_key=_texto("ELEVENLABS_API_KEY"),
+        elevenlabs_agent_id=_texto("ELEVENLABS_AGENT_ID"),
     )
 
 
