@@ -600,7 +600,7 @@ export async function hablarTexto(opciones: {
   await leerSse<EventoVoz>(respuesta, opciones.alEvento);
 }
 export const vozPreparar = (tokenSesion: string, accionId: AccionId, parametros: Record<string, unknown> = {}) =>
-  enviar<{ preparada: boolean; titulo?: string }>("/voz/herramientas/preparar", "POST", {
+  enviar<{ preparada: boolean; titulo?: string; motivo?: string; tarjeta?: TarjetaConfirmacion }>("/voz/herramientas/preparar", "POST", {
     token_sesion: tokenSesion,
     accion_id: accionId,
     parametros,
