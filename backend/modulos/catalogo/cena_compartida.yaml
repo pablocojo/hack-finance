@@ -1,0 +1,22 @@
+id: cena_compartida
+version: 2
+nombre: Gastos compartidos
+descripcion: Detecta un pago que tus amigos aún no te han devuelto del todo y te ayuda a pedírselo.
+estado: activo
+origen: catalogo
+opcional: true
+escucha: [gasto_compartido]
+cuando: "momento.confianza >= 0.7 y momento.datos.faltan >= 1 y momento.datos.importe_pendiente >= 5"
+propuesta:
+  titulo: "Falta por devolverte {datos.importe_pendiente|eur}"
+  mensaje_notificacion: "Pagaste {datos.importe_total|eur} en {datos.comercio|dato}. Te han devuelto una parte; faltan {datos.faltan|n} persona(s)."
+  contexto_llamada: "Gasto compartido en {datos.comercio|dato} de {datos.importe_total|eur} el {datos.fecha|fecha}. Personas estimadas: {datos.personas_estimadas|n}. Pendiente: {datos.importe_pendiente|eur}. Candidatos a pedir: {datos.candidatos|lista}. Ofrece pedir el Bizum solo a los candidatos."
+  urgencia: media
+  valor_estimado_eur: "momento.datos.importe_pendiente"
+acciones:
+  - accion_id: pedir_bizum
+    repetir_por: datos.candidatos
+    parametros: {contraparte: "{item.contraparte}", importe: "{item.importe}", concepto: "Tu parte de {datos.comercio|dato}"}
+    limites: {importe_max: "{item.importe}", contrapartes: ["{item.contraparte}"]}
+  - accion_id: recordar
+    parametros: {cuando: "+3d", texto: "Mirar si te han devuelto lo de {datos.comercio|dato}"}
