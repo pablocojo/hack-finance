@@ -1,6 +1,8 @@
 # Contrato compartido del diseño
 
-9 de noviembre de 2026. Lo escribe el orquestador antes de repartir el diseño. Los subagentes que diseñan cada parte lo respetan; si algo no encaja, lo proponen en una sección «Cambios propuestos al contrato» de su documento en vez de cambiarlo por su cuenta.
+9 de noviembre de 2026. Lo escribe el orquestador antes de repartir el diseño. Los subagentes que diseñan cada parte lo respetan; si algo no encaja, lo proponen en una sección «Cambios propuestos al contrato» de su documento en vez de cambiarlo por su cuenta. `/planificar` resuelve esas propuestas y actualiza este archivo.
+
+Cambios ya aceptados: confirmar una acción es un botón con un token de un solo uso (`preparar` → `TarjetaConfirmacion` → `ejecutar`), propuesto en `experiencia.md`.
 
 ## La idea
 
@@ -46,6 +48,7 @@ Viven en `backend/plataforma/tipos.py` (modelos de pydantic, que ya viene con Fa
 | `Propuesta` | `id`, `modulo_id`, `momento_id`, `usuario_id`, `titulo`, `mensaje_notificacion`, `contexto_llamada` (lo que el agente de voz necesita saber), `acciones_ofrecidas` (lista de `{accion_id, parametros, requiere_confirmacion}`), `valor_estimado_eur`, `urgencia` (`alta`, `media`, `baja`), `creada` |
 | `Decision` | `propuesta_id`, `accion` (`notificar_ahora`, `resumen`, `silenciar`), `puntuacion`, `probabilidad_util`, `motivos` (frases legibles), `politica` (versión) |
 | `Feedback` | `propuesta_id`, `usuario_id`, `resultado` (`resuelta`, `vista_sin_accion`, `rechazada`, `ignorada`, `no_avisar_tipo`, `no_avisar_comercio`, `no_avisar_contacto`, `falso_positivo`), `canal` (`voz`, `texto`, `app`), `fecha`, `nota?` |
+| `TarjetaConfirmacion` | `accion_id`, `propuesta_id`, `titulo`, `parametros_legibles`, `simulada`, `token_confirmacion` (de un solo uso), `caduca`. La genera `preparar` sin efectos; la app la pinta como un botón |
 | `ResultadoAccion` | `accion_id`, `ok`, `mensaje`, `datos`, `simulada` (siempre `true` en el hackathon), `deshacer?` |
 | `ModeloUsuario` | Lo diseña la personalización. Mínimo: `usuario_id`, `modulos_activos`, `consentimientos`, `preferencias` (silencios, horario), líneas base, contactos, series recurrentes, estadísticas de respuesta y memoria en texto para el agente |
 
@@ -77,8 +80,9 @@ def proponer(momento: Momento, modelo: ModeloUsuario) -> list[Propuesta]: ...
 def decidir(propuesta: Propuesta, modelo: ModeloUsuario, ahora: datetime) -> Decision: ...
 def aprender(feedback: Feedback) -> None: ...
 
-# backend/acciones
-def ejecutar(accion_id: str, parametros: dict, propuesta_id: str, confirmado: bool) -> ResultadoAccion: ...
+# backend/acciones: el agente solo prepara; ejecuta el botón del usuario con el token
+def preparar(accion_id: str, parametros: dict, propuesta_id: str) -> TarjetaConfirmacion: ...
+def ejecutar(token_confirmacion: str) -> ResultadoAccion: ...  # valida token, propuesta y acción permitida
 
 # backend/plataforma/orquestador.py: une todo
 def avanzar_dia(usuario_id: str, hoy: date) -> list[Decision]: ...

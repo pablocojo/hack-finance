@@ -4,6 +4,24 @@ Kit v2 del hackathon: Claude Code de serie con 11 subagentes, 11 skills y hooks,
 
 Cómo se usa en una frase: hablas con la sesión principal de Claude Code (Opus 5.5), lanzas una skill (`/kickoff`, `/feature`…) y ella delega en el subagente adecuado y guarda la memoria del proyecto en `docs/`.
 
+## 9 de noviembre: continuar con el Copiloto
+La idea es ahora el **Copiloto** (`docs/ANALISIS.md`). El sistema de trabajo ya está adaptado: 16 subagentes, skills nuevas y el contrato del diseño. Para seguir desde tu terminal:
+
+```bash
+git switch main && git pull
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+pytest                               # todo en verde antes de empezar
+claude
+```
+
+Dentro de `claude`:
+1. `/planificar`: los especialistas pulen los borradores de `docs/diseno/` en paralelo, el `arquitecto` escribe la arquitectura y las tareas y el `revisor` lo comprueba. No escribe código.
+2. `/esqueleto`: un escenario recorre todo el flujo (movimiento → momento → propuesta → decisión → acción → aprendizaje) con tests y `/medir`.
+3. A partir de ahí, la rutina de siempre: `/estado` y `/feature <id>` en 2 o 3 worktrees. Para crecer: `/escenario`, `/detector`, `/modulo` y `/medir`.
+
+Voz: crea una cuenta en ElevenLabs y un agente (los pasos están en `docs/diseno/experiencia.md`, sección 6), y añade `ELEVENLABS_API_KEY` y `ELEVENLABS_AGENT_ID` a `.env`.
+
 ## Hoy, 7 de noviembre (unas 3 horas)
 
 ### 1. Repositorio
@@ -124,8 +142,8 @@ git switch main && git branch -D ensayo && rm -f registro/agentes.jsonl
 ## Mapa del repositorio
 ```
 CLAUDE.md                 reglas del proyecto para Claude (la "constitución")
-.claude/agents/           11 subagentes
-.claude/skills/           11 skills (/kickoff, /feature, /herramienta, /depurar, /evals, /estado, /cierre-dia, /demo y 3 de conocimiento)
+.claude/agents/           16 subagentes (5 del Copiloto: detección, personalización, módulos, voz y banca)
+.claude/skills/           18 skills (/planificar, /esqueleto, /escenario, /detector, /modulo, /medir, /feature, /herramienta, /depurar, /evals, /estado, /cierre-dia, /demo, /kickoff y 4 de conocimiento)
 .claude/settings.json     modelo, permisos, límites de subagentes, plugins y hooks
 backend/                  agente, herramientas, datos y API
 frontend/                 web en Next.js
@@ -134,6 +152,7 @@ evals/                    casos y ejecución de evals
 tests/                    pytest con cliente simulado
 scripts/                  comprobaciones, hooks e informes
 docs/                     plan, arquitectura, decisiones, diario, ideas, pitch y demo
+docs/diseno/              contrato común y diseño de cada parte del Copiloto
 reto/                     enunciado (y el de práctica)
 datos_ejemplo/            extractos CSV sintéticos para probar la subida
 demo/grabaciones/         respuestas grabadas para el modo demo

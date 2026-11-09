@@ -16,10 +16,14 @@ Escribe en 5-10 líneas: archivos que se tocan, qué cambia en cada uno, interfa
 ## 3. Delegar en el especialista
 | Zona | Subagente |
 |---|---|
-| Prompt, enrutado o guardarraíles del agente | `ingeniero-agente` |
-| Herramienta nueva del agente | skill `/herramienta` |
-| Backend, API, datos | `programador` |
-| Interfaz web | `frontend` |
+| Motor: normalización, detectores, razonador (`backend/motor/`, `backend/escenarios/`) | `ingeniero-deteccion` (o las skills `/detector` y `/escenario`) |
+| Personalización: modelo de usuario, política, memoria (`backend/personalizacion/`) | `cientifico-personalizacion` |
+| Módulos y acciones (`backend/modulos/`, `backend/acciones/`) | `ingeniero-modulos` (o la skill `/modulo`) |
+| Llamada de voz y modo texto (`backend/voz/`) | `ingeniero-voz` |
+| Prompt, enrutado o guardarraíles del agente conversacional | `ingeniero-agente` |
+| Herramienta nueva del agente conversacional | skill `/herramienta` |
+| Plataforma, orquestador, API y datos | `programador` |
+| Interfaz web (app del cliente, consola del banco, panel del jurado) | `frontend` |
 
 Plantilla de encargo:
 ```
@@ -37,9 +41,11 @@ Devuelve: qué has hecho, archivos tocados, resultado de la verificación y pend
 - Frontend: `npm run build` dentro de `frontend/` y el flujo probado con el backend arrancado.
 
 ## 5. Revisión según el riesgo
-- Dinero, seguridad, datos de usuario o prompts: `revisor` con el diff.
+- Dinero, seguridad, datos de usuario, acciones o prompts: `revisor` con el diff.
 - Fórmulas o cifras nuevas: `experto-finanzas`.
-- Cambios en el agente: `/evals` con los casos afectados.
+- Acciones bancarias, módulos o textos legales: `experto-banca`.
+- Cambios en un detector, la política o un módulo: `/medir` y comparar con la ejecución anterior.
+- Cambios en el agente conversacional o en el de voz: `/evals` con los casos afectados.
 Corrige lo que sea `BLOQUEA` antes de cerrar.
 
 ## 6. Cerrar
