@@ -1,13 +1,22 @@
 {
   "parte": "motor",
-  "generado": "2026-11-09T19:27:38",
-  "commit": "30c0cc3",
+  "generado": "2026-11-09T20:30:48",
+  "commit": "71fd8c7",
   "detectores": {
-    "gasto_compartido": 1
+    "cargo_duplicado": 1,
+    "gasto_compartido": 1,
+    "subida_recibo": 1
   },
   "escenarios": {
     "etiquetados": [
-      "cena-lucia"
+      "cena-lucia",
+      "compra-devolucion-compra",
+      "cuotas-gimnasio",
+      "dos-cafes",
+      "gimnasio-doble",
+      "luz-sube",
+      "subida-centimos",
+      "tpv-doble"
     ],
     "fondo": [
       "fondo-autonomo",
@@ -18,6 +27,30 @@
   "sin_perfil": {
     "disponible": true,
     "por_detector": {
+      "cargo_duplicado": {
+        "implementado": true,
+        "version": 1,
+        "aciertos": 2,
+        "omitidos": 0,
+        "falsos_positivos": 0,
+        "precision": 1.0,
+        "exhaustividad": 1.0,
+        "retraso_medio": 0.0,
+        "retraso_max": 0,
+        "trampas_comprobadas": 5,
+        "trampas_violadas": 0,
+        "escenarios": [
+          "gimnasio-doble",
+          "tpv-doble"
+        ],
+        "objetivo": {
+          "precision_min": 0.9,
+          "exhaustividad_min": 1.0,
+          "retraso_medio_max": 0,
+          "trampas_max": 0
+        },
+        "cumple": true
+      },
       "gasto_compartido": {
         "implementado": true,
         "version": 1,
@@ -56,6 +89,29 @@
         "escenarios": [],
         "objetivo": null,
         "cumple": null
+      },
+      "subida_recibo": {
+        "implementado": true,
+        "version": 1,
+        "aciertos": 1,
+        "omitidos": 0,
+        "falsos_positivos": 0,
+        "precision": 1.0,
+        "exhaustividad": 1.0,
+        "retraso_medio": 0.0,
+        "retraso_max": 0,
+        "trampas_comprobadas": 5,
+        "trampas_violadas": 0,
+        "escenarios": [
+          "luz-sube"
+        ],
+        "objetivo": {
+          "precision_min": 0.9,
+          "exhaustividad_min": 0.9,
+          "retraso_medio_max": 0,
+          "trampas_max": 0
+        },
+        "cumple": true
       }
     },
     "por_escenario": [
@@ -63,7 +119,7 @@
         "escenario": "cena-lucia",
         "con_perfil": false,
         "dias_procesados": 46,
-        "ms": 48.6,
+        "ms": 76.0,
         "momentos": 1,
         "aciertos": 1,
         "omitidos": 0,
@@ -96,6 +152,187 @@
             "falsos": 0
           }
         }
+      },
+      {
+        "escenario": "compra-devolucion-compra",
+        "con_perfil": false,
+        "dias_procesados": 30,
+        "ms": 0.8,
+        "momentos": 0,
+        "aciertos": 0,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "cargo_duplicado",
+            "motivo": "entre las dos compras hay una devolución igual"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {},
+        "por_tipo": {}
+      },
+      {
+        "escenario": "cuotas-gimnasio",
+        "con_perfil": false,
+        "dias_procesados": 108,
+        "ms": 6.6,
+        "momentos": 0,
+        "aciertos": 0,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "cargo_duplicado",
+            "motivo": "dos cuotas de gimnasio cada mes"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {},
+        "por_tipo": {}
+      },
+      {
+        "escenario": "dos-cafes",
+        "con_perfil": false,
+        "dias_procesados": 31,
+        "ms": 16.5,
+        "momentos": 0,
+        "aciertos": 0,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "cargo_duplicado",
+            "motivo": "compras habituales o de importe pequeño"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {},
+        "por_tipo": {}
+      },
+      {
+        "escenario": "gimnasio-doble",
+        "con_perfil": false,
+        "dias_procesados": 47,
+        "ms": 138.9,
+        "momentos": 1,
+        "aciertos": 1,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "cargo_duplicado",
+            "motivo": "recibo normal de octubre"
+          },
+          {
+            "tipo": "subida_recibo",
+            "motivo": "el importe no ha cambiado"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {
+          "cargo_duplicado": [
+            0
+          ]
+        },
+        "por_tipo": {
+          "cargo_duplicado": {
+            "aciertos": 1,
+            "omitidos": 0,
+            "falsos": 0
+          }
+        }
+      },
+      {
+        "escenario": "luz-sube",
+        "con_perfil": false,
+        "dias_procesados": 76,
+        "ms": 173.6,
+        "momentos": 1,
+        "aciertos": 1,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "subida_recibo",
+            "motivo": "recibo normal"
+          },
+          {
+            "tipo": "subida_recibo",
+            "motivo": "el nuevo nivel ya se avisó el mes anterior"
+          },
+          {
+            "tipo": "cargo_duplicado",
+            "motivo": "importes distintos, un mes de diferencia"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {
+          "subida_recibo": [
+            0
+          ]
+        },
+        "por_tipo": {
+          "subida_recibo": {
+            "aciertos": 1,
+            "omitidos": 0,
+            "falsos": 0
+          }
+        }
+      },
+      {
+        "escenario": "subida-centimos",
+        "con_perfil": false,
+        "dias_procesados": 60,
+        "ms": 15.4,
+        "momentos": 0,
+        "aciertos": 0,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "subida_recibo",
+            "motivo": "solo +2 €"
+          },
+          {
+            "tipo": "subida_recibo",
+            "motivo": "serie variable: +24 %, por debajo del 25 %"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {},
+        "por_tipo": {}
+      },
+      {
+        "escenario": "tpv-doble",
+        "con_perfil": false,
+        "dias_procesados": 46,
+        "ms": 51.1,
+        "momentos": 1,
+        "aciertos": 1,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [],
+        "trampas_violadas": [],
+        "retrasos": {
+          "cargo_duplicado": [
+            0
+          ]
+        },
+        "por_tipo": {
+          "cargo_duplicado": {
+            "aciertos": 1,
+            "omitidos": 0,
+            "falsos": 0
+          }
+        }
       }
     ],
     "ruido_fondo": {
@@ -110,7 +347,7 @@
           "momentos": 0,
           "por_mes": 0.0,
           "por_tipo": {},
-          "ms": 123.1,
+          "ms": 183.3,
           "momentos_detalle": []
         },
         {
@@ -119,7 +356,7 @@
           "momentos": 0,
           "por_mes": 0.0,
           "por_tipo": {},
-          "ms": 102.6,
+          "ms": 166.4,
           "momentos_detalle": []
         },
         {
@@ -128,23 +365,348 @@
           "momentos": 0,
           "por_mes": 0.0,
           "por_tipo": {},
-          "ms": 155.2,
+          "ms": 249.4,
           "momentos_detalle": []
         }
       ]
     },
     "trampas_violadas_total": 0,
-    "ms_max_por_escenario": 155.2
+    "ms_max_por_escenario": 249.4
   },
   "con_perfil": {
-    "disponible": false,
-    "motivo": "personalizacion.perfilar aún no devuelve perfil (llega en U1); solo se mide sin perfil."
+    "disponible": true,
+    "por_detector": {
+      "cargo_duplicado": {
+        "implementado": true,
+        "version": 1,
+        "aciertos": 2,
+        "omitidos": 0,
+        "falsos_positivos": 0,
+        "precision": 1.0,
+        "exhaustividad": 1.0,
+        "retraso_medio": 0.0,
+        "retraso_max": 0,
+        "trampas_comprobadas": 4,
+        "trampas_violadas": 0,
+        "escenarios": [
+          "gimnasio-doble",
+          "tpv-doble"
+        ],
+        "objetivo": {
+          "precision_min": 0.9,
+          "exhaustividad_min": 1.0,
+          "retraso_medio_max": 0,
+          "trampas_max": 0
+        },
+        "cumple": true
+      },
+      "gasto_compartido": {
+        "implementado": true,
+        "version": 1,
+        "aciertos": 1,
+        "omitidos": 0,
+        "falsos_positivos": 0,
+        "precision": 1.0,
+        "exhaustividad": 1.0,
+        "retraso_medio": 0.0,
+        "retraso_max": 0,
+        "trampas_comprobadas": 2,
+        "trampas_violadas": 0,
+        "escenarios": [
+          "cena-lucia"
+        ],
+        "objetivo": {
+          "precision_min": 1.0,
+          "exhaustividad_min": 1.0,
+          "retraso_medio_max": 1,
+          "trampas_max": 0
+        },
+        "cumple": true
+      },
+      "posible_estafa": {
+        "implementado": false,
+        "version": null,
+        "aciertos": 0,
+        "omitidos": 0,
+        "falsos_positivos": 0,
+        "precision": null,
+        "exhaustividad": null,
+        "retraso_medio": null,
+        "retraso_max": null,
+        "trampas_comprobadas": 1,
+        "trampas_violadas": 0,
+        "escenarios": [],
+        "objetivo": null,
+        "cumple": null
+      },
+      "subida_recibo": {
+        "implementado": true,
+        "version": 1,
+        "aciertos": 1,
+        "omitidos": 0,
+        "falsos_positivos": 0,
+        "precision": 1.0,
+        "exhaustividad": 1.0,
+        "retraso_medio": 0.0,
+        "retraso_max": 0,
+        "trampas_comprobadas": 5,
+        "trampas_violadas": 0,
+        "escenarios": [
+          "luz-sube"
+        ],
+        "objetivo": {
+          "precision_min": 0.9,
+          "exhaustividad_min": 0.9,
+          "retraso_medio_max": 0,
+          "trampas_max": 0
+        },
+        "cumple": true
+      }
+    },
+    "por_escenario": [
+      {
+        "escenario": "cena-lucia",
+        "con_perfil": true,
+        "dias_procesados": 46,
+        "ms": 372.2,
+        "momentos": 1,
+        "aciertos": 1,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "posible_estafa",
+            "motivo": "Bizums recibidos"
+          },
+          {
+            "tipo": "gasto_compartido",
+            "motivo": "pagaron los cuatro"
+          },
+          {
+            "tipo": "gasto_compartido",
+            "motivo": "Bizum suelto, sin pago"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {
+          "gasto_compartido": [
+            0
+          ]
+        },
+        "por_tipo": {
+          "gasto_compartido": {
+            "aciertos": 1,
+            "omitidos": 0,
+            "falsos": 0
+          }
+        }
+      },
+      {
+        "escenario": "cuotas-gimnasio",
+        "con_perfil": true,
+        "dias_procesados": 108,
+        "ms": 300.3,
+        "momentos": 0,
+        "aciertos": 0,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "cargo_duplicado",
+            "motivo": "dos cuotas de gimnasio cada mes"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {},
+        "por_tipo": {}
+      },
+      {
+        "escenario": "dos-cafes",
+        "con_perfil": true,
+        "dias_procesados": 31,
+        "ms": 124.9,
+        "momentos": 0,
+        "aciertos": 0,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "cargo_duplicado",
+            "motivo": "compras habituales o de importe pequeño"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {},
+        "por_tipo": {}
+      },
+      {
+        "escenario": "gimnasio-doble",
+        "con_perfil": true,
+        "dias_procesados": 47,
+        "ms": 362.7,
+        "momentos": 1,
+        "aciertos": 1,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "cargo_duplicado",
+            "motivo": "recibo normal de octubre"
+          },
+          {
+            "tipo": "subida_recibo",
+            "motivo": "el importe no ha cambiado"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {
+          "cargo_duplicado": [
+            0
+          ]
+        },
+        "por_tipo": {
+          "cargo_duplicado": {
+            "aciertos": 1,
+            "omitidos": 0,
+            "falsos": 0
+          }
+        }
+      },
+      {
+        "escenario": "luz-sube",
+        "con_perfil": true,
+        "dias_procesados": 76,
+        "ms": 502.4,
+        "momentos": 1,
+        "aciertos": 1,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "subida_recibo",
+            "motivo": "recibo normal"
+          },
+          {
+            "tipo": "subida_recibo",
+            "motivo": "el nuevo nivel ya se avisó el mes anterior"
+          },
+          {
+            "tipo": "cargo_duplicado",
+            "motivo": "importes distintos, un mes de diferencia"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {
+          "subida_recibo": [
+            0
+          ]
+        },
+        "por_tipo": {
+          "subida_recibo": {
+            "aciertos": 1,
+            "omitidos": 0,
+            "falsos": 0
+          }
+        }
+      },
+      {
+        "escenario": "subida-centimos",
+        "con_perfil": true,
+        "dias_procesados": 60,
+        "ms": 192.2,
+        "momentos": 0,
+        "aciertos": 0,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [
+          {
+            "tipo": "subida_recibo",
+            "motivo": "solo +2 €"
+          },
+          {
+            "tipo": "subida_recibo",
+            "motivo": "serie variable: +24 %, por debajo del 25 %"
+          }
+        ],
+        "trampas_violadas": [],
+        "retrasos": {},
+        "por_tipo": {}
+      },
+      {
+        "escenario": "tpv-doble",
+        "con_perfil": true,
+        "dias_procesados": 46,
+        "ms": 286.3,
+        "momentos": 1,
+        "aciertos": 1,
+        "omitidos": 0,
+        "omitidos_detalle": [],
+        "falsos_positivos": [],
+        "trampas_comprobadas": [],
+        "trampas_violadas": [],
+        "retrasos": {
+          "cargo_duplicado": [
+            0
+          ]
+        },
+        "por_tipo": {
+          "cargo_duplicado": {
+            "aciertos": 1,
+            "omitidos": 0,
+            "falsos": 0
+          }
+        }
+      }
+    ],
+    "ruido_fondo": {
+      "objetivo_max_por_mes": 1.0,
+      "medio_por_usuario_mes": 0.0,
+      "max_por_usuario_mes": 0.0,
+      "cumple": true,
+      "usuarios": [
+        {
+          "escenario": "fondo-autonomo",
+          "meses": 3.55,
+          "momentos": 0,
+          "por_mes": 0.0,
+          "por_tipo": {},
+          "ms": 636.2,
+          "momentos_detalle": []
+        },
+        {
+          "escenario": "fondo-estudiante",
+          "meses": 3.55,
+          "momentos": 0,
+          "por_mes": 0.0,
+          "por_tipo": {},
+          "ms": 793.3,
+          "momentos_detalle": []
+        },
+        {
+          "escenario": "fondo-familia",
+          "meses": 3.55,
+          "momentos": 0,
+          "por_mes": 0.0,
+          "por_tipo": {},
+          "ms": 833.5,
+          "momentos_detalle": []
+        }
+      ]
+    },
+    "trampas_violadas_total": 0,
+    "ms_max_por_escenario": 833.5
   },
-  "ms_total": 471.1,
+  "ms_total": 5849.3,
   "comparacion": {
     "contra": "motor-2026-11-09.json",
-    "generado_anterior": "2026-11-09T19:25:44",
-    "commit_anterior": "66d27b7",
+    "generado_anterior": "2026-11-09T20:25:50",
+    "commit_anterior": "71fd8c7",
     "cambios": [],
     "empeora": [],
     "mejora": []

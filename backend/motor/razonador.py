@@ -65,6 +65,39 @@ def _explicar_gasto_compartido(d: dict) -> str:
             f"{_plural(faltan, 'falta', 'faltan')} {faltan} ({eur(d['importe_pendiente'])}).")
 
 
+def _dia(iso: str, con_anio: bool = False) -> str:
+    """«2026-10-17» -> «17/10» (o «17/10/2026»)."""
+    f = date.fromisoformat(str(iso))
+    return f"{f.day}/{f.month}/{f.year}" if con_anio else f"{f.day}/{f.month}"
+
+
+def _explicar_cargo_duplicado(d: dict) -> str:
+    primera, segunda = d["fechas"]
+    cuando = f"el {_dia(segunda)}" if primera == segunda else f"({_dia(primera)} y {_dia(segunda)})"
+    comercio = nombre_visible(d.get("comercio"))
+    if d.get("canal") == "recibo":
+        limite = d.get("fecha_limite_devolucion")
+        devolver = f" y puedes devolver el recibo hasta el {_dia(limite, True)}" if limite else ""
+        return (f"Hay dos recibos iguales de {eur(d['importe'])} de {comercio} {cuando}; "
+                f"puede ser un cobro duplicado{devolver}.")
+    return f"Hay dos cargos iguales de {eur(d['importe'])} en {comercio} {cuando}; puede ser un cobro duplicado."
+
+
+def _pct(valor: Any) -> str:
+    texto = f"{_decimal(valor):.1f}".replace(".", ",")
+    return texto[:-2] if texto.endswith(",0") else texto
+
+
+def _explicar_subida_recibo(d: dict) -> str:
+    """Dice «ha subido», nunca «te han cobrado de más» (revisión de `experto-banca`)."""
+    texto = (f"El recibo de {nombre_visible(d.get('comercio'))} ha subido de {eur(d['importe_habitual'])} "
+             f"a {eur(d['importe_actual'])} (+{eur(d['subida_eur'])}, un {_pct(d['subida_pct'])} %)")
+    meses = str(d.get("serie_id", "")).rpartition(":")[2].removesuffix("m")
+    if meses.isdigit() and int(meses) and 12 // int(meses) > 1:
+        texto += f": son unos {eur(_decimal(d['subida_eur']) * (12 // int(meses)))} más al año"
+    return texto + "."
+
+
 _TITULOS = {
     "cargo_duplicado": "Posible cargo duplicado",
     "renovacion_proxima": "Se renueva pronto una suscripción",
@@ -79,6 +112,8 @@ _TITULOS = {
 
 PLANTILLAS: dict[str, Callable[[dict], str]] = {
     "gasto_compartido": _explicar_gasto_compartido,
+    "cargo_duplicado": _explicar_cargo_duplicado,
+    "subida_recibo": _explicar_subida_recibo,
 }
 
 

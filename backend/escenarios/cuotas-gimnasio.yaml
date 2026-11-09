@@ -1,0 +1,28 @@
+# Trampa de cargo_duplicado (motor.md §3.2 y §5): dos personas de la familia van al mismo gimnasio y
+# cada mes llegan dos recibos iguales de 29,90 € el mismo día. Es el patrón de siempre, no un duplicado.
+# Datos sintéticos. Junio y julio entran como historial (antes de activar); de agosto a noviembre no
+# debe salir ningún momento.
+id: cuotas-gimnasio
+usuario_id: cuo
+descripcion: "Dos cuotas iguales del gimnasio cada mes: no es un duplicado"
+activacion: 2026-07-31
+hasta: 2026-11-16
+perfil: null
+movimientos:
+  - {id: cuo-06a, fecha: 2026-06-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+  - {id: cuo-06b, fecha: 2026-06-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+  - {id: cuo-07a, fecha: 2026-07-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+  - {id: cuo-07b, fecha: 2026-07-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+  - {id: cuo-08a, fecha: 2026-08-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+  - {id: cuo-08b, fecha: 2026-08-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+  - {id: cuo-09a, fecha: 2026-09-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+  - {id: cuo-09b, fecha: 2026-09-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+  - {id: cuo-10a, fecha: 2026-10-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+  - {id: cuo-10b, fecha: 2026-10-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+  - {id: cuo-11a, fecha: 2026-11-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+  - {id: cuo-11b, fecha: 2026-11-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -29.90, canal: recibo, categoria: ocio}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: cargo_duplicado, ids: [cuo-08a, cuo-08b, cuo-09a, cuo-09b, cuo-10a, cuo-10b, cuo-11a, cuo-11b],
+     motivo: "dos cuotas de gimnasio cada mes"}

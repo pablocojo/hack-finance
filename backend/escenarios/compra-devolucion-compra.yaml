@@ -1,0 +1,17 @@
+# Trampa de cargo_duplicado (motor.md §3.2 y §5): Lucía compra unas zapatillas de 49,95 €, las
+# devuelve al día siguiente y compra la otra talla por el mismo importe. Entre los dos cargos hay un
+# abono igual: no es un duplicado. Datos sintéticos.
+id: compra-devolucion-compra
+usuario_id: cdc
+descripcion: "Compra, devolución y compra de otra talla por el mismo importe: no es un duplicado"
+activacion: 2026-10-01
+hasta: 2026-10-31
+perfil: null
+movimientos:
+  - {id: cdc-1, fecha: 2026-10-20, concepto: "COMPRA TARJETA ZARA", comercio: "ZARA", importe: -49.95, canal: tarjeta, categoria: compras}
+  - {id: cdc-2, fecha: 2026-10-21, concepto: "DEVOLUCION COMPRA ZARA", comercio: "ZARA", importe: 49.95, canal: tarjeta, categoria: compras}
+  - {id: cdc-3, fecha: 2026-10-21, concepto: "COMPRA TARJETA ZARA", comercio: "ZARA", importe: -49.95, canal: tarjeta, categoria: compras}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: cargo_duplicado, ids: [cdc-1, cdc-3], motivo: "entre las dos compras hay una devolución igual"}

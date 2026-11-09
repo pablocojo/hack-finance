@@ -1,0 +1,28 @@
+# subida_recibo (motor.md §3.4 y §5): el recibo de la luz pasa de unos 45 € a 57 €.
+# Datos sintéticos. Fondo de estudiante sin anomalías y un recibo mensual de luz el día 12 desde junio,
+# casi fijo (44,80-45,20 €; habitual 45,00 €). El 12/11 llega de 57,00 €: +12,00 € (26,7 %), unos
+# 144 € más al año. Sale ese día. El 12/12 vuelve a llegar de 57,40 €: ya es el nivel nuevo, no avisa.
+id: luz-sube
+usuario_id: luz
+descripcion: "El recibo de la luz sube de 45 € a 57 € (+12 €)"
+fondo: {perfil: estudiante, meses: 6, semilla: 21, hasta: 2026-12-16, anomalias: false}
+activacion: 2026-10-01
+hasta: 2026-12-16
+perfil: null
+movimientos:
+  - {id: luz-06, fecha: 2026-06-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -44.80, canal: recibo, categoria: suministros}
+  - {id: luz-07, fecha: 2026-07-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -45.20, canal: recibo, categoria: suministros}
+  - {id: luz-08, fecha: 2026-08-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -45.00, canal: recibo, categoria: suministros}
+  - {id: luz-09, fecha: 2026-09-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -44.90, canal: recibo, categoria: suministros}
+  - {id: luz-10, fecha: 2026-10-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -45.10, canal: recibo, categoria: suministros}
+  - {id: luz-11, fecha: 2026-11-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -57.00, canal: recibo, categoria: suministros}
+  - {id: luz-12, fecha: 2026-12-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -57.40, canal: recibo, categoria: suministros}
+eventos: []
+esperado:
+  - {tipo: subida_recibo, fecha_detectable: 2026-11-12, ids: [luz-11], tolerancia_dias: 0,
+     datos: {comercio: ENERGIA NORTE, importe_actual: "57.00", importe_habitual: "45.00", subida_eur: "12.00",
+             subida_pct: "26.7", serie_id: "ENERGIA NORTE:1m"}}
+trampas:
+  - {tipo: subida_recibo, ids: [luz-10], motivo: "recibo normal"}
+  - {tipo: subida_recibo, ids: [luz-12], motivo: "el nuevo nivel ya se avisó el mes anterior"}
+  - {tipo: cargo_duplicado, ids: [luz-11, luz-12], motivo: "importes distintos, un mes de diferencia"}

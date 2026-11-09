@@ -7,6 +7,7 @@ Todo es puro: lo que entra es el historial que ya se puede ver (fecha <= hoy); n
 
 from __future__ import annotations
 
+import calendar
 import math
 import re
 import statistics
@@ -40,10 +41,18 @@ class Serie:
     canal: str | None
     categoria: str | None
     ids: list[str] = field(default_factory=list)
+    importes: list[Decimal] = field(default_factory=list)   # en positivo, por fecha
+    fechas: list[date] = field(default_factory=list)
+
+    @property
+    def cargos_al_anio(self) -> int:
+        return 12 // self.periodo_meses
 
     def a_dict(self) -> dict:
         datos = asdict(self)
-        datos.update(importe_habitual=str(self.importe_habitual), ultimo=self.ultimo.isoformat())
+        datos.update(importe_habitual=str(self.importe_habitual), ultimo=self.ultimo.isoformat(),
+                     importes=[str(i) for i in self.importes], fechas=[f.isoformat() for f in self.fechas],
+                     cargos_al_anio=self.cargos_al_anio)
         return datos
 
 
@@ -55,29 +64,51 @@ def _es_cargo(m: MovimientoEnriquecido) -> bool:
     return m.importe < 0 and m.tipo_operacion == "cargo" and bool(m.comercio_normalizado)
 
 
+def _dias_del_mes(fechas: list[date]) -> tuple[float, int]:
+    """(dispersión, día habitual) del día del mes, en circular: el 30 y el 2 están a 3 días."""
+    dias = [f.day for f in fechas]
+    girados = [(d + 15) % 31 for d in dias]
+    if len(dias) > 1 and statistics.pstdev(girados) < statistics.pstdev(dias):
+        habitual = (int(statistics.median(girados)) - 15) % 31 or 31
+        return statistics.pstdev(girados), habitual
+    return (statistics.pstdev(dias) if len(dias) > 1 else 0.0), int(statistics.median(dias))
+
+
+def _periodo(fechas: list[date], concepto: str, p: parametros.Series) -> int | None:
+    """Periodo en meses (1, 2, 3, 6 o 12). Anual: saltos de 330-400 días (o un cargo con marcador).
+    El resto: el salto de meses más común, con hasta `MAX_HUECOS` recibos que faltan (salto doble)."""
+    if len(fechas) == 1:
+        return 12 if _MARCADOR_ANUAL.search(concepto.upper()) else None
+    saltos_dias = [(b - a).days for a, b in zip(fechas, fechas[1:])]
+    if all(p.DIAS_ANUAL[0] <= s <= p.DIAS_ANUAL[1] for s in saltos_dias):
+        return 12
+    meses = sorted({_indice_mes(f) for f in fechas})
+    if len(meses) < 2 or len(fechas) / len(meses) > p.MAX_CARGOS_POR_MES:
+        return None
+    saltos = [b - a for a, b in zip(meses, meses[1:])]
+    periodo = min(set(saltos), key=lambda s: (-saltos.count(s), s))
+    if periodo not in p.PERIODOS_MESES:
+        return None
+    huecos = sum(1 for s in saltos if s == 2 * periodo)
+    if huecos > p.MAX_HUECOS or any(s not in (periodo, 2 * periodo) for s in saltos):
+        return None
+    if periodo == 1 and len(meses) < p.MIN_CARGOS_MENSUAL:
+        return None
+    return periodo
+
+
 def _serie_de(comercio: str, grupo: list[MovimientoEnriquecido], p: parametros.Series) -> Serie | None:
     importes = [abs(m.importe) for m in grupo]
     fechas = [m.fecha for m in grupo]
-    meses = sorted({_indice_mes(f) for f in fechas})
-    periodo = None
-    if len(grupo) == 1:
-        if _MARCADOR_ANUAL.search(grupo[0].concepto.upper()):
-            periodo = 12
-    elif len(grupo) / len(meses) <= p.MAX_CARGOS_POR_MES and len(meses) >= 2:
-        saltos = {b - a for a, b in zip(meses, meses[1:])}
-        if len(saltos) == 1 and (salto := saltos.pop()) in p.PERIODOS_MESES:
-            periodo = salto
-        elif len(grupo) == 2 and p.DIAS_ANUAL[0] <= (fechas[-1] - fechas[0]).days <= p.DIAS_ANUAL[1]:
-            periodo = 12
-        if periodo == 1 and len(meses) < p.MIN_CARGOS_MENSUAL:
-            periodo = None
+    periodo = _periodo(fechas, grupo[0].concepto, p)
     if periodo is None:
         return None
     media = sum(importes) / len(importes)
     variacion = float(Decimal(statistics.pstdev([float(i) for i in importes])) / media) if media else 0.0
     if variacion > p.VARIACION_MAX:
         return None
-    if len(grupo) > 1 and statistics.pstdev([f.day for f in fechas]) > p.DISPERSION_DIA_MAX:
+    dispersion, dia_habitual = _dias_del_mes(fechas)
+    if periodo < 12 and dispersion > p.DISPERSION_DIA_MAX:
         return None
     con_tarjeta = all(m.canal == "tarjeta" for m in grupo)
     if con_tarjeta and (variacion > p.VARIACION_FIJO or (periodo < 6 and len(grupo) < p.MIN_CARGOS_TARJETA)):
@@ -88,7 +119,7 @@ def _serie_de(comercio: str, grupo: list[MovimientoEnriquecido], p: parametros.S
         comercio=comercio,
         periodo_meses=periodo,
         importe_habitual=centimos(Decimal(statistics.median(importes))),
-        dia_habitual=int(statistics.median([f.day for f in fechas])),
+        dia_habitual=dia_habitual,
         variacion=round(variacion, 4),
         veces=len(grupo),
         ultimo=max(fechas),
@@ -96,7 +127,39 @@ def _serie_de(comercio: str, grupo: list[MovimientoEnriquecido], p: parametros.S
         canal=grupo[-1].canal,
         categoria=max(set(categorias), key=categorias.count) if categorias else None,
         ids=[m.id for m in grupo],
+        importes=[centimos(i) for i in importes],
+        fechas=fechas,
     )
+
+
+def serie_previa(historial: list[MovimientoEnriquecido], cargo: MovimientoEnriquecido,
+                 p: parametros.Series | None = None) -> Serie | None:
+    """La serie del comercio de `cargo` calculada solo con los cargos anteriores a él (sin él ni lo que
+    llegó después). Es «lo habitual» con lo que se compara un recibo nuevo."""
+    p = p or parametros.DEFECTO["series"]
+    previos = []
+    for m in historial:
+        if m.id == cargo.id:
+            break
+        if _es_cargo(m) and m.comercio_normalizado == cargo.comercio_normalizado:
+            previos.append(m)
+    return _serie_de(cargo.comercio_normalizado, previos, p) if previos else None
+
+
+def encaja_en_serie(serie: Serie, fecha: date, p: parametros.Series | None = None) -> bool:
+    """¿Un cargo en `fecha` es el siguiente de la serie? Un periodo después del último (o dos, si faltó
+    uno) y a ±`DIAS_TOLERANCIA_CARGO` de su día; las anuales, a 330-400 días."""
+    p = p or parametros.DEFECTO["series"]
+    dias = (fecha - serie.ultimo).days
+    if serie.periodo_meses == 12:
+        return p.DIAS_ANUAL[0] <= dias <= p.DIAS_ANUAL[1]
+    for saltos in range(1, p.MAX_HUECOS + 2):
+        mes = serie.ultimo.month - 1 + saltos * serie.periodo_meses
+        anio, mes = serie.ultimo.year + mes // 12, mes % 12 + 1
+        dia = min(serie.dia_habitual, calendar.monthrange(anio, mes)[1])
+        if abs((fecha - date(anio, mes, dia)).days) <= p.DIAS_TOLERANCIA_CARGO:
+            return True
+    return False
 
 
 def calcular_series(historial: list[MovimientoEnriquecido], p: parametros.Series | None = None) -> dict[str, Serie]:

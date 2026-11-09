@@ -1,0 +1,27 @@
+# cargo_duplicado (motor.md §3.2 y §5): el gimnasio pasa dos veces el recibo de noviembre.
+# Datos sintéticos. Fondo de familia sin anomalías y un recibo mensual de 39,90 € el día 5 desde junio.
+# En noviembre llega el recibo el 5 y otra vez el 6: sale el 6/11 (el día del segundo), con la fecha
+# límite para devolver el recibo (8 semanas desde el segundo cargo: 1/1/2027) y la serie.
+id: gimnasio-doble
+usuario_id: gim
+descripcion: "El gimnasio pasa dos veces el recibo de 39,90 € de noviembre"
+fondo: {perfil: familia, meses: 6, semilla: 5, hasta: 2026-11-16, anomalias: false}
+activacion: 2026-09-30
+hasta: 2026-11-16
+perfil: null
+movimientos:
+  - {id: gim-06, fecha: 2026-06-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -39.90, canal: recibo, categoria: ocio}
+  - {id: gim-07, fecha: 2026-07-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -39.90, canal: recibo, categoria: ocio}
+  - {id: gim-08, fecha: 2026-08-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -39.90, canal: recibo, categoria: ocio}
+  - {id: gim-09, fecha: 2026-09-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -39.90, canal: recibo, categoria: ocio}
+  - {id: gim-10, fecha: 2026-10-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -39.90, canal: recibo, categoria: ocio}
+  - {id: gim-11a, fecha: 2026-11-05, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -39.90, canal: recibo, categoria: ocio}
+  - {id: gim-11b, fecha: 2026-11-06, concepto: "RECIBO GIMNASIO VITAL SPORT", comercio: "GIMNASIO VITAL SPORT", importe: -39.90, canal: recibo, categoria: ocio}
+eventos: []
+esperado:
+  - {tipo: cargo_duplicado, fecha_detectable: 2026-11-06, ids: [gim-11a, gim-11b], tolerancia_dias: 0,
+     datos: {comercio: GIMNASIO VITAL SPORT, importe: "39.90", id_segundo: gim-11b, dias_entre: 1, canal: recibo,
+             fecha_limite_devolucion: 2027-01-01, serie_id: "GIMNASIO VITAL SPORT:1m"}}
+trampas:
+  - {tipo: cargo_duplicado, ids: [gim-10], motivo: "recibo normal de octubre"}
+  - {tipo: subida_recibo, ids: [gim-11a, gim-11b], motivo: "el importe no ha cambiado"}

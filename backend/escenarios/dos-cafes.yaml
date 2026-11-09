@@ -1,0 +1,113 @@
+# Trampa de cargo_duplicado (motor.md §3.2 y §5): cafés y menús del día.
+# Datos sintéticos. Cada día laborable, un café de 2,40 € en la Cafetería Sol (algunos días, dos) y el
+# menú de 15,50 € en el Bar El Rincón (el 15/10, dos: invita a un compañero). Mismo comercio, mismo
+# importe y pocos días entre cargos, pero no son duplicados: el café está por debajo del importe
+# mínimo con tarjeta y el menú es una compra habitual (8 o más en 30 días, por debajo de 50 €).
+id: dos-cafes
+usuario_id: caf
+descripcion: "Cafés y menús del día repetidos: no son cargos duplicados"
+activacion: 2026-09-30
+hasta: 2026-10-31
+perfil: null
+movimientos:
+  - {id: caf-0901-c1, fecha: 2026-09-01, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0901-m1, fecha: 2026-09-01, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0902-c1, fecha: 2026-09-02, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0902-m1, fecha: 2026-09-02, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0903-c1, fecha: 2026-09-03, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0903-m1, fecha: 2026-09-03, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0904-c1, fecha: 2026-09-04, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0904-m1, fecha: 2026-09-04, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0907-c1, fecha: 2026-09-07, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0907-c2, fecha: 2026-09-07, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0907-m1, fecha: 2026-09-07, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0908-c1, fecha: 2026-09-08, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0908-m1, fecha: 2026-09-08, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0909-c1, fecha: 2026-09-09, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0909-m1, fecha: 2026-09-09, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0910-c1, fecha: 2026-09-10, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0910-m1, fecha: 2026-09-10, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0911-c1, fecha: 2026-09-11, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0911-m1, fecha: 2026-09-11, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0914-c1, fecha: 2026-09-14, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0914-m1, fecha: 2026-09-14, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0915-c1, fecha: 2026-09-15, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0915-c2, fecha: 2026-09-15, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0915-m1, fecha: 2026-09-15, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0915-m2, fecha: 2026-09-15, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0916-c1, fecha: 2026-09-16, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0916-m1, fecha: 2026-09-16, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0917-c1, fecha: 2026-09-17, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0917-m1, fecha: 2026-09-17, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0918-c1, fecha: 2026-09-18, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0918-m1, fecha: 2026-09-18, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0921-c1, fecha: 2026-09-21, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0921-m1, fecha: 2026-09-21, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0922-c1, fecha: 2026-09-22, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0922-c2, fecha: 2026-09-22, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0922-m1, fecha: 2026-09-22, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0923-c1, fecha: 2026-09-23, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0923-m1, fecha: 2026-09-23, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0924-c1, fecha: 2026-09-24, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0924-m1, fecha: 2026-09-24, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0925-c1, fecha: 2026-09-25, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0925-m1, fecha: 2026-09-25, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0928-c1, fecha: 2026-09-28, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0928-m1, fecha: 2026-09-28, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0929-c1, fecha: 2026-09-29, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0929-m1, fecha: 2026-09-29, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0930-c1, fecha: 2026-09-30, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-0930-m1, fecha: 2026-09-30, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1001-c1, fecha: 2026-10-01, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1001-m1, fecha: 2026-10-01, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1002-c1, fecha: 2026-10-02, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1002-m1, fecha: 2026-10-02, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1005-c1, fecha: 2026-10-05, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1005-m1, fecha: 2026-10-05, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1006-c1, fecha: 2026-10-06, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1006-m1, fecha: 2026-10-06, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1007-c1, fecha: 2026-10-07, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1007-c2, fecha: 2026-10-07, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1007-m1, fecha: 2026-10-07, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1008-c1, fecha: 2026-10-08, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1008-m1, fecha: 2026-10-08, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1009-c1, fecha: 2026-10-09, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1009-m1, fecha: 2026-10-09, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1012-c1, fecha: 2026-10-12, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1012-m1, fecha: 2026-10-12, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1013-c1, fecha: 2026-10-13, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1013-m1, fecha: 2026-10-13, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1014-c1, fecha: 2026-10-14, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1014-m1, fecha: 2026-10-14, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1015-c1, fecha: 2026-10-15, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1015-c2, fecha: 2026-10-15, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1015-m1, fecha: 2026-10-15, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1015-m2, fecha: 2026-10-15, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1016-c1, fecha: 2026-10-16, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1016-m1, fecha: 2026-10-16, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1019-c1, fecha: 2026-10-19, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1019-m1, fecha: 2026-10-19, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1020-c1, fecha: 2026-10-20, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1020-m1, fecha: 2026-10-20, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1021-c1, fecha: 2026-10-21, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1021-m1, fecha: 2026-10-21, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1022-c1, fecha: 2026-10-22, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1022-c2, fecha: 2026-10-22, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1022-m1, fecha: 2026-10-22, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1023-c1, fecha: 2026-10-23, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1023-m1, fecha: 2026-10-23, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1026-c1, fecha: 2026-10-26, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1026-m1, fecha: 2026-10-26, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1027-c1, fecha: 2026-10-27, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1027-m1, fecha: 2026-10-27, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1028-c1, fecha: 2026-10-28, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1028-m1, fecha: 2026-10-28, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1029-c1, fecha: 2026-10-29, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1029-m1, fecha: 2026-10-29, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1030-c1, fecha: 2026-10-30, concepto: "COMPRA TARJETA CAFETERIA SOL", comercio: "CAFETERIA SOL", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: caf-1030-m1, fecha: 2026-10-30, concepto: "COMPRA TARJETA BAR EL RINCON", comercio: "BAR EL RINCON", importe: -15.50, canal: tarjeta, categoria: restaurantes}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: cargo_duplicado, motivo: "compras habituales o de importe pequeño",
+     ids: [caf-1001-c1, caf-1001-m1, caf-1002-c1, caf-1002-m1, caf-1005-c1, caf-1005-m1, caf-1006-c1, caf-1006-m1, caf-1007-c1, caf-1007-c2, caf-1007-m1, caf-1008-c1, caf-1008-m1, caf-1009-c1, caf-1009-m1, caf-1012-c1, caf-1012-m1, caf-1013-c1, caf-1013-m1, caf-1014-c1, caf-1014-m1, caf-1015-c1, caf-1015-c2, caf-1015-m1, caf-1015-m2, caf-1016-c1, caf-1016-m1, caf-1019-c1, caf-1019-m1, caf-1020-c1, caf-1020-m1, caf-1021-c1, caf-1021-m1, caf-1022-c1, caf-1022-c2, caf-1022-m1, caf-1023-c1, caf-1023-m1, caf-1026-c1, caf-1026-m1, caf-1027-c1, caf-1027-m1, caf-1028-c1, caf-1028-m1, caf-1029-c1, caf-1029-m1, caf-1030-c1, caf-1030-m1]}

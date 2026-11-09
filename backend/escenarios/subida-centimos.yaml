@@ -1,0 +1,28 @@
+# Trampa de subida_recibo (motor.md §3.4 y §5): el recibo de la luz sube 2 € (de 45,00 € a 47,00 €).
+# No llega a «más de 2 € y más del 8 %»: no merece una interrupción. En la misma persona, un recibo de
+# luz variable (55-80 €) que llega a 82 €: +24 % sobre lo habitual y apenas 2 € por encima del máximo
+# de siempre (trampa `luz-invierno`: en una serie variable hace falta más del 25 %). Datos sintéticos.
+id: subida-centimos
+usuario_id: cen
+descripcion: "El recibo de la luz sube 2 € y otro variable llega a su máximo de siempre: no avisa"
+activacion: 2026-10-01
+hasta: 2026-11-30
+perfil: null
+movimientos:
+  - {id: cen-06, fecha: 2026-06-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -45.00, canal: recibo, categoria: suministros}
+  - {id: cen-07, fecha: 2026-07-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -45.00, canal: recibo, categoria: suministros}
+  - {id: cen-08, fecha: 2026-08-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -45.00, canal: recibo, categoria: suministros}
+  - {id: cen-09, fecha: 2026-09-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -45.00, canal: recibo, categoria: suministros}
+  - {id: cen-10, fecha: 2026-10-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -45.00, canal: recibo, categoria: suministros}
+  - {id: cen-11, fecha: 2026-11-12, concepto: "RECIBO ENERGIA NORTE LUZ", comercio: "ENERGIA NORTE", importe: -47.00, canal: recibo, categoria: suministros}
+  - {id: inv-06, fecha: 2026-06-20, concepto: "RECIBO LUZ COSTA ENERGIA", comercio: "LUZ COSTA", importe: -60.00, canal: recibo, categoria: suministros}
+  - {id: inv-07, fecha: 2026-07-20, concepto: "RECIBO LUZ COSTA ENERGIA", comercio: "LUZ COSTA", importe: -72.00, canal: recibo, categoria: suministros}
+  - {id: inv-08, fecha: 2026-08-20, concepto: "RECIBO LUZ COSTA ENERGIA", comercio: "LUZ COSTA", importe: -55.00, canal: recibo, categoria: suministros}
+  - {id: inv-09, fecha: 2026-09-20, concepto: "RECIBO LUZ COSTA ENERGIA", comercio: "LUZ COSTA", importe: -80.00, canal: recibo, categoria: suministros}
+  - {id: inv-10, fecha: 2026-10-20, concepto: "RECIBO LUZ COSTA ENERGIA", comercio: "LUZ COSTA", importe: -66.00, canal: recibo, categoria: suministros}
+  - {id: inv-11, fecha: 2026-11-20, concepto: "RECIBO LUZ COSTA ENERGIA", comercio: "LUZ COSTA", importe: -82.00, canal: recibo, categoria: suministros}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: subida_recibo, ids: [cen-11], motivo: "solo +2 €"}
+  - {tipo: subida_recibo, ids: [inv-11], motivo: "serie variable: +24 %, por debajo del 25 %"}

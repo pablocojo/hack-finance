@@ -1,0 +1,18 @@
+# cargo_duplicado (motor.md §3.2 y §5): el datáfono de Zara cobra dos veces la misma compra.
+# Datos sintéticos. Fondo de estudiante sin anomalías; el 17/10 entran dos cargos de 59,95 € de ZARA
+# con tarjeta el mismo día. Debe salir ese mismo día (retraso 0), con confianza de tarjeta (0,70).
+id: tpv-doble
+usuario_id: tpv
+descripcion: "El TPV de Zara cobra dos veces la misma compra de 59,95 €"
+fondo: {perfil: estudiante, meses: 4, semilla: 11, hasta: 2026-11-16, anomalias: false}
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: null
+movimientos:
+  - {id: tpv-z1, fecha: 2026-10-17, concepto: "COMPRA TARJETA ZARA GRAN VIA MADRID", comercio: "ZARA", importe: -59.95, canal: tarjeta, categoria: compras}
+  - {id: tpv-z2, fecha: 2026-10-17, concepto: "COMPRA TARJETA ZARA GRAN VIA MADRID", comercio: "ZARA", importe: -59.95, canal: tarjeta, categoria: compras}
+eventos: []
+esperado:
+  - {tipo: cargo_duplicado, fecha_detectable: 2026-10-17, ids: [tpv-z1, tpv-z2], tolerancia_dias: 0,
+     datos: {comercio: ZARA, importe: "59.95", id_segundo: tpv-z2, dias_entre: 0, canal: tarjeta}}
+trampas: []

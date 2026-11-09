@@ -33,4 +33,4 @@ def version(tipo: str) -> int:
     return REGISTRO[tipo].version if tipo in REGISTRO else 1
 
 
-from . import gasto_compartido  # noqa: E402,F401  (se registran al importar)
+from . import cargo_duplicado, gasto_compartido, subida_recibo  # noqa: E402,F401  (se registran al importar)
