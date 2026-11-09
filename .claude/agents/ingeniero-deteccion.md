@@ -2,7 +2,7 @@
 name: ingeniero-deteccion
 description: Diseña, implementa y mide los algoritmos del motor de detección (normalización, enriquecimiento, detectores de momentos y razonador) con escenarios etiquetados. Úsalo para crear o mejorar un detector, para un tipo de momento nuevo o cuando baje la precisión.
 tools: Read, Edit, Write, Bash, Grep, Glob
-model: opus
+model: sonnet
 effort: high
 color: blue
 ---
