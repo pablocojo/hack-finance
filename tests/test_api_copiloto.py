@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
+from urllib.parse import quote
 
 import pytest
 
@@ -12,6 +14,9 @@ pytest.importorskip("httpx")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from backend.api.main import app  # noqa: E402
+from backend.plataforma import almacenamiento as alm  # noqa: E402
+from backend.plataforma import orquestador as orq  # noqa: E402
+from backend.plataforma.tipos import ModeloUsuario  # noqa: E402
 from tests.test_orquestador import Falsos, UID  # noqa: E402
 
 http = TestClient(app)
@@ -105,14 +110,21 @@ def test_reproducir_sse(activo):
 
 
 def test_rutas_futuras_responden_501():
-    for metodo, ruta in [("get", "/usuarios/u/perfil"), ("patch", "/usuarios/u/perfil"), ("delete", "/usuarios/u/perfil"),
-                         ("delete", "/usuarios/u/perfil/umbral_relevante_eur"), ("get", "/usuarios/u/aprendido"),
-                         ("patch", "/usuarios/u/aprendido/h1"), ("delete", "/usuarios/u/aprendido/h1"),
-                         ("delete", "/usuarios/u/aprendido"), ("post", "/usuarios/u/pruebas"), ("get", "/usuarios/u/amigos"),
+    for metodo, ruta in [("post", "/usuarios/u/pruebas"), ("get", "/usuarios/u/amigos"),
                          ("post", "/acciones/deshacer"),
                          ("post", "/voz/herramientas/consultar"), ("get", "/banco/modulos"),
                          ("post", "/banco/modulos/borrador"), ("post", "/banco/modulos/x/aprobar")]:
         assert getattr(http, metodo)(ruta).status_code == 501, (metodo, ruta)
+
+
+def test_rutas_de_lo_aprendido_ya_no_son_501(falsos):
+    """U2: sin usuario, 404; con usuario, existen y responden JSON."""
+    for metodo, ruta in [("get", "/usuarios/u/perfil"), ("delete", "/usuarios/u/perfil"),
+                         ("delete", "/usuarios/u/perfil/umbral_relevante_eur"), ("get", "/usuarios/u/aprendido"),
+                         ("delete", "/usuarios/u/aprendido/h1"), ("delete", "/usuarios/u/aprendido")]:
+        assert getattr(http, metodo)(ruta).status_code == 404, (metodo, ruta)
+    assert http.patch("/usuarios/u/perfil", json={"campo": "dia_cobro_nomina", "valor": 5}).status_code == 404
+    assert http.patch("/usuarios/u/aprendido/h1", json={"activo": False}).status_code == 404
 
 
 def test_cors_permite_patch_y_delete():
@@ -163,6 +175,12 @@ def test_demo_key_en_todas_las_rutas_que_cambian_estado(activo, monkeypatch):
                   ("post", "/acciones/preparar", {"usuario_id": UID, "propuesta_id": "x", "accion_id": "recordar"}),
                   ("post", "/acciones/confirmar", {"usuario_id": UID, "token_confirmacion": "t"}),
                   ("post", "/acciones/deshacer", {}),
+                  ("patch", f"/usuarios/{UID}/perfil", {"campo": "dia_cobro_nomina", "valor": 5}),
+                  ("delete", f"/usuarios/{UID}/perfil/umbral_relevante_eur", None),
+                  ("delete", f"/usuarios/{UID}/perfil", None),
+                  ("patch", f"/usuarios/{UID}/aprendido/h1", {"activo": False}),
+                  ("delete", f"/usuarios/{UID}/aprendido/h1", None),
+                  ("delete", f"/usuarios/{UID}/aprendido", None),
                   ("post", "/voz/sesion", {}), ("get", "/banco/modulos", None)]
     monkeypatch.setenv("DEMO_KEY", "secreta")
 
@@ -186,3 +204,105 @@ def test_consentimiento_sin_marcar_por_defecto(falsos):
     r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["cena_compartida"],
                                                     "consentimientos": {"avisos": True}})
     assert list(r.json()["consentimientos"]) == ["copiloto"]
+
+
+# --- Lo que he aprendido de ti (U2) ----------------------------------------------------------------
+
+def _perfil() -> str:
+    return f"/usuarios/{UID}/perfil"
+
+
+def _aprendido(*resto: str) -> str:
+    return "/".join([f"/usuarios/{UID}/aprendido", *[quote(r, safe="") for r in resto]])
+
+
+def test_perfil_ver_editar_y_borrar_un_campo(activo):
+    r = http.get(_perfil()).json()
+    assert r["usar_perfil"] is True and r["perfil"]["umbral_relevante_eur"] == "20.00"   # dinero como cadena
+    assert {f["campo"] for f in r["frases"]} == {"ticket_tipico", "umbral_relevante_eur"}
+    r = http.patch(_perfil(), json={"campo": "umbral_relevante_eur", "valor": "35"})
+    assert r.status_code == 200 and r.json()["perfil"]["umbral_relevante_eur"] == "35.00"
+    assert "umbral_relevante_eur" in r.json()["perfil"]["campos_fijados"]
+    assert alm.cargar(UID, "modelo", ModeloUsuario).perfil.umbral_relevante_eur == 35
+    r = http.delete(f"{_perfil()}/umbral_relevante_eur")
+    assert r.status_code == 200 and Decimal(r.json()["perfil"]["umbral_relevante_eur"]) == 20
+    assert r.json()["perfil"]["campos_borrados"] == ["umbral_relevante_eur"]
+    # Errores: valor malo 400, campo que no existe 404, campo que solo se borra 400.
+    assert http.patch(_perfil(), json={"campo": "umbral_relevante_eur", "valor": "mucho"}).status_code == 400
+    assert http.patch(_perfil(), json={"campo": "saldo", "valor": 1}).status_code == 404
+    assert http.patch(_perfil(), json={"campo": "ticket_tipico", "valor": 5}).status_code == 400
+    assert http.delete(f"{_perfil()}/saldo").status_code == 404
+    # La auditoría dice qué se tocó, no el valor.
+    eventos = [e for e in alm.leer_auditoria(UID) if e["evento"].startswith("perfil_")]
+    assert [e["evento"] for e in eventos] == ["perfil_editado", "perfil_campo_borrado"]
+    assert all("valor" not in e and "35" not in json.dumps(e) for e in eventos)
+
+
+def test_borrar_el_perfil_deja_motor_y_politica_en_frio_y_se_puede_reactivar(activo, monkeypatch):
+    vistos: list = []
+    original = orq.motor.procesar
+    monkeypatch.setattr(orq.motor, "procesar", lambda uid, nuevos, hoy, perfil=None: (
+        vistos.append(perfil), original(uid, nuevos, hoy, perfil))[1])
+    _avanzar(1)
+    assert vistos[-1] is not None                                                        # con perfil
+    r = http.delete(_perfil())
+    assert r.status_code == 200 and r.json() == {"usar_perfil": False, "perfil": None, "frases": []}
+    activo.llamadas.clear()
+    _avanzar(9)                                                                          # pasa más de una semana
+    assert vistos[1:] == [None] * 9 and "perfilar" not in activo.llamadas               # en frío, y sin recalcular
+    assert alm.cargar(UID, "modelo", ModeloUsuario).perfil is None
+    r = http.patch(_perfil(), json={"campo": "usar_perfil", "valor": True})              # lo vuelve a querer
+    assert r.status_code == 200 and r.json()["usar_perfil"] and r.json()["perfil"] is not None
+    _avanzar(1)
+    assert vistos[-1] is not None
+    assert http.patch(_perfil(), json={"campo": "usar_perfil", "valor": "si"}).status_code == 400
+
+
+def test_aprendido_apagar_editar_borrar_y_olvidar_todo(activo):
+    _avanzar(3)
+    pid = http.get(f"/usuarios/{UID}/notificaciones").json()[0]["propuesta"]["id"]
+    http.post("/feedback", json={"usuario_id": UID, "propuesta_id": pid, "resultado": "rechazada"})
+    visto = http.get(_aprendido()).json()
+    assert [h["id"] for h in visto["hechos"]] == ["h-rechazada"] and visto["silencios"] == [] and visto["usar_perfil"]
+    r = http.patch(_aprendido("h-rechazada"), json={"activo": False})
+    assert r.status_code == 200 and r.json()["hechos"][0]["activo"] is False
+    assert http.patch(_aprendido("h-rechazada"), json={"activo": True}).status_code == 400   # lo de feedback no se resucita
+    assert http.patch(_aprendido("h-rechazada"), json={"texto": "Otra cosa"}).status_code == 400
+    assert http.patch(_aprendido("h-rechazada"), json={}).status_code == 400
+    assert http.patch(_aprendido("nada"), json={"activo": False}).status_code == 404
+    assert http.delete(_aprendido("nada")).status_code == 404
+    assert http.delete(_aprendido("h-rechazada")).json()["hechos"] == []
+    http.post("/feedback", json={"usuario_id": UID, "propuesta_id": pid, "resultado": "vista_sin_accion"})
+    assert [h["id"] for h in http.get(_aprendido()).json()["hechos"]] == ["h-vista_sin_accion"]
+    antes = alm.cargar(UID, "modelo", ModeloUsuario)
+    r = http.delete(_aprendido())
+    assert r.status_code == 200 and r.json()["hechos"] == []
+    despues = alm.cargar(UID, "modelo", ModeloUsuario)
+    assert despues.consentimientos == antes.consentimientos and despues.modulos_activos == ["cena_compartida"]
+    assert despues.perfil is None and despues.estadisticas == {} and despues.avisos_abiertos == {}
+
+
+def test_cena_lucia_un_silencio_se_ve_y_se_borra_por_http():
+    """Sin stubs: «no avisar de Marcos» aparece en lo aprendido (enmascarado) y al borrarlo desaparece."""
+    assert http.post("/demo/cargar", json={"escenario_id": "cena-lucia"}).status_code == 200
+    usuario = "lucia"
+    assert http.post(f"/usuarios/{usuario}/activar", json={"modulos_activos": ["cena_compartida"],
+                                                           "consentimientos": {"copiloto": True}}).status_code == 200
+    perfil = http.get(f"/usuarios/{usuario}/perfil").json()
+    assert perfil["perfil"]["dia_cobro_nomina"] == 28 and "Tu nómina suele llegar el día 28." in {
+        f["texto"] for f in perfil["frases"]}
+    avisos = []
+    for _ in range(60):
+        http.post("/reloj/avanzar", json={"usuario_id": usuario, "dias": 1})
+        avisos = http.get(f"/usuarios/{usuario}/notificaciones", params={"bandeja": "ahora"}).json()
+        if avisos:
+            break
+    pid = avisos[0]["propuesta"]["id"]
+    r = http.post("/feedback", json={"usuario_id": usuario, "propuesta_id": pid, "resultado": "no_avisar_contacto"})
+    hecho = r.json()["hechos_nuevos"][0]
+    visto = http.get(f"/usuarios/{usuario}/aprendido").json()
+    assert visto["silencios"] == [{"ambito": "contacto", "desde": "2026-11-09", "valor": "Marcos R."}]
+    assert "MARCOS R" not in json.dumps(visto["silencios"])
+    borrado = http.delete(f"/usuarios/{usuario}/aprendido/{quote(hecho['id'], safe='')}")
+    assert borrado.status_code == 200 and borrado.json()["silencios"] == [] and borrado.json()["hechos"] == []
+    assert alm.cargar(usuario, "modelo", ModeloUsuario).preferencias.silencios == []

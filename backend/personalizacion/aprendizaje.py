@@ -115,12 +115,16 @@ def hechos_derivados(modelo: ModeloUsuario, dia: date) -> None:
         hid = f"h-{clave}"
         texto = M.hecho_celda(clave, util=media >= HECHO_MEDIA_ALTA)
         previo = previos.get(hid)
+        # Un hecho apagado por el usuario reinició su celda: si vuelve a salir, es aprendizaje nuevo.
         nuevos.append(HechoAprendido(
-            id=hid, texto=texto, activo=previo.activo if previo else True,
-            creado=previo.creado if previo and previo.texto == texto else dia, origen="feedback", clave=clave,
+            id=hid, texto=texto,
+            creado=previo.creado if previo and previo.activo and previo.texto == texto else dia,
+            origen="feedback", clave=clave,
         ))
+    # Los apagados que no han vuelto a salir siguen a la vista (inactivos) hasta que los borre.
+    apagados = [h for h in previos.values() if not h.activo and h.id not in {n.id for n in nuevos}]
     otros = [h for h in modelo.hechos_aprendidos if h.origen != "feedback"]
-    modelo.hechos_aprendidos = otros + nuevos
+    modelo.hechos_aprendidos = otros + apagados + nuevos
 
 
 def aprender(feedback: Feedback, modelo: ModeloUsuario) -> ModeloUsuario:

@@ -21,6 +21,7 @@ from typing import Any, Iterator
 from .. import acciones, config, modulos, motor, personalizacion
 from . import almacenamiento as alm
 from ..modulos.plantillas import CABECERA_DATOS, sanear_dato
+from ..personalizacion import edicion
 from .privacidad import enmascarar_nombre, enmascarar_texto
 from .reloj import ahora_por_defecto
 from .tipos import (
@@ -556,3 +557,112 @@ def _tras_cancelar(uid: str, hoy: date, propuesta: Propuesta, parametros: dict, 
                           "fecha": (cobro - timedelta(days=1)).isoformat(), "emitido": False,
                           "texto": f"¿Pudiste darte de baja de {sanear_dato(comercio)}? Mañana es el cobro."})
     alm.guardar(uid, "recordatorios", recordatorios)
+
+
+# --- Lo aprendido (U2): ver, editar y borrar ---------------------------------------------------
+# La edición es de `personalizacion.edicion` (pura); aquí solo se carga, se guarda y se audita. La
+# auditoría guarda qué campo o hecho se tocó, nunca el valor (el ingreso, por ejemplo, es del cliente).
+
+def _cambiar_modelo(uid: str, cambio, evento: str, **datos: Any) -> ModeloUsuario:
+    with alm.candado(uid):
+        estado = _estado(uid)
+        modelo = _leer(uid, "modelo")
+        if modelo is None:
+            raise NoEncontrado(f"El usuario {uid!r} aún no tiene modelo.")
+        try:
+            nuevo = cambio(modelo, estado)
+        except edicion.NoExiste as error:
+            raise NoEncontrado(str(error)) from error
+        nuevo = nuevo.model_copy(update={"actualizado": ahora_por_defecto(_hoy(estado))})
+        alm.guardar(uid, "modelo", nuevo)
+        alm.guardar(uid, "estado", estado)
+        _auditar(uid, evento, **datos)
+        return nuevo
+
+
+def _modelo_de(uid: str) -> ModeloUsuario:
+    with alm.candado(uid):
+        _estado(uid)
+        modelo = _leer(uid, "modelo")
+    if modelo is None:
+        raise NoEncontrado(f"El usuario {uid!r} aún no tiene modelo.")
+    return modelo
+
+
+def perfil_usuario(usuario_id: str) -> dict:
+    """`{usar_perfil, perfil, frases}`: lo que se enseña en «Cómo es tu mes» (es del propio cliente)."""
+    modelo = _modelo_de(usuario_id)
+    perfil = modelo.perfil if modelo.preferencias.usar_perfil else None
+    return {"usar_perfil": modelo.preferencias.usar_perfil,
+            "perfil": perfil.model_dump(mode="json") if perfil else None,
+            "frases": [f.model_dump(mode="json") for f in edicion.frases_perfil(perfil)]}
+
+
+def editar_perfil_usuario(usuario_id: str, campo: str, valor: Any) -> dict:
+    _cambiar_modelo(usuario_id, lambda m, e: edicion.editar_perfil(m, campo, valor), "perfil_editado", campo=campo)
+    return perfil_usuario(usuario_id)
+
+
+def borrar_campo_perfil_usuario(usuario_id: str, campo: str) -> dict:
+    _cambiar_modelo(usuario_id, lambda m, e: edicion.borrar_campo_perfil(m, campo), "perfil_campo_borrado", campo=campo)
+    return perfil_usuario(usuario_id)
+
+
+def borrar_perfil_usuario(usuario_id: str) -> dict:
+    """Perfil fuera y `usar_perfil = False`: desde el siguiente día, el motor y la política van en frío."""
+    _cambiar_modelo(usuario_id, lambda m, e: edicion.borrar_perfil(m), "perfil_borrado")
+    return perfil_usuario(usuario_id)
+
+
+def reactivar_perfil_usuario(usuario_id: str) -> dict:
+    """Vuelve a usar el perfil: lo recalcula ya con el historial hasta hoy (si hay 28 días)."""
+    def cambio(modelo: ModeloUsuario, estado: dict) -> ModeloUsuario:
+        nuevo = edicion.usar_perfil(modelo, True)
+        hoy = _hoy(estado)
+        nuevo.perfil = personalizacion.perfilar(motor.enriquecer(_leer(usuario_id, "movimientos", [])), hoy, nuevo.perfil)
+        estado["ultimo_perfil"] = hoy.isoformat()
+        return nuevo
+
+    _cambiar_modelo(usuario_id, cambio, "perfil_reactivado")
+    return perfil_usuario(usuario_id)
+
+
+def aprendido_usuario(usuario_id: str) -> dict:
+    """`{hechos, silencios, amigos, usar_perfil}`: todo lo que el sistema ha aprendido y se puede tocar."""
+    modelo = _modelo_de(usuario_id)
+    return {
+        "hechos": [h.model_dump(mode="json") for h in modelo.hechos_aprendidos],
+        "silencios": [{"ambito": s.ambito, "desde": s.desde.isoformat(),
+                       "valor": enmascarar_nombre(s.valor) if s.ambito == "contacto" else s.valor}
+                      for s in modelo.preferencias.silencios],
+        "amigos": [{"contraparte": a.contraparte, "saldo": format(a.saldo, "f"), "estado": a.estado,
+                    "creado": a.creado.isoformat()} for a in modelo.amigos],
+        "usar_perfil": modelo.preferencias.usar_perfil,
+    }
+
+
+def editar_hecho_usuario(usuario_id: str, hecho_id: str, activo: bool | None = None, texto: str | None = None) -> dict:
+    """Apaga o reactiva un hecho (`activo`) y/o reescribe uno de voz (`texto`)."""
+    if activo is None and texto is None:
+        raise ValueError("Indica `activo` o `texto`.")
+
+    def cambio(modelo: ModeloUsuario, estado: dict) -> ModeloUsuario:
+        if texto is not None:
+            modelo = edicion.editar_hecho(modelo, hecho_id, texto)
+        if activo is not None:
+            modelo = edicion.activar_hecho(modelo, hecho_id) if activo else edicion.apagar_hecho(modelo, hecho_id)
+        return modelo
+
+    _cambiar_modelo(usuario_id, cambio, "hecho_editado", hecho_id=hecho_id)
+    return aprendido_usuario(usuario_id)
+
+
+def borrar_hecho_usuario(usuario_id: str, hecho_id: str) -> dict:
+    _cambiar_modelo(usuario_id, lambda m, e: edicion.borrar_hecho(m, hecho_id), "hecho_borrado", hecho_id=hecho_id)
+    return aprendido_usuario(usuario_id)
+
+
+def olvidar_todo_usuario(usuario_id: str) -> dict:
+    """Deja solo los consentimientos y los módulos activos."""
+    _cambiar_modelo(usuario_id, lambda m, e: edicion.olvidar_todo(m), "olvidar_todo")
+    return aprendido_usuario(usuario_id)

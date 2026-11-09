@@ -11,6 +11,7 @@ import queue
 import threading
 import time
 from datetime import date, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -91,6 +92,16 @@ class PeticionFeedback(BaseModel):
     resultado: ResultadoFeedback
     canal: CanalFeedback = "app"
     nota: str | None = Field(default=None, max_length=500)
+
+
+class PeticionEditarPerfil(BaseModel):
+    campo: str = Field(min_length=1, max_length=64)
+    valor: Any = None
+
+
+class PeticionEditarHecho(BaseModel):
+    activo: bool | None = None
+    texto: str | None = Field(default=None, max_length=500)
 
 
 class PeticionPreparar(BaseModel):
@@ -243,20 +254,77 @@ def acciones_deshacer() -> None:
     raise no_implementado("O4")
 
 
+# --- Lo que he aprendido de ti (U2): ver, editar y borrar ----------------------------------------
+
 @router.get("/usuarios/{usuario_id}/perfil")
-@router.patch("/usuarios/{usuario_id}/perfil")
-@router.delete("/usuarios/{usuario_id}/perfil")
-@router.delete("/usuarios/{usuario_id}/perfil/{campo}")
-def perfil(usuario_id: str, campo: str | None = None) -> None:
-    raise no_implementado("U2")
+def perfil_ver(usuario_id: str) -> dict:
+    try:
+        return orquestador.perfil_usuario(usuario_id)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.patch("/usuarios/{usuario_id}/perfil", dependencies=[Depends(exigir_demo_key)])
+def perfil_editar(usuario_id: str, peticion: PeticionEditarPerfil) -> dict:
+    """`{campo, valor}`. El campo especial `usar_perfil` (true/false) lo enciende o lo apaga."""
+    try:
+        if peticion.campo == "usar_perfil":
+            if not isinstance(peticion.valor, bool):
+                raise ValueError("`usar_perfil` es verdadero o falso.")
+            if peticion.valor:
+                return orquestador.reactivar_perfil_usuario(usuario_id)
+            return orquestador.borrar_perfil_usuario(usuario_id)
+        return orquestador.editar_perfil_usuario(usuario_id, peticion.campo, peticion.valor)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.delete("/usuarios/{usuario_id}/perfil", dependencies=[Depends(exigir_demo_key)])
+def perfil_borrar(usuario_id: str) -> dict:
+    try:
+        return orquestador.borrar_perfil_usuario(usuario_id)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.delete("/usuarios/{usuario_id}/perfil/{campo}", dependencies=[Depends(exigir_demo_key)])
+def perfil_borrar_campo(usuario_id: str, campo: str) -> dict:
+    try:
+        return orquestador.borrar_campo_perfil_usuario(usuario_id, campo)
+    except Exception as error:
+        raise a_http(error) from error
 
 
 @router.get("/usuarios/{usuario_id}/aprendido")
-@router.delete("/usuarios/{usuario_id}/aprendido")
-@router.patch("/usuarios/{usuario_id}/aprendido/{hecho_id}")
-@router.delete("/usuarios/{usuario_id}/aprendido/{hecho_id}")
-def aprendido(usuario_id: str, hecho_id: str | None = None) -> None:
-    raise no_implementado("U2")
+def aprendido_ver(usuario_id: str) -> dict:
+    try:
+        return orquestador.aprendido_usuario(usuario_id)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.delete("/usuarios/{usuario_id}/aprendido", dependencies=[Depends(exigir_demo_key)])
+def aprendido_olvidar_todo(usuario_id: str) -> dict:
+    try:
+        return orquestador.olvidar_todo_usuario(usuario_id)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.patch("/usuarios/{usuario_id}/aprendido/{hecho_id}", dependencies=[Depends(exigir_demo_key)])
+def aprendido_editar(usuario_id: str, hecho_id: str, peticion: PeticionEditarHecho) -> dict:
+    try:
+        return orquestador.editar_hecho_usuario(usuario_id, hecho_id, peticion.activo, peticion.texto)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.delete("/usuarios/{usuario_id}/aprendido/{hecho_id}", dependencies=[Depends(exigir_demo_key)])
+def aprendido_borrar(usuario_id: str, hecho_id: str) -> dict:
+    try:
+        return orquestador.borrar_hecho_usuario(usuario_id, hecho_id)
+    except Exception as error:
+        raise a_http(error) from error
 
 
 @router.post("/usuarios/{usuario_id}/pruebas")
