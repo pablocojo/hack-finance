@@ -37,9 +37,11 @@ PARAMETROS: dict = {
     "dias_nomina": 10,
     "umbral_sin_perfil": Decimal("20"),
     "n_exploracion": 3,             # celda del tipo con n < 3: exploración prudente
+    "E_max_dinero_debido": Decimal("10"),   # el dinero que te deben no se diluye con el umbral personal
 }
 
 TIPOS_PROTECCION = frozenset({"prueba_gratuita", "posible_estafa"})
+TIPOS_DINERO_DEBIDO = frozenset({"gasto_compartido"})   # dinero tuyo pendiente de recuperar, no un gasto
 CONSENTIMIENTOS_AVISOS = ("copiloto", "avisos")   # personalizacion.md usa «copiloto»; la API, «avisos»
 
 
@@ -62,10 +64,15 @@ def umbral(modelo: ModeloUsuario) -> Decimal:
     return perfil.umbral_relevante_eur if perfil else PARAMETROS["umbral_sin_perfil"]
 
 
-def euros_por_molestia(modelo: ModeloUsuario) -> Decimal:
+def euros_por_molestia(modelo: ModeloUsuario, tipo: str | None = None) -> Decimal:
+    """E: lo que elijas en ajustes o, si no, umbral_relevante_eur / 2. El dinero que te deben
+    (`gasto_compartido`) no se mide igual que un gasto: su E nunca pasa de 10 € (el de sin perfil)."""
     if modelo.preferencias.euros_por_molestia is not None and modelo.preferencias.euros_por_molestia > 0:
         return modelo.preferencias.euros_por_molestia
-    return umbral(modelo) / 2
+    e = umbral(modelo) / 2
+    if tipo in TIPOS_DINERO_DEBIDO:
+        e = min(e, PARAMETROS["E_max_dinero_debido"])
+    return e
 
 
 def valor_de(propuesta: Propuesta) -> Decimal:
@@ -156,7 +163,7 @@ def evaluar(propuesta: Propuesta, modelo: ModeloUsuario, ahora: datetime) -> Cal
     a0, b0 = PARAMETROS["prior"]
     cal = Calculo(claves=claves(propuesta, modelo))
     cal.umbral = umbral(modelo)
-    cal.E = euros_por_molestia(modelo)
+    cal.E = euros_por_molestia(modelo, propuesta.tipo_momento)
     valor = valor_de(propuesta)
     cal.tramo = tramo(valor, cal.umbral)
 
@@ -280,6 +287,8 @@ def decidir(propuesta: Propuesta, modelo: ModeloUsuario, ahora: datetime) -> Dec
         if tope and propuesta.urgencia != "alta":
             return _decision(propuesta, "resumen", cal, [M.tope_diario(n_hoy), valor_txt, aprendido_txt])
         primero = M.URGENTE_SIN_TOPE if tope else None
+        if primero is None and propuesta.tipo_momento in TIPOS_DINERO_DEBIDO:
+            primero = M.DINERO_DEBIDO
         return _decision(propuesta, "notificar_ahora", cal, [primero, valor_txt, aprendido_txt])
 
     # 5. Vale la pena, pero no tanto como para interrumpir.
