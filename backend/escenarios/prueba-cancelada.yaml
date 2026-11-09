@@ -1,0 +1,16 @@
+# prueba-cancelada (motor.md §3.5 y §5): el cliente cancela la prueba antes del aviso, así que no hay momento.
+# Datos sintéticos. Misma verificación de Streamflix (14/10) que `prueba-streamflix-lucia`, que avisaría el
+# 10/11. Ese día, antes de procesarlo, el cliente dice que ya la ha cancelado (`cerrar_prueba`): nada que avisar.
+id: prueba-cancelada
+usuario_id: lucia
+descripcion: "Lucía cancela la prueba de Streamflix antes del aviso: el motor no avisa de algo que ya no existe"
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: null
+movimientos:
+  - {id: can-v1, fecha: 2026-10-14, concepto: "VERIFICACION TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: 0.00, canal: tarjeta, tipo_operacion: verificacion}
+eventos:
+  - {fecha: 2026-11-10, tipo: cerrar_prueba, comercio: "Streamflix", motivo: cancelada}
+esperado: []
+trampas:
+  - {tipo: prueba_gratuita, ids: [can-v1], motivo: "el cliente la canceló el día del aviso"}

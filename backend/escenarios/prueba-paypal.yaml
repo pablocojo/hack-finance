@@ -1,0 +1,15 @@
+# prueba-paypal (motor.md §2.1 y §3.5): la verificación llega con la pasarela delante (`PAYPAL *SONORA MUSIC`).
+# Se normaliza a SONORA MUSIC (etiqueta `pasarela`) y funciona igual que `prueba-1eur-sonora`. Datos sintéticos.
+id: prueba-paypal
+usuario_id: lucia
+descripcion: "Verificación de 0 € de PAYPAL *SONORA MUSIC: se reconoce el comercio tras la pasarela"
+activacion: 2026-10-01
+hasta: 2026-11-10
+perfil: null
+movimientos:
+  - {id: pay-v1, fecha: 2026-10-20, concepto: "VERIFICACION TARJETA PAYPAL *SONORA MUSIC", importe: 0.00, canal: tarjeta, tipo_operacion: verificacion}
+eventos: []
+esperado:
+  - {tipo: prueba_gratuita, fecha_detectable: 2026-10-31, ids: [pay-v1], tolerancia_dias: 0,
+     datos: {comercio: SONORA MUSIC, dias_prueba: 14, fecha_primer_cobro: 2026-11-03, dias_hasta: 3, fuente_duracion: catalogo}}
+trampas: []

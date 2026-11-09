@@ -1,0 +1,18 @@
+# prueba-1eur-sonora (motor.md §3.5): algunos comercios verifican la tarjeta con 1 € que devuelven a los
+# pocos días. Sonora Music (ficticio; catálogo: 14 días, 10,99 €). Verificación 20/10, devolución 22/10:
+# primer cobro el 3/11 y aviso el 31/10 (3 días antes). Datos sintéticos.
+id: prueba-1eur-sonora
+usuario_id: lucia
+descripcion: "Verificación de 1 € con devolución de Sonora Music: prueba de 14 días"
+activacion: 2026-10-01
+hasta: 2026-11-10
+perfil: null
+movimientos:
+  - {id: son-v1, fecha: 2026-10-20, concepto: "VERIFICACION TARJETA SONORA MUSIC", comercio: "SONORA MUSIC", importe: -1.00, canal: tarjeta, tipo_operacion: verificacion}
+  - {id: son-d1, fecha: 2026-10-22, concepto: "DEVOLUCION SONORA MUSIC", comercio: "SONORA MUSIC", importe: 1.00, canal: tarjeta, tipo_operacion: devolucion}
+eventos: []
+esperado:
+  - {tipo: prueba_gratuita, fecha_detectable: 2026-10-31, ids: [son-v1, son-d1], tolerancia_dias: 0,
+     datos: {comercio: SONORA MUSIC, fecha_alta: 2026-10-20, dias_prueba: 14, fecha_primer_cobro: 2026-11-03, dias_hasta: 3,
+             importe_previsto: "10.99", fuente_duracion: catalogo}}
+trampas: []

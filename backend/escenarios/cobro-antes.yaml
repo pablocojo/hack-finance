@@ -1,0 +1,16 @@
+# cobro-antes (trampa, motor.md §3.5): Netflix (real, solo `es_suscripcion` en el catálogo, sin duración: se
+# supone 30 días y el aviso sería el 26/11). Pero el cobro llega el 8/11, al terminar una prueba corta: la
+# prueba se cierra como cobrada y no emite nada. Datos sintéticos.
+id: cobro-antes
+usuario_id: lucia
+descripcion: "El cobro llega antes del aviso supuesto: la prueba se cierra sin momento"
+activacion: 2026-10-01
+hasta: 2026-11-30
+perfil: null
+movimientos:
+  - {id: cob-v1, fecha: 2026-11-01, concepto: "VERIFICACION TARJETA NETFLIX", comercio: "NETFLIX", importe: 0.00, canal: tarjeta, tipo_operacion: verificacion}
+  - {id: cob-c1, fecha: 2026-11-08, concepto: "COMPRA TARJETA NETFLIX", comercio: "NETFLIX", importe: -7.99, canal: tarjeta, categoria: suscripciones}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: prueba_gratuita, ids: [cob-v1, cob-c1], motivo: "el cobro llegó antes del aviso"}

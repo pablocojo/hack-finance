@@ -1,0 +1,21 @@
+# ya-la-pago (trampa, motor.md §3.5): Lucía ya paga Streamflix (9,99 € cada día 14 desde junio) y cambia de
+# tarjeta: el comercio pide una verificación de 0 € (2/11). Hay cargos suyos en el último año: es un
+# cambio de tarjeta, no una prueba. Datos sintéticos.
+id: ya-la-pago
+usuario_id: lucia
+descripcion: "Verificación de 0 € de Streamflix, que Lucía ya paga cada mes: cambio de tarjeta"
+activacion: 2026-10-01
+hasta: 2026-11-20
+perfil: null
+movimientos:
+  - {id: ya-06, fecha: 2026-06-14, concepto: "COMPRA TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: -9.99, canal: tarjeta, categoria: suscripciones}
+  - {id: ya-07, fecha: 2026-07-14, concepto: "COMPRA TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: -9.99, canal: tarjeta, categoria: suscripciones}
+  - {id: ya-08, fecha: 2026-08-14, concepto: "COMPRA TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: -9.99, canal: tarjeta, categoria: suscripciones}
+  - {id: ya-09, fecha: 2026-09-14, concepto: "COMPRA TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: -9.99, canal: tarjeta, categoria: suscripciones}
+  - {id: ya-10, fecha: 2026-10-14, concepto: "COMPRA TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: -9.99, canal: tarjeta, categoria: suscripciones}
+  - {id: ya-v1, fecha: 2026-11-02, concepto: "VERIFICACION TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: 0.00, canal: tarjeta, tipo_operacion: verificacion}
+  - {id: ya-11, fecha: 2026-11-14, concepto: "COMPRA TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: -9.99, canal: tarjeta, categoria: suscripciones}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: prueba_gratuita, ids: [ya-v1, ya-11], motivo: "ya la pagaba: cambio de tarjeta"}

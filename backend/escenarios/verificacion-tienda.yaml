@@ -1,0 +1,15 @@
+# verificacion-tienda (trampa, motor.md §3.5): Zara pide una verificación de 0 € al guardar la tarjeta para
+# comprar. Zara no es un servicio de suscripción (catálogo): no empieza ninguna prueba. Datos sintéticos.
+id: verificacion-tienda
+usuario_id: lucia
+descripcion: "Verificación de 0 € de Zara al guardar la tarjeta: no es una prueba gratuita"
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: null
+movimientos:
+  - {id: tie-v1, fecha: 2026-10-14, concepto: "VERIFICACION TARJETA ZARA", comercio: "ZARA", importe: 0.00, canal: tarjeta, tipo_operacion: verificacion}
+  - {id: tie-c1, fecha: 2026-10-14, concepto: "COMPRA TARJETA ZARA", comercio: "ZARA", importe: -39.95, canal: tarjeta, categoria: compras}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: prueba_gratuita, ids: [tie-v1, tie-c1], motivo: "Zara no es una suscripción"}

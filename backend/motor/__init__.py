@@ -12,7 +12,7 @@ from datetime import date
 from typing import Literal
 
 from ..plataforma.tipos import Momento, Movimiento, MovimientoEnriquecido, PerfilUsuario
-from . import conocimiento, parametros, razonador
+from . import conocimiento, parametros, pruebas, razonador
 from .detectores import REGISTRO
 from .detectores.base import Contexto
 from .enriquecer import enriquecer as _enriquecer
@@ -20,6 +20,8 @@ from .enriquecer import enriquecer_normalizados, lineas_base
 from .estado import EstadoMotor
 from .normalizar import normalizar_comercio
 
+MAX_DIAS_PRUEBA = 365
+MOTIVOS_CIERRE = ("cancelada", "cobrada", "caducada", "baja_guiada")
 _ESTADOS: dict[str, EstadoMotor] = {}
 _CANDADO = threading.RLock()
 
@@ -47,6 +49,7 @@ def procesar(
         estado.agregar(nuevos)
         params = parametros.ajustados(perfil)
         historial, series = enriquecer_normalizados(estado.normalizados_hasta(hoy), params["series"])
+        pruebas.sincronizar(estado, historial, hoy, perfil, params["prueba_gratuita"], conocimiento.info_en_cache)
         ids_nuevos = {m.id for m in nuevos}
         ctx = Contexto(
             hoy=hoy,
@@ -107,10 +110,15 @@ def _clave_comercio(comercio: str) -> str:
 
 
 def registrar_prueba(usuario_id: str, comercio: str, fecha_alta: date, dias: int | None, hoy: date) -> None:
-    """El cliente dice que ha empezado una prueba (fuente `usuario`). El aviso llega con M8."""
+    """El cliente dice que ha empezado una prueba (fuente `usuario`). Duración: la que diga > la ficha > 30 días.
+    Si el motor ya la vio por una verificación, es la misma: solo pasa a fuente `usuario` y guarda los días."""
     if fecha_alta > hoy:
         raise ValueError("La fecha de alta de la prueba no puede ser posterior a hoy.")
+    if dias is not None and not 1 <= dias <= MAX_DIAS_PRUEBA:
+        raise ValueError(f"Los días de prueba van de 1 a {MAX_DIAS_PRUEBA}.")
     nombre = _clave_comercio(comercio)
+    if not nombre:
+        raise ValueError("Falta el comercio de la prueba.")
     with _CANDADO:
         estado = _estado(usuario_id)
         abierta = next((p for p in estado.pruebas if p["comercio"] == nombre and p["estado"] == "abierta"), None)
@@ -120,6 +128,7 @@ def registrar_prueba(usuario_id: str, comercio: str, fecha_alta: date, dias: int
         estado.pruebas.append({
             "comercio": nombre, "fecha_alta": fecha_alta.isoformat(), "dias": dias, "fuente": "usuario",
             "estado": "abierta", "registrada": hoy.isoformat(), "cerrada": None, "verificacion_id": None,
+            "evidencias": [],
         })
 
 
@@ -129,18 +138,23 @@ def cerrar_prueba(
     motivo: Literal["cancelada", "cobrada", "caducada", "baja_guiada"],
     hoy: date,
 ) -> None:
-    """Cierra la última prueba abierta (o en baja guiada) de ese comercio. Sin prueba, no hace nada."""
+    """Cierra la última prueba abierta (o en baja guiada) de ese comercio: `cancelada` y `baja_guiada` las
+    pone el orquestador al ejecutar `cancelar_suscripcion`; `cobrada` y `caducada` las deduce el motor solo.
+    Sin prueba, o ya cerrada, no hace nada. Una prueba en `baja_guiada` no emite más momentos."""
+    if motivo not in MOTIVOS_CIERRE:
+        raise ValueError(f"Motivo de cierre no válido: {motivo!r}.")
     nombre = _clave_comercio(comercio)
     with _CANDADO:
-        estado = _estado(usuario_id)
-        for prueba in reversed(estado.pruebas):
-            if prueba["comercio"] == nombre and prueba["estado"] in ("abierta", "baja_guiada"):
+        estado = _ESTADOS.get(usuario_id)
+        for prueba in reversed(estado.pruebas if estado else []):
+            if prueba["comercio"] == nombre and prueba["estado"] in pruebas.ABIERTAS:
                 prueba.update(estado=motivo, cerrada=hoy.isoformat())
                 return
 
 
 def comercios_pendientes(usuario_id: str) -> list[str]:
-    """Comercios que el orquestador debe buscar (los llenará `prueba_gratuita`, M7)."""
+    """Nombres de comercio que el orquestador pide a `conocimiento.info_comercio` (como mucho una vez al
+    día cada uno): solo nombres de comercios de tarjeta o que dijo el cliente, nunca contrapartes ni importes."""
     with _CANDADO:
         estado = _ESTADOS.get(usuario_id)
         return list(estado.comercios_pendientes) if estado else []

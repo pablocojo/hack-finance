@@ -1,0 +1,21 @@
+# prueba-baja-guiada (motor.md §3.5): el aviso sale el 10/11; el 11/11 el cliente pide la baja guiada
+# (`cancelar_suscripcion` sin bloquear cobros) y la prueba queda en `baja_guiada`: ni otro aviso ni nada más.
+# El 13/11 llega el cobro (no llegó a darse de baja a tiempo): la prueba pasa a cobrada y sigue sin emitir.
+# Datos sintéticos.
+id: prueba-baja-guiada
+usuario_id: lucia
+descripcion: "Baja guiada de Streamflix el día después del aviso: sin más momentos aunque llegue el cobro"
+activacion: 2026-10-01
+hasta: 2026-11-20
+perfil: null
+movimientos:
+  - {id: bg-v1, fecha: 2026-10-14, concepto: "VERIFICACION TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: 0.00, canal: tarjeta, tipo_operacion: verificacion}
+  - {id: bg-c1, fecha: 2026-11-13, concepto: "COMPRA TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: -9.99, canal: tarjeta, categoria: suscripciones}
+eventos:
+  - {fecha: 2026-11-11, tipo: cerrar_prueba, comercio: "STREAMFLIX", motivo: baja_guiada}
+esperado:
+  - {tipo: prueba_gratuita, fecha_detectable: 2026-11-10, ids: [bg-v1], tolerancia_dias: 0,
+     datos: {fecha_primer_cobro: 2026-11-13, dias_hasta: 3, fuente_duracion: catalogo}}
+trampas:
+  - {tipo: prueba_gratuita, ids: [bg-c1], motivo: "el primer cobro ya no es una prueba"}
+  - {tipo: cargo_duplicado, ids: [bg-v1, bg-c1], motivo: "una verificación y un cobro no son duplicado"}

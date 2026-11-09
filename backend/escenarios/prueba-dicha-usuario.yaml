@@ -1,0 +1,17 @@
+# prueba-dicha-usuario (motor.md §3.5): el cliente cuenta que ha empezado una prueba y el banco no vio ninguna
+# verificación (no hay movimiento que la pruebe). Comercio sin ficha: la duración es una suposición de 30 días,
+# así que avisa 5 días antes (15/11) y no 3. Datos sintéticos.
+id: prueba-dicha-usuario
+usuario_id: lucia
+descripcion: "Lucía dice que empezó la prueba de un estudio de yoga el 21/10: sin verificación, 30 días supuestos"
+activacion: 2026-10-01
+hasta: 2026-11-20
+perfil: null
+movimientos: []
+eventos:
+  - {fecha: 2026-10-21, tipo: registrar_prueba, comercio: "Yoga Online Plus", fecha_alta: 2026-10-21}
+esperado:
+  - {tipo: prueba_gratuita, fecha_detectable: 2026-11-15, ids: [], tolerancia_dias: 0,
+     datos: {comercio: YOGA ONLINE PLUS, fecha_alta: 2026-10-21, dias_prueba: 30, fecha_primer_cobro: 2026-11-20,
+             dias_hasta: 5, fuente: usuario, fuente_duracion: por_defecto}}
+trampas: []

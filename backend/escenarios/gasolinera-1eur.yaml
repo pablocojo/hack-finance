@@ -1,0 +1,16 @@
+# gasolinera-1eur (trampa, motor.md §3.5): el surtidor retiene 1 € antes de repostar y lo devuelve al día
+# siguiente. Parece una verificación con devolución, pero Repsol no es una suscripción (catálogo). Datos sintéticos.
+id: gasolinera-1eur
+usuario_id: lucia
+descripcion: "Retención de 1 € en Repsol con devolución: no es una prueba gratuita"
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: null
+movimientos:
+  - {id: gas-v1, fecha: 2026-10-14, concepto: "AUTORIZACION TARJETA REPSOL", comercio: "REPSOL", importe: -1.00, canal: tarjeta, tipo_operacion: verificacion}
+  - {id: gas-d1, fecha: 2026-10-15, concepto: "DEVOLUCION REPSOL", comercio: "REPSOL", importe: 1.00, canal: tarjeta, tipo_operacion: devolucion}
+  - {id: gas-c1, fecha: 2026-10-14, concepto: "COMPRA TARJETA REPSOL", comercio: "REPSOL", importe: -48.20, canal: tarjeta, categoria: transporte}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: prueba_gratuita, ids: [gas-v1, gas-d1], motivo: "Repsol no es una suscripción"}

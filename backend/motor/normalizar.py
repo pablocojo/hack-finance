@@ -42,10 +42,12 @@ def deducir_canal(concepto: str) -> str | None:
 
 def deducir_tipo_operacion(concepto: str, importe) -> str:
     texto = normalizar_texto(concepto)
-    if importe == 0 or (_VERIFICACION.search(texto) and abs(importe) <= IMPORTE_MAX_VERIFICACION):
+    if importe == 0:
         return "verificacion"
-    if importe > 0 and _DEVOLUCION.search(texto):
+    if importe > 0 and _DEVOLUCION.search(texto):      # «DEVOLUCION VERIFICACION X» es una devolución
         return "devolucion"
+    if _VERIFICACION.search(texto) and abs(importe) <= IMPORTE_MAX_VERIFICACION:
+        return "verificacion"
     return "cargo"
 
 

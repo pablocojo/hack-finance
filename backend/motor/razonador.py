@@ -98,6 +98,18 @@ def _explicar_subida_recibo(d: dict) -> str:
     return texto + "."
 
 
+def _explicar_prueba_gratuita(d: dict) -> str:
+    """Un aviso a tiempo, sin dramatizar. Si la duración es una suposición, lo dice."""
+    n = int(d["dias_hasta"])
+    texto = (f"Tu prueba de {nombre_visible(d.get('comercio'))} empieza a cobrarse en {n} {_plural(n, 'día', 'días')} "
+             f"(el {_dia(d['fecha_primer_cobro'])})")
+    if d.get("importe_previsto") is not None:
+        texto += f" por {eur(d['importe_previsto'])}"
+    if d.get("fuente_duracion") == "por_defecto":
+        texto += f"; he supuesto {int(d['dias_prueba'])} días de prueba"
+    return texto + "."
+
+
 _TITULOS = {
     "cargo_duplicado": "Posible cargo duplicado",
     "renovacion_proxima": "Se renueva pronto una suscripción",
@@ -114,6 +126,7 @@ PLANTILLAS: dict[str, Callable[[dict], str]] = {
     "gasto_compartido": _explicar_gasto_compartido,
     "cargo_duplicado": _explicar_cargo_duplicado,
     "subida_recibo": _explicar_subida_recibo,
+    "prueba_gratuita": _explicar_prueba_gratuita,
 }
 
 

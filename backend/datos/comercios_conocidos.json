@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "descripcion": "Catálogo revisado a mano (origen: catalogo). Lo que trae la web NO va aqui: va a datos_usuario/_cache/comercios_web.json.",
+    "ficticios": "STREAMFLIX, SONORA MUSIC y FITAPP PLUS son comercios inventados para la demo; sus cifras, su URL (dominio .example, reservado) y sus pasos de baja son de la demo.",
+    "reales": "Marcas reales solo con tipo y es_suscripcion. Sin dias de prueba, sin precios y sin URL de baja hasta que investigador los traiga con enlace.",
+    "revisión_pendiente": "experto-banca: confirmar la lista de reales y que ZARA, REPSOL, NH HOTELES y MERCADONA sigan fuera de suscripciones."
+  },
+  "STREAMFLIX": {
+    "nombre": "STREAMFLIX",
+    "tipo": "streaming",
+    "es_suscripcion": true,
+    "dias_prueba": 30,
+    "precio_tras_prueba": "9.99",
+    "url_baja": "https://streamflix.example/cuenta/baja",
+    "pasos_baja": [
+      "Entra en tu cuenta de Streamflix.",
+      "Abre el apartado Cuenta y después Membresía.",
+      "Pulsa Cancelar suscripción y confirma.",
+      "Guarda el aviso de confirmación que te envíen."
+    ],
+    "fuentes": ["Catálogo de la demo (comercio ficticio)"],
+    "origen": "catalogo"
+  },
+  "SONORA MUSIC": {
+    "nombre": "SONORA MUSIC",
+    "tipo": "musica",
+    "es_suscripcion": true,
+    "dias_prueba": 14,
+    "precio_tras_prueba": "10.99",
+    "fuentes": ["Catálogo de la demo (comercio ficticio)"],
+    "origen": "catalogo"
+  },
+  "FITAPP PLUS": {
+    "nombre": "FITAPP PLUS",
+    "tipo": "deporte",
+    "es_suscripcion": true,
+    "dias_prueba": 7,
+    "precio_tras_prueba": "4.99",
+    "fuentes": ["Catálogo de la demo (comercio ficticio)"],
+    "origen": "catalogo"
+  },
+  "NETFLIX": {"nombre": "NETFLIX", "tipo": "streaming", "es_suscripcion": true, "origen": "catalogo"},
+  "SPOTIFY": {"nombre": "SPOTIFY", "tipo": "musica", "es_suscripcion": true, "origen": "catalogo"},
+  "AMAZON PRIME": {"nombre": "AMAZON PRIME", "tipo": "streaming", "es_suscripcion": true, "origen": "catalogo"},
+  "DISNEY+": {"nombre": "DISNEY+", "tipo": "streaming", "es_suscripcion": true, "origen": "catalogo"},
+  "HBO MAX": {"nombre": "HBO MAX", "tipo": "streaming", "es_suscripcion": true, "origen": "catalogo"},
+  "DAZN": {"nombre": "DAZN", "tipo": "deporte", "es_suscripcion": true, "origen": "catalogo"},
+  "AUDIBLE": {"nombre": "AUDIBLE", "tipo": "audiolibros", "es_suscripcion": true, "origen": "catalogo"},
+  "YOUTUBE PREMIUM": {"nombre": "YOUTUBE PREMIUM", "tipo": "streaming", "es_suscripcion": true, "origen": "catalogo"},
+  "ZARA": {"nombre": "ZARA", "tipo": "moda", "es_suscripcion": false, "origen": "catalogo"},
+  "REPSOL": {"nombre": "REPSOL", "tipo": "gasolinera", "es_suscripcion": false, "origen": "catalogo"},
+  "NH HOTELES": {"nombre": "NH HOTELES", "tipo": "hotel", "es_suscripcion": false, "origen": "catalogo"},
+  "MERCADONA": {"nombre": "MERCADONA", "tipo": "supermercado", "es_suscripcion": false, "origen": "catalogo"}
+}

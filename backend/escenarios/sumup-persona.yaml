@@ -1,0 +1,14 @@
+# sumup-persona (trampa, motor.md §2.1): un autónomo cobra con un datáfono (`SUMUP *JUAN PEREZ`) y la
+# autorización es de 0 €. Es una persona, no un comercio: ni se busca en la web ni avisa. Datos sintéticos.
+id: sumup-persona
+usuario_id: lucia
+descripcion: "Autorización de 0 € de SUMUP *JUAN PEREZ: una persona, no una prueba"
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: null
+movimientos:
+  - {id: sum-v1, fecha: 2026-10-14, concepto: "VERIFICACION TARJETA SUMUP *JUAN PEREZ", importe: 0.00, canal: tarjeta, tipo_operacion: verificacion}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: prueba_gratuita, ids: [sum-v1], motivo: "TPV de un autónomo (posible persona)"}

@@ -84,6 +84,27 @@ class SubidaRecibo:
 
 
 @dataclass(frozen=True)
+class PruebaGratuita:
+    IMPORTE_MAX_VERIF: Decimal = Decimal("1")         # una verificación es de 0 € o de <= 1 € que se devuelve
+    VENTANA_DEVOLUCION_VERIF: int = 5                 # días para que llegue la devolución del 1 €
+    DIAS_SIN_SERIE: int = 365                         # sin cargos > 1 € del comercio en este plazo (si no: cambio de tarjeta)
+    DIAS_PRUEBA_POR_DEFECTO: int = 30                 # duración supuesta si ni el cliente ni el catálogo la dicen
+    AVISO_DIAS_ANTES: int = 3                         # avisa cuando faltan 3 días o menos para el primer cobro...
+    AVISO_DIAS_EXTRA_POR_DEFECTO: int = 2             # ...y 5 si la duración es una suposición
+    DIAS_GRACIA_COBRO: int = 7                        # un cargo hasta 7 días después del primer cobro previsto cierra la prueba
+    DIAS_FUSION_USUARIO: int = 3                      # verificación a +-3 días de lo que dijo el cliente: es la misma prueba
+    DIAS_ALTA_MAX: int = 90                           # una verificación más vieja no se adopta
+    MAX_CARACTERES_BUSQUEDA: int = 30                 # solo se busca en la web un nombre corto y sin dígitos
+    CONFIANZA_BASE: float = 0.60
+    CONFIANZA_VERIFICACION: float = 0.20              # verificación explícita (0 € o 1 € devuelto)
+    CONFIANZA_DURACION_CONOCIDA: float = 0.10         # catálogo o web
+    CONFIANZA_DURACION_SUPUESTA: float = -0.15        # por defecto
+    CONFIANZA_USUARIO: float = 0.90
+    CONFIANZA_SIN_CATALOGO_MAX: float = 0.55          # comercio sin ficha: solo la categoría por reglas
+    CONFIANZA_MAX: float = 0.95
+
+
+@dataclass(frozen=True)
 class Razonador:
     CONFIANZA_MIN: float = 0.5
 
@@ -93,6 +114,7 @@ DEFECTO: dict[str, object] = {
     "gasto_compartido": GastoCompartido(),
     "cargo_duplicado": CargoDuplicado(),
     "subida_recibo": SubidaRecibo(),
+    "prueba_gratuita": PruebaGratuita(),
     "razonador": Razonador(),
 }
 

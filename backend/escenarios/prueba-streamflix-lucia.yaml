@@ -1,0 +1,20 @@
+# prueba-streamflix-lucia (motor.md §3.5 y §5): versión unitaria de la prueba de la demo.
+# Datos sintéticos. El 14/10 Lucía guarda la tarjeta en Streamflix: verificación de 0 € (la señal es la
+# autorización que recibe el banco emisor). El catálogo dice 30 días y 9,99 €: el primer cobro es el
+# 13/11 y el aviso sale el 10/11, con 3 días de margen. No hay cargos suyos previos (no es cambio de tarjeta).
+id: prueba-streamflix-lucia
+usuario_id: lucia
+descripcion: "Lucía empieza una prueba de Streamflix (30 días) y avisa 3 días antes del primer cobro"
+fondo: {perfil: estudiante, meses: 4, semilla: 7, hasta: 2026-11-16, anomalias: false}
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: null
+movimientos:
+  - {id: luc-v1, fecha: 2026-10-14, concepto: "VERIFICACION TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: 0.00, canal: tarjeta, tipo_operacion: verificacion}
+eventos: []
+esperado:
+  - {tipo: prueba_gratuita, fecha_detectable: 2026-11-10, ids: [luc-v1], tolerancia_dias: 0,
+     datos: {comercio: STREAMFLIX, fecha_alta: 2026-10-14, dias_prueba: 30, fecha_primer_cobro: 2026-11-13, dias_hasta: 3,
+             importe_previsto: "9.99", fuente: verificacion, fuente_duracion: catalogo}}
+trampas:
+  - {tipo: cargo_duplicado, ids: [luc-v1], motivo: "una verificación no es un cargo"}

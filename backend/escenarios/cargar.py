@@ -13,7 +13,8 @@ Formato del YAML:
 - `perfil`: `null` (sin perfil), `calcular` (`personalizacion.perfilar` al activar y cada 7 días) o un
   `PerfilUsuario` escrito a mano.
 - `eventos`: `{fecha, tipo: registrar_prueba | cerrar_prueba, comercio, ...}` (lo que dice el cliente).
-- `esperado`: `{tipo, fecha_detectable, ids, tolerancia_dias, datos?, candidatos?, solo_con_perfil?}`.
+- `esperado`: `{tipo, fecha_detectable, ids, tolerancia_dias, datos?, candidatos?, solo_con_perfil?}`
+  (`ids: []` = un momento sin movimientos que lo prueben, como una prueba que dijo el cliente).
 - `trampas`: `{tipo, ids, motivo}`: ningún momento de ese tipo puede tocar esos ids.
 """
 
@@ -212,7 +213,8 @@ def _fecha_cerca(esperado: Any, real: Any, dias: int = 1) -> bool:
 
 def encaja(etiqueta: dict, momento: Momento) -> bool:
     """Acierto: mismo tipo, toca los ids, sale en [fecha_detectable, + tolerancia] y `datos` coinciden."""
-    if momento.tipo != etiqueta["tipo"] or not set(etiqueta.get("ids", [])) & set(momento.movimientos):
+    ids = etiqueta.get("ids") or []        # sin ids (una prueba que dijo el cliente): vale cualquiera del tipo
+    if momento.tipo != etiqueta["tipo"] or (ids and not set(ids) & set(momento.movimientos)):
         return False
     desde = _fecha(etiqueta["fecha_detectable"])
     if not desde <= momento.fecha <= desde + timedelta(days=int(etiqueta.get("tolerancia_dias", 0))):
