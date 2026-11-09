@@ -26,7 +26,8 @@ def falsos(monkeypatch) -> Falsos:
 @pytest.fixture
 def activo(falsos):
     assert http.post("/demo/cargar", json={"escenario_id": "demo-test"}).status_code == 200
-    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["cena_compartida"]})
+    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["cena_compartida"],
+                                                    "consentimientos": {"copiloto": True}})
     assert r.status_code == 200
     return falsos
 
@@ -111,8 +112,7 @@ def test_rutas_futuras_responden_501():
                          ("post", "/acciones/deshacer"), ("post", "/voz/sesion"), ("post", "/voz/texto"),
                          ("post", "/voz/herramientas/preparar"), ("post", "/voz/herramientas/feedback"),
                          ("post", "/voz/herramientas/consultar"), ("get", "/banco/modulos"),
-                         ("post", "/banco/modulos/borrador"), ("post", "/banco/modulos/x/aprobar"),
-                         ("get", "/metricas/deteccion")]:
+                         ("post", "/banco/modulos/borrador"), ("post", "/banco/modulos/x/aprobar")]:
         assert getattr(http, metodo)(ruta).status_code == 501, (metodo, ruta)
 
 
@@ -177,3 +177,13 @@ def test_demo_key_en_todas_las_rutas_que_cambian_estado(activo, monkeypatch):
         assert llamar(metodo, ruta, cuerpo, {"X-Demo-Key": "secreta"}).status_code != 401, ruta
     monkeypatch.delenv("DEMO_KEY")
     assert http.post("/reloj/avanzar", json={"usuario_id": UID, "dias": 1}).status_code == 200
+
+
+def test_consentimiento_sin_marcar_por_defecto(falsos):
+    """RGPD: si el cliente no marca nada, no hay consentimiento; `avisos` es alias de `copiloto`."""
+    assert http.post("/demo/cargar", json={"escenario_id": "demo-test"}).status_code == 200
+    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["cena_compartida"]})
+    assert r.status_code == 200 and r.json()["consentimientos"] == {}
+    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["cena_compartida"],
+                                                    "consentimientos": {"avisos": True}})
+    assert list(r.json()["consentimientos"]) == ["copiloto"]

@@ -14,7 +14,7 @@ from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 from .. import config
 from ..plataforma import orquestador
@@ -69,8 +69,10 @@ class PeticionCargar(BaseModel):
 
 
 class Consentimientos(BaseModel):
-    avisos: bool = True
-    memoria: bool = True
+    # Sin marcar por defecto: el cliente los da al pulsar «Activar». La clave principal es
+    # `copiloto` (CONTRATO, «Integración del esqueleto»); `avisos` se acepta como alias.
+    copiloto: bool = Field(False, validation_alias=AliasChoices("copiloto", "avisos"))
+    memoria: bool = False
 
 
 class PeticionActivar(BaseModel):
