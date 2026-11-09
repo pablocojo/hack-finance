@@ -19,9 +19,9 @@ Usa la plantilla de encargo de `/feature`, con la interfaz exacta del contrato. 
 
 | Zona | Subagente | Mínimo del esqueleto |
 |---|---|---|
-| `backend/motor/` y `backend/escenarios/` | `ingeniero-deteccion` | Normalización, el detector `cargo_duplicado` en línea, el formato de escenario y un escenario etiquetado con un caso trampa |
+| `backend/motor/` y `backend/escenarios/` | `ingeniero-deteccion` | Normalización, el detector `gasto_compartido` en línea, el formato de escenario y `cena-lucia.yaml` con su trampa (tareas E2-E3 de `docs/PLAN.md`) |
 | `backend/personalizacion/` | `cientifico-personalizacion` | `ModeloUsuario` persistente, `decidir()` y `aprender()` con la política v1, y un usuario simulado |
-| `backend/modulos/` y `backend/acciones/` | `ingeniero-modulos` | Cargador y validación del YAML, el módulo `cargo_duplicado`, el registro cerrado de acciones y el banco simulado con 2 acciones |
+| `backend/modulos/` y `backend/acciones/` | `ingeniero-modulos` | Cargador y validación del YAML, el módulo `cena_compartida`, las seis acciones con token y el banco simulado (E4-E5) |
 | `backend/voz/` | `ingeniero-voz` | Interfaz de la llamada con modo texto y un falso de ElevenLabs para los tests |
 
 ## 3. Unir (`programador`)
