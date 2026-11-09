@@ -68,3 +68,35 @@ const HERRAMIENTAS: Record<string, string> = {
 export function nombreHerramienta(nombre: string): string {
   return HERRAMIENTAS[nombre] ?? nombre;
 }
+
+// Siglas que se dejan en mayúsculas al convertir claves del motor en nombres legibles.
+const SIGLAS = new Set(["IA", "ES", "IBAN", "SEPA", "PSD2", "BBVA", "DNI", "EUR", "UE", "IVA", "SA", "SL", "ATM"]);
+const MINUSCULAS = new Set(["de", "del", "la", "las", "el", "los", "y", "en", "a"]);
+
+// Solo para mostrar: «MARCOS R» -> «Marcos R.», «LA TASCA» -> «La Tasca». La clave original no se toca.
+export function nombreVisible(clave: string | null | undefined): string {
+  if (!clave) return "";
+  const limpia = clave.trim().replace(/\s+/g, " ");
+  if (limpia !== limpia.toUpperCase() || !/[A-ZÁÉÍÓÚÜÑ]/.test(limpia)) return limpia;
+  const palabras = limpia.split(" ");
+  return palabras
+    .map((palabra, i) => {
+      if (SIGLAS.has(palabra)) return palabra;
+      if (palabra.length === 1 && i === palabras.length - 1 && i > 0) return `${palabra}.`;
+      const minuscula = palabra.toLowerCase();
+      if (i > 0 && MINUSCULAS.has(minuscula)) return minuscula;
+      return minuscula.charAt(0).toUpperCase() + minuscula.slice(1);
+    })
+    .join(" ");
+}
+
+// Igual, pero dentro de una frase: busca tramos de palabras en mayúsculas («en LA TASCA», «a MARCOS R»).
+const TRAMO = /\b[A-ZÁÉÍÓÚÜÑ]{2,}(?:\s+(?:[A-ZÁÉÍÓÚÜÑ]{2,}|[A-ZÁÉÍÓÚÜÑ]\b))*/g;
+export function textoVisible(texto: string | null | undefined): string {
+  if (!texto) return "";
+  return texto.replace(TRAMO, (tramo, posicion: number, entero: string) => {
+    const visible = nombreVisible(tramo);
+    // Si la frase ya trae el punto de la inicial («MARCOS R.»), no se duplica.
+    return visible.endsWith(".") && !tramo.endsWith(".") && entero[posicion + tramo.length] === "." ? visible.slice(0, -1) : visible;
+  });
+}

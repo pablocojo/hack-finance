@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Activacion from "@/components/Activacion";
 import Bandeja from "@/components/Bandeja";
 import InsigniaIA from "@/components/InsigniaIA";
@@ -9,6 +9,7 @@ import RelojDemo from "@/components/RelojDemo";
 import { activar, avanzarReloj, cargarDemo, estadoUsuario, notificaciones } from "@/lib/api";
 import type { EstadoUsuario, EventoReloj, Notificacion } from "@/lib/api";
 import { eur } from "@/lib/formato";
+import { CLAVE_USUARIO } from "@/lib/sesion";
 
 const ESCENARIO = "cena-lucia";
 
@@ -31,6 +32,17 @@ export default function PantallaCliente() {
     setResumen(r);
   }, []);
 
+  // Al volver de la llamada se recupera al usuario de esta pestaña, sin volver a activar.
+  useEffect(() => {
+    const guardado = window.sessionStorage.getItem(CLAVE_USUARIO);
+    if (!guardado) return;
+    setUsuarioId(guardado);
+    refrescar(guardado).catch(() => {
+      window.sessionStorage.removeItem(CLAVE_USUARIO);
+      setUsuarioId(null);
+    });
+  }, [refrescar]);
+
   async function ejecutar(tarea: () => Promise<void>) {
     setOcupado(true);
     setError(null);
@@ -47,6 +59,7 @@ export default function PantallaCliente() {
     ejecutar(async () => {
       const demo = await cargarDemo(ESCENARIO);
       await activar(demo.usuario_id, modulos, { copiloto: true, memoria: true });
+      window.sessionStorage.setItem(CLAVE_USUARIO, demo.usuario_id);
       setUsuarioId(demo.usuario_id);
       await refrescar(demo.usuario_id);
     });
@@ -59,6 +72,7 @@ export default function PantallaCliente() {
     });
 
   const reiniciar = () => {
+    window.sessionStorage.removeItem(CLAVE_USUARIO);
     setUsuarioId(null);
     setEstado(null);
     setHoy(null);
@@ -126,7 +140,12 @@ export default function PantallaCliente() {
             </p>
           )}
 
-          <Bandeja ahora={ahora} resumen={resumen} />
+          <Bandeja
+            usuarioId={usuarioId}
+            ahora={ahora}
+            resumen={resumen}
+            alResolver={() => void refrescar(usuarioId).catch(() => undefined)}
+          />
 
           <button type="button" className="boton-secundario" onClick={reiniciar}>
             Reiniciar escenario
