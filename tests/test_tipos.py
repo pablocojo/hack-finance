@@ -259,46 +259,59 @@ def test_paquetes_importan(paquete):
     importlib.import_module(f"backend.{paquete}")
 
 
-def test_stubs_devuelven_objetos_validos():
+# Las firmas de ARQUITECTURA §3.2 son el contrato entre zonas: si un hilo las cambia, salta este test.
+FIRMAS = {
+    "motor.procesar": ["usuario_id", "nuevos", "hoy", "perfil"],
+    "motor.enriquecer": ["movimientos"],
+    "motor.exportar_estado": ["usuario_id"],
+    "motor.importar_estado": ["usuario_id", "estado"],
+    "motor.reiniciar": ["usuario_id"],
+    "motor.cargar_historial": ["usuario_id", "historial", "hoy"],
+    "motor.comercios_pendientes": ["usuario_id"],
+    "motor.registrar_prueba": ["usuario_id", "comercio", "fecha_alta", "dias", "hoy"],
+    "motor.cerrar_prueba": ["usuario_id", "comercio", "motivo", "hoy"],
+    "motor.conocimiento.info_comercio": ["nombre"],
+    "motor.conocimiento.info_en_cache": ["nombre"],
+    "motor.conocimiento.guardar": ["info"],
+    "motor.parametros.ajustar": ["params", "perfil"],
+    "personalizacion.nuevo_modelo": ["usuario_id"],
+    "personalizacion.perfilar": ["historial", "hoy", "perfil_anterior"],
+    "personalizacion.ordenar_acciones": ["propuesta", "modelo"],
+    "personalizacion.decidir": ["propuesta", "modelo", "ahora"],
+    "personalizacion.aprender": ["feedback", "modelo"],
+    "personalizacion.registrar_decision": ["modelo", "propuesta", "decision"],
+    "personalizacion.observar": ["modelo", "movimientos", "hoy"],
+    "personalizacion.registrar_accion": ["modelo", "propuesta", "resultado"],
+    "personalizacion.memoria_para_agente": ["modelo"],
+    "personalizacion.edicion.borrar_perfil": ["modelo"],
+    "modulos.proponer": ["momento", "modelo"],
+    "modulos.crear_borrador": ["descripcion"],
+    "modulos.probar_en_seco": ["borrador", "usuario_id"],
+    "modulos.aprobar": ["modulo_id", "aprobado_por"],
+    "acciones.preparar": ["accion_id", "parametros", "propuesta_id", "usuario_id"],
+    "acciones.ejecutar": ["token_confirmacion", "usuario_id"],
+    "acciones.deshacer": ["resultado_id", "usuario_id"],
+    "voz.sesion": ["propuesta_id", "usuario_id", "modo_preferido"],
+}
+
+
+@pytest.mark.parametrize("ruta,parametros", sorted(FIRMAS.items()))
+def test_firmas_del_contrato(ruta, parametros):
+    import importlib
+    import inspect
+
+    *paquete, funcion = ruta.split(".")
+    modulo = importlib.import_module("backend." + ".".join(paquete))
+    assert list(inspect.signature(getattr(modulo, funcion)).parameters) == parametros
+
+
+def test_procesar_y_decidir_devuelven_tipos_del_contrato():
     movimiento = Movimiento(id="m1", fecha=date(2026, 11, 6), concepto="COMPRA", comercio="La Tasca",
                             importe=Decimal("-120"))
     hoy = date(2026, 11, 9)
-    # motor
-    assert motor.procesar("lucia", [movimiento], hoy) == []
-    assert motor.procesar("lucia", [movimiento], hoy, perfil_lucia()) == []
-    enriquecidos = motor.enriquecer([movimiento])
-    assert enriquecidos[0].comercio_normalizado == "LA TASCA"
-    assert motor.exportar_estado("lucia") == {} and motor.comercios_pendientes("lucia") == []
-    motor.cargar_historial("lucia", [movimiento], hoy)
-    motor.importar_estado("lucia", {})
-    motor.reiniciar("lucia")
-    motor.registrar_prueba("lucia", "STREAMFLIX", date(2026, 10, 14), None, hoy)
-    motor.cerrar_prueba("lucia", "STREAMFLIX", "baja_guiada", hoy)
-    assert motor.conocimiento.info_comercio("STREAMFLIX") is None
-    assert motor.parametros.ajustar({"x": 1}, None) == {"x": 1}
-    # personalización
+    assert all(isinstance(m, Momento) for m in motor.procesar("t-firmas", [movimiento], hoy))
+    assert isinstance(motor.exportar_estado("t-firmas"), dict)
+    motor.reiniciar("t-firmas")
     modelo = personalizacion.nuevo_modelo("lucia")
-    assert personalizacion.perfilar(enriquecidos, hoy, None) is None
-    propuesta = propuesta_cena()
-    assert personalizacion.ordenar_acciones(propuesta, modelo) == propuesta
-    decision = personalizacion.decidir(propuesta, modelo, AHORA)
+    decision = personalizacion.decidir(propuesta_cena(), modelo, AHORA)
     assert isinstance(decision, Decision) and decision.motivos
-    feedback = Feedback(propuesta_id="prop-1", usuario_id="lucia", resultado="resuelta", canal="voz", fecha=AHORA)
-    assert personalizacion.aprender(feedback, modelo) == modelo
-    assert personalizacion.registrar_decision(modelo, propuesta, decision) == modelo
-    assert personalizacion.memoria_para_agente(modelo) == ""
-    borrado = personalizacion.edicion.borrar_perfil(ModeloUsuario(usuario_id="lucia", perfil=perfil_lucia()))
-    assert borrado.perfil is None and borrado.preferencias.usar_perfil is False
-    # módulos
-    assert modulos.proponer(momento_cena(), modelo) == []
-    borrador = modulos.crear_borrador("Avísame cuando un recibo suba más de 8 €")
-    assert modulos.probar_en_seco(borrador, "lucia").aprobado
-    assert modulos.aprobar("recibo_al_alza", "banco").estado == "activo"
-    # acciones
-    tarjeta = acciones.preparar("pedir_bizum", {"importe": Decimal("24")}, "prop-1", "lucia")
-    assert tarjeta.simulada and tarjeta.accion_id == "pedir_bizum"
-    assert acciones.ejecutar(tarjeta.token_confirmacion, "lucia").simulada
-    assert acciones.deshacer("res-1", "lucia").ok
-    # voz
-    sesion = voz.sesion("prop-1", "lucia", "voz")
-    assert sesion.modo in {"voz", "texto_el", "texto_kit", "grabado"} and sesion.token_sesion

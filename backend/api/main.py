@@ -31,6 +31,7 @@ from ..datos.almacen import ALMACEN, Sesion
 from ..datos.importar_csv import importar_csv
 from ..datos.sinteticos import PERFILES
 from ..herramientas.gastos import resumen_gastos
+from . import rutas_banco, rutas_copiloto, rutas_metricas, rutas_voz
 from .sse import estado_http, evento_sse, mensaje_error
 
 AJUSTES = config.ajustes()
@@ -40,9 +41,11 @@ app = FastAPI(title=f"{AJUSTES.nombre_producto} API", version="1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(AJUSTES.origenes_cors),
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
+for _router in (rutas_copiloto.router, rutas_voz.router, rutas_banco.router, rutas_metricas.router):
+    app.include_router(_router)
 
 
 class Adjunto(BaseModel):

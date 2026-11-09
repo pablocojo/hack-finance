@@ -266,3 +266,10 @@ Estas reglas resuelven lo que podía contradecirse entre partes. Si un diseño c
 ### Voz y chat con ElevenLabs: obligatorios (Pablo, 9 nov, noche)
 
 El reto exige usar la voz y las herramientas de ElevenLabs por la API. La **llamada de voz** y el **chat** usan el mismo agente de ElevenLabs y las mismas herramientas de cliente (`preparar_accion`, `registrar_feedback`): el chat es el modo `textOnly` (nivel 2) y es el modo de texto principal. El agente del kit en `/voz/texto` (nivel 3) queda solo como plan B si ElevenLabs falla. No se recorta: si vamos tarde, cae antes la creación del módulo en directo.
+
+### Integración del esqueleto (9 nov, noche)
+
+- **Consentimiento principal**: clave `copiloto` en `ModeloUsuario.consentimientos`. La política acepta `avisos` como alias mientras el frontend se unifica; el frontend envía `copiloto`.
+- **Tokens de confirmación**: los guarda y valida `backend/acciones/tokens.py` por usuario (SHA-256, un solo uso, 10 min). El `usuario_id` va en el cuerpo de `/acciones/confirmar` y un token de otro usuario falla.
+- **Archivos del usuario que leen las acciones**: `propuestas.json` y `reloj.json` (`hoy`), que escribe el orquestador antes de llamar a `preparar`.
+- **Nombre visible de las contrapartes**: el motor y los módulos usan la clave (`MARCOS R`); la app y la llamada muestran «Marcos R.» (pendiente en D1/F2).
