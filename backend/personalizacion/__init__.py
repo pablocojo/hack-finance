@@ -1,6 +1,11 @@
 """
-Personalización. STUB de E1: firmas definitivas de docs/ARQUITECTURA.md §3.2.
-Lo sustituye el hilo `personalizacion`; las firmas no cambian.
+Personalización de Meisam (nombre interno: copiloto). Firmas de docs/ARQUITECTURA.md §3.2.
+
+Hecho (E6): `nuevo_modelo`, `decidir` (política `beta-jerarquica-v2`, en politica.py), `aprender`
+(aprendizaje.py) y `registrar_decision` (abre el aviso para poder aprender de la respuesta).
+Todas puras: no guardan nada; guarda el orquestador.
+Stubs para mañana: `perfilar` (None), `ordenar_acciones` (sin cambios), `observar`,
+`registrar_accion` y la parte de amigos de `registrar_decision`.
 """
 
 from __future__ import annotations
@@ -18,12 +23,18 @@ from ..plataforma.tipos import (
     ResultadoAccion,
 )
 from . import edicion  # noqa: F401
+from .aprendizaje import abrir_aviso
+from .aprendizaje import aprender as _aprender
+from .memoria import memoria_para_agente as _memoria_para_agente
+from .politica import PARAMETROS, VERSION  # noqa: F401
+from .politica import decidir as _decidir
 
-POLITICA = "beta-jerarquica-v2"
+POLITICA = VERSION
 
 
 def nuevo_modelo(usuario_id: str) -> ModeloUsuario:
-    return ModeloUsuario(usuario_id=usuario_id)
+    """Modelo vacío v2: sin módulos ni consentimientos (se rellenan al activar) y en frío."""
+    return ModeloUsuario(usuario_id=usuario_id, politica=VERSION)
 
 
 def perfilar(
@@ -39,24 +50,19 @@ def ordenar_acciones(propuesta: Propuesta, modelo: ModeloUsuario) -> Propuesta:
 
 
 def decidir(propuesta: Propuesta, modelo: ModeloUsuario, ahora: datetime) -> Decision:
-    """Stub: avisa siempre con un motivo legible."""
-    return Decision(
-        propuesta_id=propuesta.id,
-        accion="notificar_ahora",
-        puntuacion=1.0,
-        probabilidad_util=0.5,
-        motivos=["Política de ejemplo (stub): avisa siempre."],
-        politica=POLITICA,
-    )
+    """Pura y < 5 ms: reglas duras, Beta jerárquica y U = q·B − (1 − q), con motivos legibles."""
+    return _decidir(propuesta, modelo, ahora)
 
 
 def aprender(feedback: Feedback, modelo: ModeloUsuario) -> ModeloUsuario:
-    """Pura: no guarda. Stub: el mismo modelo."""
-    return modelo
+    """Pura: no guarda. Suma la respuesta a las claves del aviso abierto y regenera los hechos."""
+    return _aprender(feedback, modelo)
 
 
 def registrar_decision(modelo: ModeloUsuario, propuesta: Propuesta, decision: Decision) -> ModeloUsuario:
-    return modelo
+    """Pura. Abre el aviso (si no es `silenciar`) y lo cuenta para el tope diario.
+    Pendiente: crear amigos desde `candidatos`."""
+    return abrir_aviso(modelo, propuesta, decision)
 
 
 def registrar_accion(modelo: ModeloUsuario, propuesta: Propuesta, resultado: ResultadoAccion) -> ModeloUsuario:
@@ -65,9 +71,10 @@ def registrar_accion(modelo: ModeloUsuario, propuesta: Propuesta, resultado: Res
 
 
 def observar(modelo: ModeloUsuario, movimientos: list[Movimiento], hoy: date) -> ModeloUsuario:
+    """Contactos y amigos. Stub: sin cambios."""
     return modelo
 
 
 def memoria_para_agente(modelo: ModeloUsuario) -> str:
     """Solo hechos operativos; nunca ingresos, importes por categoría ni resumen_vida."""
-    return ""
+    return _memoria_para_agente(modelo)
