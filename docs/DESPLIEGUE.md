@@ -39,3 +39,5 @@ Los planes gratuitos se duermen tras un rato sin uso: abre `/salud` 5 minutos an
 - Las `NEXT_PUBLIC_*` se incrustan al compilar: si cambian, hay que volver a desplegar.
 
 **Comprobación**: `GET /salud` responde 200; `GET /escenarios` lista `cena-lucia`; en `/app` de Vercel, «Cargar» y «Avanzar un día» hasta el 9/11 muestran el aviso de la cena; `GET /metricas/motor` devuelve la línea base.
+
+**URL públicas (9 nov)**: frontend https://hack-finance.vercel.app · backend https://meisam-api.onrender.com
