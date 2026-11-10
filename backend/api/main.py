@@ -44,7 +44,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
-for _router in (rutas_copiloto.router, rutas_voz.router, rutas_banco.router, rutas_metricas.router):
+for _router in (rutas_copiloto.router, rutas_voz.router, rutas_voz.router_casos, rutas_banco.router, rutas_metricas.router):
     app.include_router(_router)
 
 

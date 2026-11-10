@@ -646,6 +646,20 @@ export const vozPreparar = (tokenSesion: string, accionId: AccionId, parametros:
   });
 export const vozFeedback = (tokenSesion: string, resultado: ResultadoFeedback) =>
   enviar<{ ok: boolean }>("/voz/herramientas/feedback", "POST", { token_sesion: tokenSesion, resultado });
+// Al colgar: la transcripción va al agente post-llamada (voz y chat). El backend la enmascara y solo aplica cambios de una
+// lista cerrada al caso; nunca mueve dinero. Quien la llama debe ignorar el fallo: no bloquea el cierre de la llamada.
+export const enviarConversacion = (opciones: {
+  usuarioId: string;
+  propuestaId: string;
+  mensajes: { rol: "meisam" | "usuario"; texto: string }[];
+  canal: "voz" | "texto";
+}) =>
+  enviar<{ ok: boolean; cambios: string[] }>("/voz/conversacion", "POST", {
+    usuario_id: opciones.usuarioId,
+    propuesta_id: opciones.propuestaId,
+    mensajes: opciones.mensajes,
+    canal: opciones.canal,
+  });
 export const vozConsultar = (tokenSesion: string, pregunta: string) =>
   enviar<{ respuesta: string }>("/voz/herramientas/consultar", "POST", { token_sesion: tokenSesion, pregunta });
 

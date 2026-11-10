@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Conversation } from "@elevenlabs/client";
-import { detallePropuesta, enviarFeedback, hablarTexto, sesionVoz, vozFeedback, vozPreparar } from "@/lib/api";
+import { detallePropuesta, enviarConversacion, enviarFeedback, hablarTexto, sesionVoz, vozFeedback, vozPreparar } from "@/lib/api";
 import type { AccionOfrecida, EventoVoz, Propuesta, ResultadoAccion, ResultadoFeedback, SesionVoz, TarjetaConfirmacion } from "@/lib/api";
 import { textoVisible } from "@/lib/formato";
 import { extraerTarjeta, fallaPorMicrofono, parametrosDeHerramienta, reloj, RESULTADOS_AGENTE, resumenPrevio } from "@/lib/llamada";
@@ -52,12 +52,14 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
   const generacion = useRef(0); // cada sesión de ElevenLabs tiene la suya: los eventos de una sesión cerrada se ignoran
   const montado = useRef(false);
   const canalRef = useRef<Canal>(null);
+  const canalUsado = useRef<Canal>(null); // el último canal abierto: `canalRef` queda en null al colgar
   const terminadaRef = useRef(false);
   const turnosRef = useRef<Turno[]>([]);
   const tarjetaRef = useRef<TarjetaConfirmacion | null>(null);
   const hechaRef = useRef(false);
   const conFeedback = useRef(false); // ya hay un Feedback explícito (rechazo, error, silencio): no se manda vista_sin_accion
   const cierreRegistrado = useRef(false);
+  const conversacionEnviada = useRef(false); // la transcripción se manda una sola vez por llamada
 
   useEffect(() => {
     turnosRef.current = turnos;
@@ -66,6 +68,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
 
   const fijarCanal = (c: Canal) => {
     canalRef.current = c;
+    if (c) canalUsado.current = c;
     setCanal(c);
   };
   const terminar = () => {
@@ -171,6 +174,23 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
     cierreRegistrado.current = true;
     if (!hechaRef.current && !conFeedback.current) void feedback("vista_sin_accion");
   }, [feedback]);
+
+  // Al colgar, la transcripción va al backend (agente post-llamada). Falla en silencio: no bloquea el cierre.
+  const enviarTranscripcion = useCallback(() => {
+    if (conversacionEnviada.current) return;
+    const mensajes = turnosRef.current
+      .filter((t) => !t.enCurso && !t.error && t.texto.trim())
+      .map((t) => ({ rol: t.rol, texto: t.texto.trim().slice(0, 2000) }))
+      .slice(-120);
+    if (!mensajes.some((m) => m.rol === "usuario")) return; // el usuario no dijo nada: no hay nada que leer
+    conversacionEnviada.current = true;
+    void enviarConversacion({ usuarioId, propuestaId, mensajes, canal: canalUsado.current === "voz" ? "voz" : "texto" }).catch(() => undefined);
+  }, [usuarioId, propuestaId]);
+
+  // La llamada termina por cualquier vía (colgar, «ahora no», colgó el agente): se manda la transcripción una vez.
+  useEffect(() => {
+    if (terminada) enviarTranscripcion();
+  }, [terminada, enviarTranscripcion]);
 
   // ---- ElevenLabs: voz o chat con el mismo agente ----
   const cerrarEleven = useCallback(async () => {
@@ -310,6 +330,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
     void import("@elevenlabs/client").catch(() => undefined);
     return () => {
       montado.current = false;
+      enviarTranscripcion(); // salió de la pantalla sin colgar: también cuenta
       generacion.current += 1;
       senal.current?.abort();
       const c = conversacion.current;
