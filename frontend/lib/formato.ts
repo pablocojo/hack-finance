@@ -100,3 +100,21 @@ export function textoVisible(texto: string | null | undefined): string {
     return visible.endsWith(".") && !tramo.endsWith(".") && entero[posicion + tramo.length] === "." ? visible.slice(0, -1) : visible;
   });
 }
+
+// Lo que escribe el usuario («12,5», «1.000,00», «12.50 €») pasa a cadena decimal con 2 decimales («12.50»),
+// sin convertir a float. Devuelve null si no es un importe.
+export function importeDeTexto(texto: string): string | null {
+  let t = texto.replace(/[€\s]/g, "");
+  if (!/^[\d.,]+$/.test(t)) return null;
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  else if ((t.match(/\./g) ?? []).length > 1 || /^\d{1,3}\.\d{3}$/.test(t)) t = t.replace(/\./g, "");
+  const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(t);
+  if (!m) return null;
+  return `${m[1].replace(/^0+(?=\d)/, "")}.${(m[2] ?? "").padEnd(2, "0")}`;
+}
+
+// Compara dos importes en céntimos (enteros), sin floats.
+export function centimos(importe: string): number {
+  const [e, d = "0"] = importe.split(".");
+  return Number(e) * 100 + Number(d.padEnd(2, "0").slice(0, 2));
+}

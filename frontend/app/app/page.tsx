@@ -147,6 +147,15 @@ export default function PantallaCliente() {
             alResolver={() => void refrescar(usuarioId).catch(() => undefined)}
           />
 
+          <nav className="atajos" aria-label="Más de Meisam">
+            <Link href="/app/amigos" className="atajo">
+              Cuentas con amigos
+            </Link>
+            <Link href="/app/aprendido" className="atajo">
+              Lo que he aprendido de ti
+            </Link>
+          </nav>
+
           <button type="button" className="boton-secundario" onClick={reiniciar}>
             Reiniciar escenario
           </button>

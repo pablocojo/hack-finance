@@ -6,6 +6,7 @@ import { prepararAccion } from "@/lib/api";
 import type { Notificacion, TarjetaConfirmacion } from "@/lib/api";
 import { eur, textoVisible } from "@/lib/formato";
 import InsigniaIA from "./InsigniaIA";
+import PorQue from "./PorQue";
 import TarjetaAccion from "./TarjetaAccion";
 
 type Pestana = "ahora" | "resumen";
@@ -92,6 +93,7 @@ export default function Bandeja({ usuarioId, ahora, resumen, alResolver }: Props
               )}
               {propuesta.contexto_personal && <p className="aviso-contexto">{textoVisible(propuesta.contexto_personal)}</p>}
               {decision.motivos[0] && <p className="aviso-motivo">Por qué te aviso: {textoVisible(decision.motivos[0])}</p>}
+              <PorQue usuarioId={usuarioId} propuestaId={propuesta.id} />
               {estado !== "nueva" && <p className="pequeno tenue">Estado: {estado}</p>}
               {tarjeta ? (
                 <TarjetaAccion

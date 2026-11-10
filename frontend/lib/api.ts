@@ -392,10 +392,30 @@ export type Amigo = {
   contraparte: string;
   saldo: Euros;
   propuesta_origen: string;
-  estado: "detectado" | "pedido" | "saldado" | "olvidado";
+  estado: "detectado" | "pedido" | "saldado" | "olvidado" | "caducado";
   creado: string;
   pedido?: string | null;
   saldado?: string | null;
+};
+
+// GET /usuarios/{id}/aprendido (backend/plataforma/orquestador.py, aprendido_usuario). Los amigos de aquí
+// traen solo contraparte, saldo, estado y creado.
+export type SilencioAprendido = { ambito: string; desde: string; valor: string };
+export type AprendidoRespuesta = {
+  hechos: HechoAprendido[];
+  silencios: SilencioAprendido[];
+  amigos: Pick<Amigo, "contraparte" | "saldo" | "estado" | "creado">[];
+  usar_perfil: boolean;
+};
+
+// PROVISIONAL (casos de deuda, tipos.py `Caso`): la ruta aún no existe en el backend. Solo lo que la pantalla
+// «Lo que he aprendido» necesita para ver y borrar lo guardado de las conversaciones.
+export type CasoResumen = {
+  id: string;
+  estado: string;
+  creado: string;
+  deudores: { contraparte: string; estado: string }[];
+  conversaciones: string[];
 };
 
 export type ModeloUsuario = {
@@ -553,13 +573,25 @@ export const enviarFeedback = (f: {
     canal: f.canal,
     nota: f.nota,
   });
-export const prepararAccion = (usuarioId: string, propuestaId: string, accionId: AccionId, parametros: Record<string, unknown> = {}) =>
+export const prepararAccion = (usuarioId: string, propuestaId: string, accionId: AccionId, parametros: Record<string, unknown> = {}, editado = false) =>
   enviar<TarjetaConfirmacion>("/acciones/preparar", "POST", {
     usuario_id: usuarioId,
     propuesta_id: propuestaId,
     accion_id: accionId,
     parametros,
+    ...(editado ? { editado: true } : {}),
   });
+
+// Tarjeta editable de `pedir_bizum`: al editar importe o concepto se vuelve a preparar con `editado: true`
+// (solo el botón del usuario lo envía; el servidor lo guarda dentro del token) y se usa la tarjeta nueva.
+export const prepararAccionEditada = (
+  usuarioId: string,
+  propuestaId: string,
+  accionId: AccionId,
+  parametrosBase: Record<string, unknown>,
+  cambios: { importe?: Euros; concepto?: string },
+) => prepararAccion(usuarioId, propuestaId, accionId, { ...parametrosBase, ...cambios }, true);
+
 export const confirmarAccion = (usuarioId: string, tokenConfirmacion: string) =>
   enviar<ResultadoAccion>("/acciones/confirmar", "POST", { usuario_id: usuarioId, token_confirmacion: tokenConfirmacion });
 export const deshacerAccion = (usuarioId: string, resultadoId: string) =>
@@ -572,7 +604,7 @@ export const borrarCampoPerfil = (usuarioId: string, campo: string) =>
   enviar<PerfilRespuesta>(`${usuario(usuarioId)}/perfil/${encodeURIComponent(campo)}`, "DELETE");
 export const borrarPerfil = (usuarioId: string) => enviar<PerfilRespuesta>(`${usuario(usuarioId)}/perfil`, "DELETE");
 
-export const hechosAprendidos = (usuarioId: string) => enviar<HechoAprendido[]>(`${usuario(usuarioId)}/aprendido`, "GET");
+export const aprendido = (usuarioId: string) => enviar<AprendidoRespuesta>(`${usuario(usuarioId)}/aprendido`, "GET");
 export const editarHecho = (usuarioId: string, hechoId: string, cambios: { activo?: boolean; texto?: string }) =>
   enviar<HechoAprendido>(`${usuario(usuarioId)}/aprendido/${encodeURIComponent(hechoId)}`, "PATCH", cambios);
 export const borrarHecho = (usuarioId: string, hechoId: string) =>
@@ -582,6 +614,13 @@ export const olvidarTodo = (usuarioId: string) => enviar<{ ok: boolean }>(`${usu
 export const registrarPrueba = (usuarioId: string, comercio: string, fechaAlta: string, dias?: number) =>
   enviar<{ ok: boolean }>(`${usuario(usuarioId)}/pruebas`, "POST", { comercio, fecha_alta: fechaAlta, dias });
 export const amigos = (usuarioId: string) => enviar<Amigo[]>(`${usuario(usuarioId)}/amigos`, "GET");
+// PROVISIONAL: borra a un amigo pendiente (edicion.borrar_amigo existe en el backend, falta la ruta).
+export const borrarAmigo = (usuarioId: string, contraparte: string) =>
+  enviar<{ ok: boolean }>(`${usuario(usuarioId)}/amigos/${encodeURIComponent(contraparte)}`, "DELETE");
+// PROVISIONAL: casos con sus conversaciones guardadas y su borrado (no existen todavía en el backend).
+export const casos = (usuarioId: string) => enviar<CasoResumen[]>(`${usuario(usuarioId)}/casos`, "GET");
+export const borrarConversacionesCaso = (usuarioId: string, casoId: string) =>
+  enviar<{ ok: boolean }>(`${usuario(usuarioId)}/casos/${encodeURIComponent(casoId)}/conversaciones`, "DELETE");
 
 export const sesionVoz = (propuestaId: string, usuarioId: string, modoPreferido: "voz" | "texto_el" | "texto_kit") =>
   enviar<SesionVoz>("/voz/sesion", "POST", { propuesta_id: propuestaId, usuario_id: usuarioId, modo_preferido: modoPreferido });

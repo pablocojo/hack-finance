@@ -259,3 +259,55 @@ html:has(.llamada) { scroll-padding-bottom: 320px; }
 .boton-contestar:hover { background: #0b5f59; }
 .boton-contestar:focus-visible { outline: 3px solid var(--aurora); outline-offset: 2px; }
 .pre-llamada .boton-secundario { border-radius: 999px; }
+
+/* ---- F3: «Por qué», «Lo que he aprendido», cuentas con amigos y tarjeta editable ---- */
+.boton-texto { background: none; border: 0; padding: 8px 2px; min-height: 40px; color: var(--aurora-2); font-weight: 600; text-decoration: underline; cursor: pointer; text-align: left; }
+.boton-texto:disabled { opacity: 0.5; cursor: not-allowed; }
+.boton-texto.peligro, .boton-secundario.peligro { color: #8f1d14; }
+.boton-secundario.peligro { border-color: #d9958f; }
+.campo-etiquetado { display: flex; flex-direction: column; gap: 4px; }
+.campo-etiquetado label { font-weight: 600; font-size: 0.92rem; }
+.campo-etiquetado .campo { min-height: 44px; font-size: 1rem; }
+.campo[aria-invalid="true"] { border-color: var(--error); }
+.edicion-tarjeta { display: flex; flex-direction: column; gap: 10px; background: #f6f7fb; border-radius: 10px; padding: 10px 12px; }
+.fila-botones { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.fila-botones .boton-principal, .fila-botones .boton-secundario { min-height: 44px; }
+
+.porque { display: flex; flex-direction: column; gap: 4px; }
+.porque-panel { display: flex; flex-direction: column; gap: 8px; background: #f6f7fb; border-radius: 10px; padding: 10px 12px; font-size: 0.92rem; line-height: 1.4; }
+.porque-panel h4 { margin: 0; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--tenue); }
+.porque-panel ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+.porque-feedback { display: flex; flex-wrap: wrap; gap: 8px; }
+.porque-feedback .chip { min-height: 40px; text-align: left; }
+.porque-gracias { color: var(--aurora); font-weight: 600; }
+
+.bloque { background: #fff; border: 1px solid var(--borde); border-radius: var(--radio); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.bloque h2 { font-size: 1.1rem; color: var(--aurora); }
+.nota-bloque { background: #eef0fa; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.frases { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.frase { padding: 10px 0; border-top: 1px solid var(--borde); display: flex; flex-direction: column; gap: 4px; line-height: 1.4; }
+.frase:first-child { border-top: 0; padding-top: 0; }
+.frase.apagado > p:first-child { color: var(--tenue); text-decoration: line-through; }
+.etiqueta-fijado { margin-left: 8px; font-size: 0.72rem; font-weight: 700; color: #115e59; background: var(--acento-suave); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.resumenes { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 0.92rem; }
+.zona-peligro { display: flex; flex-direction: column; gap: 8px; }
+.bloque.zona-peligro { border-color: #e7c2be; }
+.interruptor-simple { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; cursor: pointer; font-weight: 600; }
+.interruptor-simple input { width: 24px; height: 24px; accent-color: var(--aurora); }
+.interruptor-simple:focus-within { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 6px; }
+a:focus-visible, input:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+
+.atajos { display: grid; gap: 8px; }
+.atajo { display: flex; align-items: center; min-height: 48px; padding: 0 16px; background: #fff; border: 1px solid var(--borde); border-radius: var(--radio); color: var(--aurora); font-weight: 600; text-decoration: none; }
+.atajo:hover { border-color: var(--aurora-2); }
+
+.total-deuda strong { font-size: 1.8rem; font-variant-numeric: tabular-nums; color: var(--aurora); letter-spacing: -0.02em; }
+.total-deuda span { color: var(--tenue); }
+.fila-amigo { flex-direction: row; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.amigo-nombre { font-weight: 700; }
+.amigo-saldo { font-variant-numeric: tabular-nums; }
+.amigo-estado { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
+.estado-amigo { font-size: 0.74rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: #eef0fa; color: var(--aurora); }
+.estado-pedido { background: var(--ambar-suave); color: var(--ambar); }
+.estado-saldado { background: var(--acento-suave); color: #115e59; }
+.estado-olvidado, .estado-caducado { background: #eef0f3; color: var(--tenue); }

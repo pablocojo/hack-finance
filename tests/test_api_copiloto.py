@@ -306,3 +306,29 @@ def test_cena_lucia_un_silencio_se_ve_y_se_borra_por_http():
     borrado = http.delete(f"/usuarios/{usuario}/aprendido/{quote(hecho['id'], safe='')}")
     assert borrado.status_code == 200 and borrado.json()["silencios"] == [] and borrado.json()["hechos"] == []
     assert alm.cargar(usuario, "modelo", ModeloUsuario).preferencias.silencios == []
+
+
+def test_tarjeta_editable_por_http_sin_stubs():
+    """Con `editado: true` el importe del usuario (mayor que la cuota) se valida con las reglas de Bizum y el
+    token lo respeta; sin `editado`, el servidor rechaza un importe distinto del ofrecido."""
+    usuario = http.post("/demo/cargar", json={"escenario_id": "cena-lucia"}).json()["usuario_id"]
+    http.post(f"/usuarios/{usuario}/activar", json={"modulos_activos": ["cena_compartida"],
+                                                    "consentimientos": {"avisos": True, "memoria": True}})
+    avisos = []
+    for _ in range(60):
+        http.post("/reloj/avanzar", json={"usuario_id": usuario, "dias": 1})
+        avisos = http.get(f"/usuarios/{usuario}/notificaciones", params={"bandeja": "ahora"}).json()
+        if avisos:
+            break
+    propuesta = avisos[0]["propuesta"]
+    oferta = next(a for a in propuesta["acciones_ofrecidas"] if a["accion_id"] == "pedir_bizum")
+    editados = {**oferta["parametros"], "importe": "30.00", "concepto": "Cena del viernes"}
+    cuerpo = {"usuario_id": usuario, "propuesta_id": propuesta["id"], "accion_id": "pedir_bizum", "parametros": editados}
+    assert http.post("/acciones/preparar", json=cuerpo).status_code in (400, 403)
+    assert http.post("/acciones/preparar", json={**cuerpo, "editado": True,
+                                                 "parametros": {**editados, "importe": "1000.01"}}).status_code == 400
+    tarjeta = http.post("/acciones/preparar", json={**cuerpo, "editado": True})
+    assert tarjeta.status_code == 200, tarjeta.text
+    r = http.post("/acciones/confirmar", json={"usuario_id": usuario,
+                                               "token_confirmacion": tarjeta.json()["token_confirmacion"]})
+    assert r.status_code == 200 and r.json()["ok"] and r.json()["datos"]["editado"] is True
