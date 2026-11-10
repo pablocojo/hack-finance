@@ -179,7 +179,7 @@ def preparar_llamada(caso: dict, escenario: dict):
 
     usuario = f"lucia-{caso['id']}"[:64]
     propuesta = Propuesta.model_validate({
-        "id": "prop-1", "modulo_id": escenario.get("modulo_id", "cena_compartida"), "momento_id": "m1",
+        "id": "prop-1", "modulo_id": escenario.get("modulo_id", "gasto_compartido"), "momento_id": "m1",
         "usuario_id": usuario, "titulo": escenario["titulo"], "mensaje_notificacion": escenario["titulo"],
         "contexto_llamada": caso.get("contexto_llamada") or escenario["contexto_llamada"],
         "tipo_momento": escenario.get("tipo_momento", "gasto_compartido"), "confianza": 0.9,

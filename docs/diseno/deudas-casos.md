@@ -70,7 +70,7 @@ La detección de «falta una persona» funciona de principio a fin (commit `c777
 | Emparejar pago y Bizums | `backend/motor/reparto.py` | Asigna cada Bizum o transferencia recibidos al pago con tarjeta más reciente de los 7 días anteriores cuya cuota encaje | Hecho, solo cuotas iguales |
 | Detector | `backend/motor/detectores/gasto_compartido.py` | Avisa si faltan personas; candidatos = quienes suelen pagar con el mismo grupo | Hecho |
 | Grupos y retrasos | `backend/personalizacion/perfil.py` | Aprende los grupos de amigos y cuánto tardan en devolver (p75) | Hecho |
-| Módulo | `backend/modulos/catalogo/cena_compartida.yaml` | Propone `pedir_bizum` a cada candidato (tope = cuota) y `recordar` en 3 días | Hecho |
+| Módulo | `backend/modulos/catalogo/gasto_compartido.yaml` | Propone `pedir_bizum` a cada candidato (tope = cuota) y `recordar` en 3 días | Hecho |
 | Acción | `backend/acciones/registro.py` | Simula la solicitud en estado `pendiente`; se puede cancelar mientras siga pendiente | Hecho, sin aceptar, rechazar ni caducar |
 | Saldo con cada amigo | `Amigo` en `backend/plataforma/tipos.py`, `observar` en `backend/personalizacion/__init__.py` | Estados `detectado`, `pedido`, `saldado`, `olvidado` definidos; `observar` no hace nada | *Stub* (tarea O7 del plan) |
 
@@ -242,6 +242,33 @@ La fase 2 del detector es la que más suma en «uso de IA frontera» (15 %): ens
 - [x] **Sin red o sin IA, los casos dudosos no avisan** (van al resumen o esperan). Es mejor no pedir dinero a quien quizá ya pagó y, sobre todo, **el usuario nunca debe recibir avisos absurdos ni spam de Meisam**: ante la duda, silencio. Esto manda sobre cualquier umbral de confianza (el 0,7 del módulo no basta para un caso dudoso).
 - [x] **Aviso sin respuesta en 48 h:** el deudor sin solicitud pasa a «olvidada»; el caso sigue abierto, no se insiste y se salda solo si pagan después (Pablo, 10 nov).
 - [x] **Foco del producto:** un Meisam que quita al usuario la carga de estar pendiente de quién le debe dinero y de acordarse. Recortados el panel `/jurado` y la creación de módulos en directo.
+
+## Escenarios, transiciones y cuentas con personas (Pablo, 10 nov, noche)
+
+Alcance del hackathon para «despreocuparte de tus amigos»: cuatro escenarios que comparten el mismo `Caso`. El escenario es la etiqueta que fija las reglas (entrada, cuándo avisar, cierre) y **puede cambiar** con rastro en `historial`. Fuera: `prestamo_amigo`, `viaje`, `bizum_recibido_sin_pagar` y lo que debes tú (hoja de ruta).
+
+| Escenario | Cómo nace | `aviso` | Cuándo avisa | Se cierra con |
+|---|---|---|---|---|
+| `pago_individual` | pago con tarjeta que podría haber sido con otros (restaurante o ocio, fin de semana o noche, importe relevante, sin comercio de «compra diaria») | `resumen` si la señal es media; `silencioso` si es débil | nunca push; sale en el Resumen la pregunta «¿fuiste con alguien?» | el usuario dice que iba solo (se descarta y aprende), o pasa a otro escenario |
+| `pago_por_otro` | el usuario dice «X me debe esto» (botón en el movimiento, chat o llamada) | `notificar` | a los 2 días sin Bizum de X: pregunta y propone `pedir_bizum` (con botón) | Bizum de X por la cuota ±0,50 €, o saldado manual |
+| `gasto_compartido` | Bizums de amigos tras un pago, o el usuario dice que fue con varios; una persona puede pagar por dos, redondeos, desiguales | `notificar` | según `avisar_desde` y el portero | todos pagan o saldado manual |
+| `gasto_fijo_compartido` | un `gasto_compartido` que se repite (misma serie de cargo y mismas personas, ≥ 3 veces) | `notificar` | cada ciclo, como el compartido | igual, por ciclo |
+
+**Transiciones permitidas** (el código rechaza cualquier otra): `pago_individual` → `pago_por_otro` | `gasto_compartido` | descartado; `gasto_compartido` → `gasto_fijo_compartido` | `pago_por_otro` (si solo debe una persona) | `pago_individual` («no era compartido»); `pago_por_otro` → `gasto_compartido` (se suman más personas). Lo claro por código (serie recurrente) cambia solo; lo ambiguo o los cambios que dice el usuario pasan por la IA con validación del código (la herramienta de la llamada propone el cambio y el agente post-llamada lo lee con la transcripción).
+
+**Saldado manual**: cualquier deudor o caso se puede marcar `saldada` con `via_saldado` (`efectivo`, `invitacion`, `otro`) y `motivo_saldado` (texto libre = dato). Cierra sin insistir y nunca mueve dinero. Vale también para el total con una persona.
+
+**Casos sin avisar**: `Caso.aviso` es el tope. `silencioso` no notifica ni va al Resumen: solo se ve en «Mis cuentas» dentro de la app. `resumen` va a la bandeja Resumen. `notificar` deja decidir al portero.
+
+**Personas en relación**: `Contacto` guarda la clave, el nombre enmascarado, un teléfono inventado y la `relacion` que declara el usuario (nunca inferida). La agenda de la demo es inventada y viene en el escenario (`contactos:`). Con cada Bizum (o contacto de un caso) se crea o se actualiza el `Contacto`. El saldo total por persona se calcula desde los casos (te debe).
+
+**API nueva** (backend; `rutas_copiloto.py`):
+- `GET /usuarios/{id}/casos` → `CasoResumen[]` ampliado (escenario, estado, aviso, creado, `avisar_desde`, pregunta, `movimiento_origen`, deudores con `via_saldado` y `motivo_saldado`).
+- `POST /usuarios/{id}/casos` `{movimiento_id, deudores: [{contraparte, importe}], escenario?}` crea un caso `pago_por_otro` o `gasto_compartido` sobre un movimiento; si ya hay un caso `pago_individual` de ese movimiento, lo convierte.
+- `POST /usuarios/{id}/casos/{caso_id}/saldar` `{contraparte?, via, motivo?}`; `POST …/descartar` `{motivo?}`; `POST …/escenario` `{escenario, motivo}`.
+- `GET /usuarios/{id}/contactos` → `[{contraparte, nombre, telefono, relacion, saldo_total, casos_abiertos}]`; `PATCH /usuarios/{id}/contactos/{clave}` `{relacion}`.
+
+**Búsqueda web del tipo de comercio** (solo para clasificar `pago_individual`): una consulta la primera vez que aparece un comercio de tarjeta desconocido (fuera de `comercios_conocidos.json`), con caché; solo se extrae el **tipo** (restaurante, supermercado, ocio, gasolinera…); apagada por defecto (`BUSQUEDA_WEB=off`); la demo usa el catálogo precargado. Reglas de seguridad de `CONTRATO.md` («Búsqueda web»).
 
 ## Fuentes
 

@@ -1,4 +1,4 @@
-"""Esquema, plantillas, catálogo (cena_compartida) y `proponer`."""
+"""Esquema, plantillas, catálogo (gasto_compartido) y `proponer`."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def test_la_cena_da_pedir_bizum_a_marcos_limitado_a_24():
     props = modulos.proponer(cena(), ModeloUsuario(usuario_id="lucia"))
     assert len(props) == 1
     p = props[0]
-    assert p.modulo_id == "cena_compartida" and p.tipo_momento == "gasto_compartido"
+    assert p.modulo_id == "gasto_compartido" and p.tipo_momento == "gasto_compartido"
     assert [a.accion_id for a in p.acciones_ofrecidas] == ["pedir_bizum", "recordar"]
     bizum = p.acciones_ofrecidas[0]
     assert bizum.parametros["contraparte"] == "MARCOS R" and Decimal(bizum.parametros["importe"]) == Decimal("24.00")
@@ -58,7 +58,7 @@ def test_no_cumple_la_condicion_no_hay_propuesta():
 def test_opcional_solo_si_el_cliente_lo_activo():
     otro = ModeloUsuario(usuario_id="lucia", modulos_activos=["otro_modulo"])
     assert modulos.proponer(cena(), otro) == []
-    asi = ModeloUsuario(usuario_id="lucia", modulos_activos=["cena_compartida"])
+    asi = ModeloUsuario(usuario_id="lucia", modulos_activos=["gasto_compartido"])
     assert len(modulos.proponer(cena(), asi)) == 1
 
 
@@ -73,13 +73,13 @@ def test_inyeccion_en_el_comercio_queda_como_dato():
 
 def test_catalogo_carga_y_cada_modulo_tiene_2_o_3_acciones():
     cat = registro.catalogo()
-    assert "cena_compartida" in cat
+    assert "gasto_compartido" in cat
     for spec in cat.values():
         assert 2 <= len(spec.acciones) <= 3
 
 
 def _base() -> dict:
-    return copy.deepcopy(yaml.safe_load((registro.CATALOGO / "cena_compartida.yaml").read_text(encoding="utf-8")))
+    return copy.deepcopy(yaml.safe_load((registro.CATALOGO / "gasto_compartido.yaml").read_text(encoding="utf-8")))
 
 
 def test_mas_de_3_acciones_es_error():
@@ -220,7 +220,7 @@ def test_fin_de_prueba_sin_precio_usa_la_alternativa_y_respeta_la_ventana(moment
 
 def test_los_modulos_nuevos_son_opcionales_y_solo_los_activa_el_cliente(momentos_demo):
     m = momentos_demo["prueba_gratuita"]
-    otro = ModeloUsuario(usuario_id="lucia", modulos_activos=["cena_compartida"])
+    otro = ModeloUsuario(usuario_id="lucia", modulos_activos=["gasto_compartido"])
     assert modulos.proponer(m, otro) == []
     activo = ModeloUsuario(usuario_id="lucia", modulos_activos=["fin_de_prueba"])
     assert [p.modulo_id for p in modulos.proponer(m, activo)] == ["fin_de_prueba"]

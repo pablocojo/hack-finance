@@ -150,7 +150,7 @@ def test_streamflix_en_prueba_no_es_una_suscripcion_pagada():
 
 def _cena(modelo: ModeloUsuario) -> str:
     propuesta = Propuesta(
-        id="p-cena", modulo_id="cena_compartida", momento_id="m", usuario_id=modelo.usuario_id,
+        id="p-cena", modulo_id="gasto_compartido", momento_id="m", usuario_id=modelo.usuario_id,
         titulo="Cena", mensaje_notificacion="Te faltan 24 €", contexto_llamada="",
         acciones_ofrecidas=[AccionOfrecida(accion_id="pedir_bizum"), AccionOfrecida(accion_id="recordar")],
         valor_estimado_eur=Decimal("24.00"), urgencia="media", tipo_momento="gasto_compartido",
@@ -167,7 +167,7 @@ def test_la_cena_avisa_con_perfil_y_sin_perfil():
         "vida de Lucía (ticket 9,80 €)": perfil_lucia(),
     }
     for nombre, perfil in perfiles.items():
-        modelo = ModeloUsuario(usuario_id="lucia", modulos_activos=["cena_compartida"],
+        modelo = ModeloUsuario(usuario_id="lucia", modulos_activos=["gasto_compartido"],
                                consentimientos={"copiloto": datetime(2026, 10, 1)}, perfil=perfil)
         d = _cena(modelo)
         assert d.accion == "notificar_ahora", (nombre, d)

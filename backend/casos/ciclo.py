@@ -109,7 +109,7 @@ def _hipotesis(momento: Momento) -> list[Hipotesis]:
             continue
         lista = h.get("candidatos") if isinstance(h.get("candidatos"), list) else []
         claves = [c for c in (_clave(x) for x in lista) if c]
-        salida.append(Hipotesis(escenario="gasto_compartido_puntual", confianza=momento.confianza,
+        salida.append(Hipotesis(escenario="gasto_compartido", confianza=momento.confianza,
                                 deudores=claves, motivo=str(h.get("motivo") or "")[:200]))
     return salida
 
@@ -159,7 +159,7 @@ def crear_desde_momento(momento: Momento, hoy: date | None = None, ahora: dateti
         hechos["faltan"] = datos["faltan"]
 
     caso = Caso(id=f"caso-{momento.id}", usuario_id=momento.usuario_id,
-                escenario=None if dudoso else "gasto_compartido_puntual",
+                escenario=None if dudoso else "gasto_compartido",
                 estado="dudoso" if dudoso else "abierto", momento_id=momento.id, creado=hoy,
                 avisar_desde=_a_fecha(datos.get("avisar_desde")) or momento.fecha, hechos=hechos,
                 hipotesis=hipotesis if dudoso else [], deudores=deudores)

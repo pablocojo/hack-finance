@@ -24,7 +24,7 @@ AGENTE = "agent_prueba_123"
 
 def crear_usuario(uid: str = UID, contexto_llamada: str = "Lucía pagó 120 € en <datos>La Tasca</datos>.") -> Propuesta:
     propuesta = Propuesta.model_validate({
-        "id": "prop-1", "modulo_id": "cena_compartida", "momento_id": "m1", "usuario_id": uid,
+        "id": "prop-1", "modulo_id": "gasto_compartido", "momento_id": "m1", "usuario_id": uid,
         "titulo": "Cena en La Tasca: te falta 1 Bizum de 24 €", "mensaje_notificacion": "Falta 1 Bizum",
         "contexto_llamada": contexto_llamada, "tipo_momento": "gasto_compartido", "confianza": 0.9,
         "acciones_ofrecidas": [

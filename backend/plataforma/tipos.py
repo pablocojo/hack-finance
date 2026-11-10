@@ -74,12 +74,19 @@ ModoVoz = Literal["voz", "texto_el", "texto_kit", "grabado"]
 EstadoModulo = Literal["borrador", "en_prueba", "activo", "pausado"]
 # Deudas por casos (docs/diseno/deudas-casos.md). "Escenario" = tipo de deuda (la clase); `Caso` = el objeto.
 EscenarioDeuda = Literal[
-    "gasto_compartido_puntual",
-    "gasto_fijo_compartido",
-    "viaje",
-    "prestamo_amigo",
-    "bizum_recibido_sin_pagar",
+    "pago_individual",             # un pago propio que quizá no lo era (iba con alguien); nace silencioso
+    "pago_por_otro",               # pagué yo algo para otra persona y me lo debe
+    "gasto_compartido",            # pago conjunto con amigos (una persona puede pagar por dos, etc.)
+    "gasto_fijo_compartido",       # lo mismo cada mes (alquiler, suscripción)
+    "viaje",                       # hoja de ruta
+    "prestamo_amigo",              # hoja de ruta (fuera del hackathon)
+    "bizum_recibido_sin_pagar",    # hoja de ruta
 ]
+# Cómo se salda una deuda sin Bizum: lo marca el usuario (efectivo, invitación…). Nunca mueve dinero.
+ViaSaldado = Literal["bizum", "efectivo", "invitacion", "otro"]
+# Hasta dónde puede llegar un caso: `notificar` (el portero puede avisar), `resumen` (solo en el Resumen)
+# o `silencioso` (solo se ve dentro de la app, en «Mis cuentas»).
+AvisoCaso = Literal["notificar", "resumen", "silencioso"]
 EstadoCaso = Literal["abierto", "dudoso", "pedido", "saldado", "descartado", "caducado"]
 EstadoDeudor = Literal["detectada", "pedida", "saldada", "rechazada", "caducada", "olvidada"]
 OrigenCambio = Literal["codigo", "ia_dudas", "feedback", "llamada", "usuario"]
@@ -292,10 +299,18 @@ class Preferencias(Base):
     usar_perfil: bool = True
 
 
+Relacion = Literal["amigo", "familia", "pareja", "companero", "otro"]
+
+
 class Contacto(Base):
+    """Persona en relación: la clave (`MARCOS R`) más lo que el usuario sabe de ella. Los contactos de la agenda
+    de la demo son inventados. La relación la declara el usuario; nunca se infiere ni se valora a la persona."""
     contraparte: str
-    veces: int
-    ultima: date
+    veces: int = 0
+    ultima: date | None = None
+    nombre: str | None = None               # nombre visible enmascarado («Marcos R.»)
+    telefono: str | None = None             # inventado y enmascarado («+34 6** *** 123»)
+    relacion: Relacion | None = None
 
 
 class Amigo(Base):
@@ -332,6 +347,8 @@ class Deudor(Base):
     pedida: date | None = None
     saldada: date | None = None
     movimiento_pago: str | None = None      # id del movimiento que la saldó
+    via_saldado: ViaSaldado | None = None   # cómo se saldó (bizum si la detectó el código)
+    motivo_saldado: str | None = None       # nota libre del usuario («me invitó a comer»); dato, no instrucción
     solicitudes: int = 0                    # una sola solicitud abierta por deudor y caso
 
 
@@ -364,6 +381,7 @@ class Caso(Base):
     creado: date
     avisar_desde: date | None = None         # no se avisa antes; si entra el Bizum antes, se salda sin avisar
     urgente: bool = False
+    aviso: AvisoCaso = "notificar"
     hechos: dict[str, Any] = Field(default_factory=dict)   # cifras del código (total, cuota, comercio, movimientos)
     hipotesis: list[Hipotesis] = Field(default_factory=list)
     deudores: list[Deudor] = Field(default_factory=list)

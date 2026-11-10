@@ -156,7 +156,7 @@ def falsos(monkeypatch) -> Falsos:
 @pytest.fixture
 def activo(falsos):
     orq.cargar_escenario("demo-test")
-    orq.activar(UID, ["cena_compartida"], {"avisos": True, "memoria": True})
+    orq.activar(UID, ["gasto_compartido"], {"avisos": True, "memoria": True})
     return falsos
 
 
@@ -173,9 +173,9 @@ def test_cargar_y_activar(falsos):
     r = orq.cargar_escenario("demo-test")
     assert r == {"usuario_id": UID, "hoy": "2026-11-06", "activacion": "2026-11-06"}
     assert orq.estado_usuario(UID)["activado"] is False
-    modelo = orq.activar(UID, ["cena_compartida"], {"avisos": True, "memoria": False})
+    modelo = orq.activar(UID, ["gasto_compartido"], {"avisos": True, "memoria": False})
     assert falsos.llamadas == ["cargar_historial", "perfilar"]
-    assert modelo.modulos_activos == ["cena_compartida"] and "avisos" in modelo.consentimientos
+    assert modelo.modulos_activos == ["gasto_compartido"] and "avisos" in modelo.consentimientos
     assert "memoria" not in modelo.consentimientos
     estado = orq.estado_usuario(UID)
     assert estado["activado"] and estado["saldo"] == "500.00"

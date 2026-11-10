@@ -90,7 +90,7 @@ def momento_cena() -> Momento:
 
 def propuesta_cena() -> Propuesta:
     return Propuesta(
-        id="prop-1", modulo_id="cena_compartida", momento_id="mom-gasto_compartido-1234567890",
+        id="prop-1", modulo_id="gasto_compartido", momento_id="mom-gasto_compartido-1234567890",
         usuario_id="lucia", titulo="Falta Marcos R. por pagar la cena",
         mensaje_notificacion="Te faltan 24,00 € de la cena en La Tasca.",
         contexto_llamada="Cena en <datos>LA TASCA</datos>: falta 1 persona.",
@@ -323,7 +323,7 @@ def test_caso_ida_y_vuelta_con_dinero_exacto():
     caso = Caso(
         id="caso-1", usuario_id="lucia", estado="dudoso", creado=date(2026, 11, 9),
         hechos={"total": "120.00"},
-        hipotesis=[Hipotesis(escenario="gasto_compartido_puntual", confianza=0.6, deudores=["MARCOS R"])],
+        hipotesis=[Hipotesis(escenario="gasto_compartido", confianza=0.6, deudores=["MARCOS R"])],
         deudores=[Deudor(contraparte="MARCOS R", cuota=Decimal("24.00"))],
     )
     de_vuelta, crudo = ida_y_vuelta(caso)

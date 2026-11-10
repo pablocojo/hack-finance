@@ -43,7 +43,7 @@ def caso_doble(**extra):
     return casos.crear_desde_momento(m, D, AHORA), m
 
 
-def salida(decision="avisar", candidatos=("SARA L",), confianza=0.9, escenario="gasto_compartido_puntual",
+def salida(decision="avisar", candidatos=("SARA L",), confianza=0.9, escenario="gasto_compartido",
            motivo="Daniel pagó 48 € por él y por Marcos: solo falta Sara.", **mas):
     return {"decision": decision, "escenario": escenario, "candidatos": list(candidatos), "confianza": confianza,
             "motivo": motivo, **mas}
@@ -63,7 +63,7 @@ def test_multiple_la_ia_quita_al_acompanante_y_el_caso_se_abre_con_un_solo_deudo
     r, cliente = resolver(caso, m, salida(), falso)
     assert r is not None and r.decision == "avisar" and r.candidatos == ["SARA L"] and r.pregunta is None
     nuevo = casos.ciclo.aplicar_resolucion(caso, r, D, AHORA)
-    assert nuevo.estado == "abierto" and nuevo.escenario == "gasto_compartido_puntual" and nuevo.propuesta_id is None
+    assert nuevo.estado == "abierto" and nuevo.escenario == "gasto_compartido" and nuevo.propuesta_id is None
     assert [(d.contraparte, d.cuota) for d in nuevo.deudores] == [("SARA L", Decimal("24.00"))]
     assert nuevo.hechos["faltan"] == 1 and nuevo.hechos["importe_pendiente"] == "24.00"
     assert nuevo.hechos["cuota"] == "24.00" and nuevo.hechos["importe_total"] == "120.00"      # cifras del código
@@ -143,7 +143,7 @@ def test_cache_por_hash_una_sola_consulta_por_cambio_de_hechos(falso):
     hecho = casos.ciclo.aplicar_resolucion(caso.model_copy(update={"estado": "dudoso"}), r1, D, AHORA)
     contexto = dudas.construir_contexto(hecho, None, [], m)
     assert not dudas.pendiente_de_resolver(hecho, contexto)         # abierto: ya no es dudoso
-    sigue = casos.ciclo.aplicar_resolucion(caso, dudas.ResolucionDuda("no_avisar", "gasto_compartido_puntual", [], .9,
+    sigue = casos.ciclo.aplicar_resolucion(caso, dudas.ResolucionDuda("no_avisar", "gasto_compartido", [], .9,
                                                                        "x", hash=r1.hash), D, AHORA)
     assert not dudas.pendiente_de_resolver(sigue, dudas.construir_contexto(sigue, None, [], m, "restaurantes"))   # mismos hechos
     cambiado = caso.model_copy(deep=True)

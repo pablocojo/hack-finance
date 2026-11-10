@@ -28,7 +28,7 @@ from backend.plataforma.tipos import (
 
 AHORA = datetime(2026, 11, 9, 20, 30)   # lunes de la cena
 MODULO_DE = {
-    "gasto_compartido": "cena_compartida", "cargo_duplicado": "cobro_duplicado",
+    "gasto_compartido": "gasto_compartido", "cargo_duplicado": "cobro_duplicado",
     "renovacion_proxima": "renovacion", "prueba_gratuita": "fin_de_prueba", "subida_recibo": "recibo_al_alza",
     "posible_estafa": "estafa", "ingreso_extra": "ingreso", "saldo_negativo_previsto": "colchon",
     "viaje_detectado": "viaje",
@@ -158,7 +158,7 @@ def test_reglas_duras():
     p = propuesta("cargo_duplicado", "50", comercio="Netflix")
     assert personalizacion.decidir(p, modelo(LUCIA()), AHORA).accion == "notificar_ahora"
     # 1. módulo no activo o sin consentimiento
-    sin_modulo = modelo(LUCIA(), modulos_activos=["cena_compartida"])
+    sin_modulo = modelo(LUCIA(), modulos_activos=["gasto_compartido"])
     assert personalizacion.decidir(p, sin_modulo, AHORA).accion == "silenciar"
     sin_permiso = modelo(LUCIA(), consentimientos={})
     d = personalizacion.decidir(p, sin_permiso, AHORA)

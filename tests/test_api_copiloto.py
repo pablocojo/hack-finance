@@ -31,7 +31,7 @@ def falsos(monkeypatch) -> Falsos:
 @pytest.fixture
 def activo(falsos):
     assert http.post("/demo/cargar", json={"escenario_id": "demo-test"}).status_code == 200
-    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["cena_compartida"],
+    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["gasto_compartido"],
                                                     "consentimientos": {"copiloto": True}})
     assert r.status_code == 200
     return falsos
@@ -44,9 +44,9 @@ def _avanzar(dias: int = 1):
 def test_demo_cargar_activar_y_estado(falsos):
     r = http.post("/demo/cargar", json={"escenario_id": "demo-test"})
     assert r.json() == {"usuario_id": UID, "hoy": "2026-11-06", "activacion": "2026-11-06"}
-    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["cena_compartida"],
+    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["gasto_compartido"],
                                                     "consentimientos": {"avisos": True, "memoria": True}})
-    assert r.json()["modulos_activos"] == ["cena_compartida"]
+    assert r.json()["modulos_activos"] == ["gasto_compartido"]
     assert http.get(f"/usuarios/{UID}/estado").json()["saldo"] == "500.00"  # dinero como cadena
     assert http.get("/usuarios/nadie/estado").status_code == 404
 
@@ -138,7 +138,7 @@ def test_cena_lucia_de_principio_a_fin_por_http(monkeypatch):
     """Sin stubs: motor, módulos, personalización y acciones reales sobre `cena-lucia`."""
     assert http.post("/demo/cargar", json={"escenario_id": "cena-lucia"}).status_code == 200
     usuario = http.post("/demo/cargar", json={"escenario_id": "cena-lucia"}).json()["usuario_id"]
-    r = http.post(f"/usuarios/{usuario}/activar", json={"modulos_activos": ["cena_compartida"],
+    r = http.post(f"/usuarios/{usuario}/activar", json={"modulos_activos": ["gasto_compartido"],
                                                         "consentimientos": {"avisos": True, "memoria": True}})
     assert r.status_code == 200
     avisos, dia_aviso = [], None
@@ -199,9 +199,9 @@ def test_demo_key_en_todas_las_rutas_que_cambian_estado(activo, monkeypatch):
 def test_consentimiento_sin_marcar_por_defecto(falsos):
     """RGPD: si el cliente no marca nada, no hay consentimiento; `avisos` es alias de `copiloto`."""
     assert http.post("/demo/cargar", json={"escenario_id": "demo-test"}).status_code == 200
-    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["cena_compartida"]})
+    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["gasto_compartido"]})
     assert r.status_code == 200 and r.json()["consentimientos"] == {}
-    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["cena_compartida"],
+    r = http.post(f"/usuarios/{UID}/activar", json={"modulos_activos": ["gasto_compartido"],
                                                     "consentimientos": {"avisos": True}})
     assert list(r.json()["consentimientos"]) == ["copiloto"]
 
@@ -278,7 +278,7 @@ def test_aprendido_apagar_editar_borrar_y_olvidar_todo(activo):
     r = http.delete(_aprendido())
     assert r.status_code == 200 and r.json()["hechos"] == []
     despues = alm.cargar(UID, "modelo", ModeloUsuario)
-    assert despues.consentimientos == antes.consentimientos and despues.modulos_activos == ["cena_compartida"]
+    assert despues.consentimientos == antes.consentimientos and despues.modulos_activos == ["gasto_compartido"]
     assert despues.perfil is None and despues.estadisticas == {} and despues.avisos_abiertos == {}
 
 
@@ -286,7 +286,7 @@ def test_cena_lucia_un_silencio_se_ve_y_se_borra_por_http():
     """Sin stubs: «no avisar de Marcos» aparece en lo aprendido (enmascarado) y al borrarlo desaparece."""
     assert http.post("/demo/cargar", json={"escenario_id": "cena-lucia"}).status_code == 200
     usuario = "lucia"
-    assert http.post(f"/usuarios/{usuario}/activar", json={"modulos_activos": ["cena_compartida"],
+    assert http.post(f"/usuarios/{usuario}/activar", json={"modulos_activos": ["gasto_compartido"],
                                                            "consentimientos": {"copiloto": True}}).status_code == 200
     perfil = http.get(f"/usuarios/{usuario}/perfil").json()
     assert perfil["perfil"]["dia_cobro_nomina"] == 28 and "Tu nómina suele llegar el día 28." in {
@@ -312,7 +312,7 @@ def test_tarjeta_editable_por_http_sin_stubs():
     """Con `editado: true` el importe del usuario (mayor que la cuota) se valida con las reglas de Bizum y el
     token lo respeta; sin `editado`, el servidor rechaza un importe distinto del ofrecido."""
     usuario = http.post("/demo/cargar", json={"escenario_id": "cena-lucia"}).json()["usuario_id"]
-    http.post(f"/usuarios/{usuario}/activar", json={"modulos_activos": ["cena_compartida"],
+    http.post(f"/usuarios/{usuario}/activar", json={"modulos_activos": ["gasto_compartido"],
                                                     "consentimientos": {"avisos": True, "memoria": True}})
     avisos = []
     for _ in range(60):

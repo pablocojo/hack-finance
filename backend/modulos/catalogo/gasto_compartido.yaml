@@ -1,4 +1,4 @@
-id: cena_compartida
+id: gasto_compartido
 version: 2
 nombre: Gastos compartidos
 descripcion: Detecta un pago que tus amigos aún no te han devuelto del todo y te ayuda a pedírselo.

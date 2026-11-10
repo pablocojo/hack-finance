@@ -25,7 +25,7 @@
 escenarios:
   cena:
     titulo: "Cena en La Tasca: te falta 1 Bizum de 24 €"
-    modulo_id: cena_compartida
+    modulo_id: gasto_compartido
     tipo_momento: gasto_compartido
     contexto_llamada: >-
       Lucía pagó 120 € con tarjeta en <datos>La Tasca</datos> el viernes 6/11. Han llegado 3 Bizums de

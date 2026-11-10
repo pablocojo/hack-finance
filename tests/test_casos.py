@@ -43,7 +43,7 @@ def bizum(id_: str, dia: date, importe: str, quien: str = "Marcos Ruiz Sanz", no
 
 def test_crear_caso_desde_un_momento_con_cifras_del_codigo():
     c = casos.crear_desde_momento(momento(), D, AHORA)
-    assert c.id == "caso-mom-c1" and c.estado == "abierto" and c.escenario == "gasto_compartido_puntual"
+    assert c.id == "caso-mom-c1" and c.estado == "abierto" and c.escenario == "gasto_compartido"
     assert c.avisar_desde == D and c.creado == D and c.momento_id == "mom-c1"
     assert [(d.contraparte, d.cuota, d.estado) for d in c.deudores] == [("MARCOS R", Decimal("24.00"), "detectada")]
     assert c.hechos["importe_total"] == "120.00" and c.hechos["cuota"] == "24.00" and c.hechos["fecha"] == "2026-11-06"
@@ -257,7 +257,7 @@ def mundo(falsos, monkeypatch):
         escenario = {"id": "demo-test", "usuario_id": UID, "activacion": ACTIVACION, "movimientos": movs}
         monkeypatch.setattr(orq, "_leer_escenario", lambda escenario_id: escenario)
         orq.cargar_escenario("demo-test")
-        orq.activar(UID, ["cena_compartida"], {"avisos": True, "memoria": True})
+        orq.activar(UID, ["gasto_compartido"], {"avisos": True, "memoria": True})
         return falsos
 
     falsos.preparar = preparar
@@ -478,7 +478,7 @@ def _arrancar_real(monkeypatch, extra=None) -> str:
     escenario = _escenario_real(extra)
     monkeypatch.setattr(orq, "_leer_escenario", lambda escenario_id: escenario)
     uid = orq.cargar_escenario("cena-lucia")["usuario_id"]
-    orq.activar(uid, ["cena_compartida"], {"copiloto": True, "memoria": True})
+    orq.activar(uid, ["gasto_compartido"], {"copiloto": True, "memoria": True})
     return uid
 
 
@@ -495,7 +495,7 @@ def test_cena_lucia_abre_el_caso_avisa_el_9_y_calcula_el_saldo_con_marcos(monkey
     assert casos.cargar(uid) == []
     _avanzar_real(uid, date(2026, 11, 9))
     (c,) = casos.cargar(uid)
-    assert c.estado == "abierto" and c.escenario == "gasto_compartido_puntual" and c.hechos["avisado_el"] == "2026-11-09"
+    assert c.estado == "abierto" and c.escenario == "gasto_compartido" and c.hechos["avisado_el"] == "2026-11-09"
     assert [(d.contraparte, d.cuota) for d in c.deudores] == [("MARCOS R", Decimal("24.00"))]
     assert c.hechos["importe_total"] == "120.00" and c.momento_id.startswith("mom-gasto_compartido-")
     assert [n["propuesta"]["tipo_momento"] for n in orq.notificaciones(uid, "ahora")] == ["gasto_compartido"]

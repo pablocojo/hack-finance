@@ -49,7 +49,7 @@ backend/
                · motivos.py · edicion.py (perfil y hechos) · amigos.py (opcional) · memoria.py (opcional)
                · simulacion/{perfiles, generador, protocolo}.py (vidas.py opcional)
   modulos/     __init__.py · esquema.py · campos_momento.py · condiciones.py · plantillas.py · registro.py · proponer.py
-               · creacion.py · prueba_seco.py · catalogo/{cena_compartida, cobro_duplicado, fin_de_prueba}.yaml
+               · creacion.py · prueba_seco.py · catalogo/{gasto_compartido, cobro_duplicado, fin_de_prueba}.yaml
                (opcionales: renovacion.yaml, colchon.yaml)
   acciones/    __init__.py (preparar, ejecutar, deshacer) · registro.py (las 6 AccionDef) · banco_sim.py · tokens.py
                · auditoria.py · enlaces.py (validación de url_baja y detalle_baja desde InfoComercio)

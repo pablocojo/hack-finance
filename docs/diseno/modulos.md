@@ -5,7 +5,7 @@
 ## 1. Resumen
 
 - Un módulo es un YAML declarativo: escucha tipos de momento, filtra con un minilenguaje de condiciones, rellena plantillas con `Momento.datos` y ofrece acciones de la lista cerrada. Sin código, sin red, sin `eval`.
-- Cuatro módulos en el catálogo del MVP (`cena_compartida`, `cobro_duplicado`, `renovacion`, `fin_de_prueba`) y `colchon` en «si sobra». El banco crea más hablando, solo con piezas que ya existen.
+- Cuatro módulos en el catálogo del MVP (`gasto_compartido`, `cobro_duplicado`, `renovacion`, `fin_de_prueba`) y `colchon` en «si sobra». El banco crea más hablando, solo con piezas que ya existen.
 - Los módulos no calculan: leen `Momento.datos`, el perfil y `impacto_relativo`. Los números los formatea el código; los datos van marcados como datos.
 - **Acciones según el contexto**: cada módulo ofrece solo las 2 o 3 que encajan con ese momento (el validador rechaza más de 3 declaradas, sin contar las que genera `repetir_por`). Después `personalizacion.ordenar_acciones(propuesta, modelo)` solo **reordena** según lo que la persona suele elegir; nunca añade ni quita, y el servidor sigue validando contra `acciones_ofrecidas`.
 - Las acciones son un registro cerrado de seis, con `preparar` (sin efectos, devuelve token) y `ejecutar` (valida en servidor, ejecuta en el banco simulado, audita, permite `deshacer`).
@@ -107,8 +107,8 @@ Cómo no se convierten los datos en instrucciones:
 Los cuatro del MVP y `colchon` (si sobra). Cada uno ofrece 2 acciones.
 
 ```yaml
-# cena_compartida.yaml
-id: cena_compartida
+# gasto_compartido.yaml
+id: gasto_compartido
 version: 2
 nombre: Gastos compartidos
 descripcion: Detecta un pago que tus amigos aún no te han devuelto del todo y te ayuda a pedírselo.
@@ -292,7 +292,7 @@ backend/modulos/
   proponer.py        # momento + modelo -> Propuesta (el orquestador llama luego a ordenar_acciones)
   creacion.py        # prompt, llamada a Claude, validación
   prueba_seco.py     # reproduce escenarios y compara con etiquetas
-  catalogo/{cena_compartida,cobro_duplicado,renovacion,fin_de_prueba,colchon}.yaml
+  catalogo/{gasto_compartido,cobro_duplicado,renovacion,fin_de_prueba,colchon}.yaml
 backend/acciones/
   __init__.py        # preparar, ejecutar, deshacer
   registro.py        # las seis AccionDef
@@ -302,7 +302,7 @@ backend/acciones/
   auditoria.py       # auditoria.jsonl
 tests/  test_condiciones.py, test_plantillas.py, test_modulos_catalogo.py, test_acciones.py, test_creacion.py (cliente falso)
 ```
-Tests clave: la gramática rechaza `__import__`, llamadas y rutas fuera de lista (`perfil.resumen_vida`, `perfil.grupos`); perfil ausente da falso y la condición con `o` sigue funcionando; fuzz de plantillas con inyección; `fin_de_prueba` renderiza con y sin `importe_previsto`; `url_baja` con `http`, `javascript:`, credenciales o IP se omite y el servidor no hace ninguna petición; token reutilizado, caducado, de otro usuario o con parámetros alterados falla; `bloquear_cobros` alterado sin pasar por `preparar` falla; importe sobre `limites` falla; cada YAML tiene 2 o 3 acciones y carga sobre `lucia`. Orden: esquema, condiciones, plantillas, `proponer` y catálogo (primero `cena_compartida`), acciones, creación y prueba en seco.
+Tests clave: la gramática rechaza `__import__`, llamadas y rutas fuera de lista (`perfil.resumen_vida`, `perfil.grupos`); perfil ausente da falso y la condición con `o` sigue funcionando; fuzz de plantillas con inyección; `fin_de_prueba` renderiza con y sin `importe_previsto`; `url_baja` con `http`, `javascript:`, credenciales o IP se omite y el servidor no hace ninguna petición; token reutilizado, caducado, de otro usuario o con parámetros alterados falla; `bloquear_cobros` alterado sin pasar por `preparar` falla; importe sobre `limites` falla; cada YAML tiene 2 o 3 acciones y carga sobre `lucia`. Orden: esquema, condiciones, plantillas, `proponer` y catálogo (primero `gasto_compartido`), acciones, creación y prueba en seco.
 
 ## 9. Riesgos y recortes
 

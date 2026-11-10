@@ -49,7 +49,7 @@ CONTACTOS = ("MARCOS R", "LAURA M", "DANIEL P", "SARA L", "HERMANO")
 
 # Módulo que emite cada tipo de momento (nombres de ejemplo; el reparto lo cambia el test de módulo nuevo).
 MODULO_DE = {
-    "gasto_compartido": "cena_compartida", "cargo_duplicado": "cobro_duplicado",
+    "gasto_compartido": "gasto_compartido", "cargo_duplicado": "cobro_duplicado",
     "renovacion_proxima": "renovacion", "prueba_gratuita": "fin_de_prueba", "subida_recibo": "recibo_al_alza",
     "posible_estafa": "estafa", "ingreso_extra": "ingreso",
 }
