@@ -350,3 +350,111 @@ def amigo_borrar(usuario_id: str, contraparte: str) -> list[dict]:
         return orquestador.borrar_amigo_usuario(usuario_id, contraparte)
     except Exception as error:
         raise a_http(error) from error
+
+
+# --- Casos del usuario y personas en relación (docs/diseno/deudas-casos.md) ------------------------
+# `GET /usuarios/{id}/casos` (CasoResumen ampliado) vive en rutas_voz.py y lo sirve `orquestador.casos_usuario`.
+
+class DeudorNuevo(BaseModel):
+    contraparte: str = Field(min_length=1, max_length=80)   # «Marcos R.», «MARCOS R» o el nombre de la agenda
+    importe: str = Field(min_length=1, max_length=12)       # decimal en cadena («24.00»); lo valida el código
+
+
+class PeticionCrearCaso(BaseModel):
+    movimiento_id: str = Field(min_length=1, max_length=120)
+    deudores: list[DeudorNuevo] = Field(min_length=1, max_length=30)
+    escenario: str | None = Field(default=None, max_length=40)   # pago_por_otro | gasto_compartido (por defecto, según nº)
+
+
+class PeticionSaldar(BaseModel):
+    contraparte: str | None = Field(default=None, max_length=80)   # sin ella: todos los que faltan
+    via: str = Field(min_length=1, max_length=20)                  # efectivo | invitacion | otro
+    motivo: str | None = Field(default=None, max_length=300)       # texto libre = dato; se sanea a 120 caracteres
+
+
+class PeticionDescartar(BaseModel):
+    contraparte: str | None = Field(default=None, max_length=80)   # sin ella: todo el caso
+    motivo: str | None = Field(default=None, max_length=300)
+
+
+class PeticionEscenario(BaseModel):
+    escenario: str = Field(min_length=1, max_length=40)
+    motivo: str | None = Field(default=None, max_length=300)
+
+
+class PeticionContacto(BaseModel):
+    relacion: str | None = Field(default=None, max_length=20)      # amigo | familia | pareja | companero | otro | null
+
+
+@router.get("/usuarios/{usuario_id}/movimientos")
+def movimientos_ver(usuario_id: str, limite: int = Query(60, ge=1, le=500)) -> list[dict]:
+    """`Movimiento[]` del usuario de la demo, enmascarado (sin nota de Bizum), cargos en negativo, los más recientes
+    primero y solo hasta el «hoy» del reloj simulado."""
+    try:
+        return orquestador.movimientos_usuario(usuario_id, limite)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.post("/usuarios/{usuario_id}/casos", dependencies=[Depends(exigir_demo_key)])
+def caso_crear(usuario_id: str, peticion: PeticionCrearCaso) -> dict:
+    """«X me debe esto»: `pago_por_otro` (una persona) o `gasto_compartido` (varias) sobre un cargo del usuario. Si ya hay
+    un caso abierto de ese movimiento, lo convierte. Devuelve el `CasoResumen`."""
+    try:
+        return orquestador.crear_caso_usuario(usuario_id, peticion.movimiento_id,
+                                              [d.model_dump() for d in peticion.deudores], peticion.escenario)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.post("/usuarios/{usuario_id}/casos/{caso_id}/saldar", dependencies=[Depends(exigir_demo_key)])
+def caso_saldar(usuario_id: str, caso_id: str, peticion: PeticionSaldar) -> dict:
+    """Saldado manual (nunca mueve dinero): una persona o, sin `contraparte`, todas las que faltan."""
+    try:
+        return orquestador.saldar_caso_usuario(usuario_id, caso_id, peticion.contraparte, peticion.via, peticion.motivo)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.post("/usuarios/{usuario_id}/casos/{caso_id}/descartar", dependencies=[Depends(exigir_demo_key)])
+def caso_descartar(usuario_id: str, caso_id: str, peticion: PeticionDescartar | None = None) -> dict:
+    try:
+        return orquestador.descartar_caso_usuario(usuario_id, caso_id, peticion.motivo if peticion else None,
+                                                  peticion.contraparte if peticion else None)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.post("/usuarios/{usuario_id}/casos/{caso_id}/escenario", dependencies=[Depends(exigir_demo_key)])
+def caso_escenario(usuario_id: str, caso_id: str, peticion: PeticionEscenario) -> dict:
+    """Cambia el escenario (tabla de transiciones del diseño); una transición no permitida responde 400 con el motivo."""
+    try:
+        return orquestador.cambiar_escenario_caso_usuario(usuario_id, caso_id, peticion.escenario, peticion.motivo)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.get("/usuarios/{usuario_id}/contactos")
+def contactos_ver(usuario_id: str) -> list[dict]:
+    try:
+        return orquestador.contactos_usuario(usuario_id)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.patch("/usuarios/{usuario_id}/contactos/{clave}", dependencies=[Depends(exigir_demo_key)])
+def contacto_editar(usuario_id: str, clave: str, peticion: PeticionContacto) -> list[dict]:
+    """`{relacion}`: la declara el usuario (nunca se infiere); `null` la borra. Devuelve la lista de contactos."""
+    try:
+        return orquestador.editar_contacto_usuario(usuario_id, clave, peticion.relacion)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.delete("/usuarios/{usuario_id}/contactos/{clave}", dependencies=[Depends(exigir_demo_key)])
+def contacto_borrar(usuario_id: str, clave: str) -> list[dict]:
+    """Borra a la persona de la agenda y de los casos."""
+    try:
+        return orquestador.borrar_contacto_usuario(usuario_id, clave)
+    except Exception as error:
+        raise a_http(error) from error

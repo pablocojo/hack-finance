@@ -28,6 +28,7 @@ from ..acciones import banco_sim as _banco_sim   # directo: los tests sustituyen
 from ..motor import dudas as _dudas              # directo: los tests sustituyen `motor` por un stub
 from . import almacenamiento as alm
 from ..modulos.plantillas import CABECERA_DATOS, sanear_dato
+from ..personalizacion import amigos as _contactos   # directo: los tests sustituyen `personalizacion` por un stub
 from ..personalizacion import edicion
 from .privacidad import enmascarar_nombre, enmascarar_texto
 from .reloj import ahora_por_defecto
@@ -188,7 +189,11 @@ def cargar_escenario(escenario_id: str) -> dict:
         alm.guardar(uid, "reloj", {"hoy": activacion.isoformat()})  # lo lee acciones.banco_sim.fecha_simulada
         alm.guardar(uid, "estado", {"hoy": activacion.isoformat(), "activado": False, "activacion": activacion.isoformat(),
                                     "ultimo_perfil": None, "escenario_id": escenario_id})
-        alm.guardar(uid, "modelo", personalizacion.nuevo_modelo(uid))
+        modelo_nuevo = personalizacion.nuevo_modelo(uid)
+        agenda = _contactos.agenda_de_escenario(_campo(escenario, "contactos", None))   # agenda inventada del escenario
+        if agenda:
+            modelo_nuevo = modelo_nuevo.model_copy(update={"contactos": agenda})
+        alm.guardar(uid, "modelo", modelo_nuevo)
         for nombre in ("momentos", "propuestas", "decisiones", "casos"):
             alm.guardar(uid, nombre, [])
         alm.guardar(uid, "notificaciones", [])
@@ -271,6 +276,7 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         decisiones = _leer(uid, "decisiones", [])
         notificaciones = _leer(uid, "notificaciones", [])
         lista_casos = _actualizar_casos(uid, casos.cargar(uid), nuevos, hoy, ahora, notificaciones)
+        ids_previos = {c.id for c in lista_casos}
         vistos = {m.id for m in momentos}
         items: list[tuple[Momento, Propuesta, Decision]] = []
         momentos_dia: list[Momento] = []
@@ -282,7 +288,8 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
             momentos_dia.append(momento)
             if momento.tipo == "gasto_compartido":   # abre un caso; el portero de casos decide el aviso
                 if not any(c.momento_id == momento.id for c in lista_casos):
-                    lista_casos.append(casos.crear_desde_momento(momento, hoy, ahora))
+                    nuevo_caso = casos.crear_desde_momento(momento, hoy, ahora)
+                    lista_casos.append(casos.aplicar_recurrente(nuevo_caso, momento, hoy, ahora))   # serie -> fijo
                     _auditar(uid, "caso_abierto", caso_id=f"caso-{momento.id}", dudoso=bool(momento.datos.get("dudoso")))
                 continue
             for propuesta in modulos.proponer(momento, modelo):
@@ -319,6 +326,9 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
 
         # 5. observar (contactos), saldo con cada amigo (desde los casos) y gancho de búsqueda web
         modelo = personalizacion.observar(modelo, nuevos, hoy)
+        for caso_nuevo in (c for c in lista_casos if c.id not in ids_previos):   # cada caso crea o actualiza su contacto
+            for d in caso_nuevo.deudores:
+                modelo = _contactos.anotar_contacto(modelo, d.contraparte, hoy)
         modelo = casos.sincronizar_amigos(modelo, lista_casos, hoy)
         if config.ajustes().busqueda_web:
             _buscar_comercios(uid)
@@ -384,8 +394,14 @@ def _portero_casos(uid, hoy, ahora, modelo, lista, momentos, propuestas, decisio
     for grupo in casos.agrupar_por_contacto(listos):
         rep = grupo[0]
         momento = por_momento.get(rep.momento_id or "")
-        if momento is None:
-            continue
+        if momento is None:      # caso del usuario (pago por otro...): el portero emite su momento sintético
+            momento = casos.momento_sintetico(rep, hoy)
+            if momento is None:
+                continue
+            momentos.append(momento)
+            por_momento[momento.id] = momento
+            rep = rep.model_copy(update={"momento_id": momento.id})
+            lista[posicion[rep.id]] = rep
         momento = _dudas.momento_resuelto(momento, rep)   # duda resuelta por la IA: candidatos y confianza del caso
         existente = por_propuesta.get(rep.propuesta_id) if rep.propuesta_id else None
         if existente is not None:
@@ -399,7 +415,7 @@ def _portero_casos(uid, hoy, ahora, modelo, lista, momentos, propuestas, decisio
                 decision = casos.decision_dudosa(propuesta)
             else:
                 propuesta = _sin_silenciados(propuesta, rep, modelo)
-                decision = personalizacion.decidir(propuesta, modelo, ahora)
+                decision = casos.limitar_aviso(rep, personalizacion.decidir(propuesta, modelo, ahora))   # `aviso` es el tope
             if existente is None:
                 modelo = personalizacion.registrar_decision(modelo, propuesta, decision)
                 propuestas.append(propuesta)
@@ -491,6 +507,8 @@ def _buscar_comercios(uid: str) -> None:
         from ..motor import conocimiento
         for comercio in motor.comercios_pendientes(uid)[:MAX_PENDIENTES_WEB]:
             conocimiento.info_comercio(comercio)
+        for comercio in motor.tipos_pendientes(uid)[:MAX_PENDIENTES_WEB]:   # tipo de comercio (pago individual)
+            conocimiento.tipo_comercio(comercio)
     except Exception as error:  # la búsqueda nunca rompe el día
         _auditar(uid, "busqueda_web_fallida", error=type(error).__name__)
 
@@ -922,7 +940,7 @@ def registrar_conversacion(usuario_id: str, propuesta_id: str, mensajes: list[di
         caso = next((c for c in propios if c.estado not in casos.CERRADOS), propios[0] if propios else None)
     if caso is None:
         return {"ok": True, "cambios": []}
-    plan = resumir.validar(resumir.extraer(mensajes, caso, hoy), caso, hoy)
+    plan = resumir.validar(resumir.extraer(mensajes, caso, hoy), caso, hoy, mensajes)
     if plan.vacio:
         _auditar(usuario_id, "conversacion", propuesta_id=propuesta_id, acciones=[], descartadas=len(plan.descartadas))
         return {"ok": True, "cambios": []}
@@ -941,14 +959,241 @@ def registrar_conversacion(usuario_id: str, propuesta_id: str, mensajes: list[di
         return {"ok": True, "cambios": hecho.cambios}
 
 
+def _origen_caso(c: Caso, por_id: dict[str, Movimiento]) -> dict | None:
+    """`movimiento_origen` = `{id, comercio, importe, fecha}`. El importe va en positivo (lo que pagó el usuario). Si el
+    movimiento ya no está en el historial, se usan los hechos del caso."""
+    mid = c.hechos.get("movimiento_origen") or c.hechos.get("pago_id")
+    if not isinstance(mid, str):
+        return None
+    m = por_id.get(mid)
+    if m is not None:
+        return {"id": mid, "comercio": enmascarar_texto(m.comercio or m.concepto), "importe": format(abs(m.importe), "f"),
+                "fecha": m.fecha.isoformat()}
+    return {"id": mid, "comercio": c.hechos.get("comercio"), "importe": c.hechos.get("importe_total"),
+            "fecha": c.hechos.get("fecha")}
+
+
+def _resumen_caso(c: Caso, por_id: dict[str, Movimiento] | None = None) -> dict:
+    """`CasoResumen`: lo que ve la app en «Mis cuentas». Contrapartes como clave y nombre enmascarado; sin conceptos."""
+    pregunta = c.hechos.get("pregunta") if isinstance(c.hechos.get("pregunta"), dict) else None
+    return {
+        "id": c.id, "escenario": c.escenario, "estado": c.estado, "aviso": c.aviso, "creado": c.creado.isoformat(),
+        "avisar_desde": c.avisar_desde.isoformat() if c.avisar_desde else None,
+        "pregunta": ({"texto": pregunta.get("texto"), "estado": pregunta.get("estado"),
+                      "candidatos": [enmascarar_nombre(x) for x in pregunta.get("candidatos", []) if isinstance(x, str)]}
+                     if pregunta else None),
+        "movimiento_origen": _origen_caso(c, por_id or {}),
+        "comercio": c.hechos.get("comercio"), "importe_total": c.hechos.get("importe_total"),
+        "importe_pendiente": format(casos.importe_pendiente(c), "f"), "propuesta_id": c.propuesta_id,
+        "deudores": [{"contraparte": d.contraparte, "nombre": enmascarar_nombre(d.contraparte), "cuota": format(d.cuota, "f"),
+                      "estado": d.estado, "pedida": d.pedida.isoformat() if d.pedida else None,
+                      "saldada": d.saldada.isoformat() if d.saldada else None,
+                      "via_saldado": d.via_saldado, "motivo_saldado": d.motivo_saldado}
+                     for d in c.deudores],
+        "conversaciones": list(c.conversaciones), "acuerdos": [a.texto for a in c.acuerdos],
+        "historial": [{"cuando": h.cuando.isoformat(timespec="seconds"), "origen": h.origen, "cambio": h.cambio}
+                      for h in c.historial]}
+
+
 def casos_usuario(usuario_id: str) -> list[dict]:
-    """Casos con lo que guardó el agente post-llamada (resúmenes y notas, enmascarados) para «Lo que he aprendido»."""
+    """Todos los casos (también los `silencioso`, que solo se ven aquí) con escenario, estado, aviso, fechas, pregunta,
+    deudores (con vía y motivo del saldado manual) y lo que guardó el agente post-llamada (resúmenes y notas)."""
     with alm.candado(usuario_id):
         _estado(usuario_id)
         lista = casos.cargar(usuario_id)
-    return [{"id": c.id, "estado": c.estado, "creado": c.creado.isoformat(),
-             "deudores": [{"contraparte": d.contraparte, "estado": d.estado} for d in c.deudores],
-             "conversaciones": list(c.conversaciones), "acuerdos": [a.texto for a in c.acuerdos]} for c in lista]
+        por_id = _movimientos_por_id(usuario_id)
+    return [_resumen_caso(c, por_id) for c in lista]
+
+
+def _movimientos_por_id(uid: str) -> dict[str, Movimiento]:
+    return {m.id: m for m in _leer(uid, "movimientos", [])}
+
+
+def movimientos_usuario(usuario_id: str, limite: int = 60) -> list[dict]:
+    """Movimientos del usuario hasta el «hoy» del reloj simulado, los más recientes primero. Enmascarados: sin la nota de
+    Bizum, con el concepto y la contraparte enmascarados. Los cargos van en negativo."""
+    if not 1 <= limite <= 500:
+        raise ValueError("`limite` debe estar entre 1 y 500.")
+    with alm.candado(usuario_id):
+        hoy = _hoy(_estado(usuario_id))
+        movimientos = [m for m in _leer(usuario_id, "movimientos", []) if m.fecha <= hoy]
+    movimientos.sort(key=lambda m: (m.fecha, m.id), reverse=True)
+    return [_movimiento_publico(m) for m in movimientos[:limite]]
+
+
+# --- Casos del usuario: crear, saldar, descartar y cambiar de escenario ---------------------------
+
+def _caso_de(lista: list[Caso], caso_id: str) -> Caso:
+    caso = next((c for c in lista if c.id == caso_id), None)
+    if caso is None:
+        raise NoEncontrado(f"El caso {caso_id!r} no existe.")
+    return caso
+
+
+def _guardar_caso(uid: str, hoy: date, lista: list[Caso], nuevo: Caso, antes: Caso | None = None,
+                  modelo: ModeloUsuario | None = None) -> None:
+    """Guarda la lista con `nuevo` (reemplaza o añade), recalcula el saldo con cada amigo y, si el caso se cierra, su
+    aviso pendiente deja de estarlo. Va dentro del candado del usuario."""
+    lista = [nuevo if c.id == nuevo.id else c for c in lista]
+    if all(c.id != nuevo.id for c in lista):
+        lista.append(nuevo)
+    casos.guardar(uid, lista)
+    modelo = modelo or _leer(uid, "modelo")
+    if modelo is not None:
+        alm.guardar(uid, "modelo", casos.sincronizar_amigos(modelo, lista, hoy))
+    if nuevo.propuesta_id and nuevo.estado in casos.CERRADOS and (antes is None or antes.estado != nuevo.estado):
+        _estado_notificacion(uid, nuevo.propuesta_id, "resuelta" if nuevo.estado == "saldado" else "rechazada")
+
+
+def crear_caso_usuario(usuario_id: str, movimiento_id: str, deudores: list[dict], escenario: str | None = None) -> dict:
+    """«X me debe esto»: abre un caso `pago_por_otro` (una persona) o `gasto_compartido` (varias) sobre un cargo del
+    usuario. Valida que el movimiento existe y es un cargo, y que cada importe es mayor que cero y no pasa del pago.
+    Si ya hay un caso abierto de ese movimiento (p. ej. `pago_individual`), lo CONVIERTE con rastro en vez de crear otro.
+    Avisa a los 2 días sin Bizum de esa persona (el portero emite un momento sintético y propone `pedir_bizum`)."""
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        hoy = _hoy(estado)
+        ahora = ahora_por_defecto(hoy)
+        historial = _leer(usuario_id, "movimientos", [])
+        movimiento = next((m for m in historial if m.id == movimiento_id), None)
+        if movimiento is None:
+            raise NoEncontrado(f"El movimiento {movimiento_id!r} no existe para este usuario o aún no ha ocurrido.")
+        modelo = _leer(usuario_id, "modelo")
+        pedidos = []
+        for d in deudores or []:
+            texto = d.get("contraparte") if isinstance(d, dict) else None
+            clave = None
+            if isinstance(texto, str):
+                clave = (_contactos.buscar_contacto(modelo, texto) if modelo is not None else None) or casos.clave_persona(texto)
+            pedidos.append({"contraparte": clave or texto, "importe": d.get("importe") if isinstance(d, dict) else None})
+        nuevos = casos.deudores_de_peticion(movimiento, pedidos)
+        escenario = casos.escenario_por_defecto(nuevos, escenario)
+        lista = casos.cargar(usuario_id)
+        previo = casos.buscar_de_movimiento(lista, movimiento_id)
+        if previo is not None and previo.escenario == escenario:
+            raise ValueError(f"Ya hay un caso abierto de ese gasto ({previo.id}). Usa saldar o cambia su escenario.")
+        if previo is not None:
+            caso = casos.cambiar_escenario(previo, escenario, "lo dices tú.", "usuario", hoy, ahora, deudores=nuevos)
+            evento, ya = "caso_convertido", {d.contraparte for d in previo.deudores}
+        else:
+            caso = casos.caso_de_movimiento(usuario_id, movimiento, nuevos, escenario, hoy, ahora)
+            evento, ya = "caso_creado", set()
+        caso = casos.conciliar_con_historial(caso, historial, hoy, ahora)
+        if modelo is not None:
+            for d in nuevos:
+                if d.contraparte not in ya:
+                    modelo = _contactos.anotar_contacto(modelo, d.contraparte, hoy)
+        _guardar_caso(usuario_id, hoy, lista, caso, previo, modelo)
+        _auditar(usuario_id, evento, caso_id=caso.id, escenario=caso.escenario, personas=len(caso.deudores))
+        return _resumen_caso(caso, _movimientos_por_id(usuario_id))
+
+
+def saldar_caso_usuario(usuario_id: str, caso_id: str, contraparte: str | None, via: str, motivo: str | None = None) -> dict:
+    """Saldado manual (efectivo, invitación u otro): una persona o, sin `contraparte`, todas las que faltan. Cierra sin
+    insistir y nunca mueve dinero."""
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        hoy = _hoy(estado)
+        lista = casos.cargar(usuario_id)
+        caso = _caso_de(lista, caso_id)
+        nuevo = casos.saldar_manual(caso, contraparte, via, motivo, hoy, ahora_por_defecto(hoy))
+        _guardar_caso(usuario_id, hoy, lista, nuevo, caso)
+        _auditar(usuario_id, "caso_saldado_manual", caso_id=caso_id, via=via, todo=contraparte is None)
+        return _resumen_caso(nuevo, _movimientos_por_id(usuario_id))
+
+
+def descartar_caso_usuario(usuario_id: str, caso_id: str, motivo: str | None = None,
+                           contraparte: str | None = None) -> dict:
+    """«No me lo debe»: sin `contraparte` cierra todo el caso sin cobrar (lo pendiente pasa a `olvidada`); con ella,
+    solo descarta a esa persona (y si ya no queda nadie por cobrar, el caso se cierra)."""
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        hoy = _hoy(estado)
+        lista = casos.cargar(usuario_id)
+        caso = _caso_de(lista, caso_id)
+        if caso.estado in casos.CERRADOS:
+            raise ValueError(f"Este caso ya está cerrado ({caso.estado}).")
+        nota = casos.sanear_motivo(motivo) or "el usuario lo descarta."
+        if contraparte is None:
+            nuevo = casos.descartar(caso, hoy, nota, "usuario", ahora_por_defecto(hoy))
+        else:
+            nuevo = casos.descartar_persona(caso, contraparte, hoy, nota, "usuario", ahora_por_defecto(hoy))
+        _guardar_caso(usuario_id, hoy, lista, nuevo, caso)
+        _auditar(usuario_id, "caso_descartado", caso_id=caso_id, persona=contraparte is not None)
+        return _resumen_caso(nuevo, _movimientos_por_id(usuario_id))
+
+
+def cambiar_escenario_caso_usuario(usuario_id: str, caso_id: str, escenario: str, motivo: str | None = None) -> dict:
+    """Cambia el escenario con la tabla de transiciones del diseño; cualquier otra transición da un error claro."""
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        hoy = _hoy(estado)
+        lista = casos.cargar(usuario_id)
+        caso = _caso_de(lista, caso_id)
+        nuevo = casos.cambiar_escenario(caso, escenario, motivo, "usuario", hoy, ahora_por_defecto(hoy))
+        _guardar_caso(usuario_id, hoy, lista, nuevo, caso)
+        _auditar(usuario_id, "caso_escenario", caso_id=caso_id, de=caso.escenario, a=escenario)
+        return _resumen_caso(nuevo, _movimientos_por_id(usuario_id))
+
+
+# --- Personas en relación: agenda, saldo y relación declarada -----------------------------------------
+
+def contactos_usuario(usuario_id: str) -> list[dict]:
+    """`[{contraparte, nombre, telefono, relacion, saldo_total, casos_abiertos, veces, ultima}]`: la agenda del escenario
+    y quienes aparecen en Bizums y casos. El saldo se calcula desde los casos; nada se valora ni se infiere."""
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        modelo = _leer(usuario_id, "modelo")
+        lista = casos.cargar(usuario_id)
+    if modelo is None:
+        raise NoEncontrado(f"El usuario {usuario_id!r} aún no tiene modelo.")
+    return _contactos.contactos_con_saldo(modelo, lista, _hoy(estado))
+
+
+def _clave_de_contacto(modelo: ModeloUsuario, lista: list[Caso], texto: str) -> str | None:
+    clave = _contactos.buscar_contacto(modelo, texto)
+    if clave is None:
+        candidata = casos.clave_persona(texto)
+        if candidata and any(d.contraparte == candidata for c in lista for d in c.deudores):
+            clave = candidata
+    return clave
+
+
+def editar_contacto_usuario(usuario_id: str, clave: str, relacion: str | None) -> list[dict]:
+    """La relación (amigo, familia, pareja, companero, otro) la declara el usuario; `None` la borra."""
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        modelo = _leer(usuario_id, "modelo")
+        if modelo is None:
+            raise NoEncontrado(f"El usuario {usuario_id!r} aún no tiene modelo.")
+        objetivo = _clave_de_contacto(modelo, casos.cargar(usuario_id), clave)
+        if objetivo is None:
+            raise NoEncontrado("No hay ningún contacto con ese nombre.")
+        nuevo = _contactos.editar_relacion(modelo, objetivo, relacion).model_copy(
+            update={"actualizado": ahora_por_defecto(_hoy(estado))})
+        alm.guardar(usuario_id, "modelo", nuevo)
+        _auditar(usuario_id, "contacto_relacion", relacion=relacion)
+    return contactos_usuario(usuario_id)
+
+
+def borrar_contacto_usuario(usuario_id: str, clave: str) -> list[dict]:
+    """Borra a la persona: sale de la agenda y de los casos (igual que borrar un amigo)."""
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        hoy = _hoy(estado)
+        modelo = _leer(usuario_id, "modelo")
+        if modelo is None:
+            raise NoEncontrado(f"El usuario {usuario_id!r} aún no tiene modelo.")
+        lista = casos.cargar(usuario_id)
+        objetivo = _clave_de_contacto(modelo, lista, clave)
+        if objetivo is None:
+            raise NoEncontrado("No hay ningún contacto con ese nombre.")
+        nueva, _ = casos.olvidar_contacto(lista, objetivo)
+        casos.guardar(usuario_id, nueva)
+        nuevo = casos.sincronizar_amigos(_contactos.borrar_contacto(modelo, objetivo), nueva, hoy)
+        alm.guardar(usuario_id, "modelo", nuevo.model_copy(update={"actualizado": ahora_por_defecto(hoy)}))
+        _auditar(usuario_id, "contacto_borrado")
+    return contactos_usuario(usuario_id)
 
 
 def borrar_conversaciones_caso(usuario_id: str, caso_id: str) -> dict:

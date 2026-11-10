@@ -8,7 +8,12 @@ de una LISTA CERRADA y el código valida cada uno contra la lista y contra el ca
     nota                  texto corto          -> `Caso.acuerdos` (sin importes nuevos ni valoraciones)
     silenciar_contacto    contraparte          -> misma vía que `no_avisar_contacto` (`personalizacion.aprender`)
     corregir_deudores     contraparte          -> `Deudor.estado = "olvidada"` (única transición que hace)
+    cambiar_escenario     escenario, motivo    -> `transiciones.cambiar_escenario(origen="llamada")` (tabla de transiciones)
+    marcar_saldado        persona, vía, motivo -> `transiciones.saldar_manual(origen="llamada")` (efectivo, invitación, otro)
     resumen               1-2 frases           -> `Caso.conversaciones`
+
+`cambiar_escenario` y `marcar_saldado` solo pasan si el usuario lo propuso: el modelo debe citar literalmente una frase
+del USUARIO (no de Meisam) y el código la busca en la transcripción; además valida la transición y los deudores.
 
 Lo que NUNCA hace: mover dinero, cambiar `Deudor.cuota` ni `hechos`, marcar pagos o cerrar un caso por su cuenta
 (salvo que el usuario diga que nadie le debe nada: entonces usa `descartar`, igual que el botón). La transcripción
@@ -34,9 +39,12 @@ from ..personalizacion.aprendizaje import INFO_CONTACTO, aprender
 from ..plataforma.privacidad import enmascarar_texto
 from ..plataforma.reloj import ahora_por_defecto
 from ..plataforma.tipos import Acuerdo, AvisoAbierto, CambioCaso, Caso, Feedback, ModeloUsuario
-from . import ciclo
+from . import ciclo, transiciones
 
-ACCIONES_LLAMADA = ("posponer", "nota", "silenciar_contacto", "corregir_deudores")
+ACCIONES_LLAMADA = ("posponer", "nota", "silenciar_contacto", "corregir_deudores", "cambiar_escenario", "marcar_saldado")
+ESCENARIOS_LLAMADA = ("pago_individual", "pago_por_otro", "gasto_compartido", "gasto_fijo_compartido")
+MAX_MOTIVO = 120
+MIN_CITA = 8
 DIAS_MIN, DIAS_MAX = 1, 14
 MAX_MENSAJES = 60            # de la transcripción solo se leen los últimos
 MAX_TEXTO_MENSAJE = 500
@@ -60,7 +68,14 @@ ESQUEMA = {
                     "dias": {"type": "integer", "description": "Solo posponer: de 1 a 14."},
                     "texto": {"type": "string", "description": "Solo nota: frase corta, sin importes nuevos."},
                     "contraparte": {"type": "string",
-                                    "description": "Solo silenciar_contacto y corregir_deudores: un nombre de la lista."},
+                                    "description": "Solo silenciar_contacto, corregir_deudores y marcar_saldado: un nombre de la lista."},
+                    "escenario": {"type": "string", "enum": list(ESCENARIOS_LLAMADA),
+                                  "description": "Solo cambiar_escenario: el tipo nuevo del caso."},
+                    "via": {"type": "string", "enum": list(transiciones.VIAS_MANUALES),
+                            "description": "Solo marcar_saldado: cómo pagó (efectivo, invitacion u otro)."},
+                    "motivo": {"type": "string", "description": "Solo cambiar_escenario y marcar_saldado: frase corta."},
+                    "cita": {"type": "string",
+                             "description": "Solo cambiar_escenario y marcar_saldado: frase LITERAL del Usuario que lo pide."},
                 },
                 "required": ["tipo"],
             },
@@ -83,6 +98,10 @@ Frase corta. No inventes ni repitas cifras que no estén en el contexto.
 - silenciar_contacto: el usuario pide expresamente que no le avises más de gastos con esa persona.
 - corregir_deudores: el usuario dice expresamente que esa persona NO le debe nada de este gasto. Solo una persona de \
 la lista del contexto.
+- cambiar_escenario: el usuario dice expresamente que el gasto es de otro tipo (p. ej. «no, fue con más gente» o «esto \
+se repite todos los meses»). escenario de la lista; motivo corto; cita = una frase literal del Usuario (nunca de Meisam).
+- marcar_saldado: el usuario dice expresamente que esa persona ya le pagó fuera de Bizum (efectivo, invitación o \
+similar). Solo una persona de la lista; via efectivo, invitacion u otro; motivo corto; cita = frase literal del Usuario.
 - Nunca mueves dinero, ni cambias importes, ni marcas pagos. Nunca valores a una persona («suele retrasarse», \
 «es informal»): solo hechos y decisiones del usuario.
 - Usa los nombres tal como aparecen en el contexto (ya enmascarados). No escribas apellidos, teléfonos, IBAN ni correos.
@@ -201,6 +220,7 @@ def _mensajes_limpios(mensajes: list[dict], caso: Caso) -> list[tuple[str, str]]
 
 def _contexto(caso: Caso, hoy: date) -> str:
     lineas = [f"Fecha de hoy: {hoy.isoformat()}.", f"Gasto: {_limpio(caso.hechos.get('comercio') or 'gasto compartido', 40)}.",
+              f"Tipo de caso actual: {caso.escenario or 'sin decidir'}.",
               "Personas con las que se comparte el gasto (nombres enmascarados):"]
     lineas += [f"- {ciclo.nombre_visible(d.contraparte)} (estado: {d.estado})" for d in caso.deudores]
     return "\n".join(lineas)
@@ -229,11 +249,28 @@ def extraer(mensajes: list[dict], caso: Caso, hoy: date) -> dict | None:
 
 # --- Validar (pura) ----------------------------------------------------------------------------
 
-def validar(crudo: dict | None, caso: Caso, hoy: date) -> Plan:
-    """Deja solo lo que está en la lista cerrada y es coherente con el caso. Lo demás se descarta."""
+def _norm_cita(texto: str) -> str:
+    return " ".join(re.sub(r"[^A-Z0-9 ]", " ", _sin_tildes(texto)).split())
+
+
+def _dicho_por_el_usuario(cita: Any, limpios: list[tuple[str, str]], caso: Caso) -> bool:
+    """La cita debe ser una frase del USUARIO en la transcripción (no de Meisam): así una orden que solo aparezca en lo
+    que dijo la IA, o que invente el modelo, no cambia el caso."""
+    buscada = _norm_cita(_enmascarar_nombres(_limpio(cita, 300), caso))
+    if len(buscada) < MIN_CITA:
+        return False
+    return any(rol == "Usuario" and buscada in _norm_cita(texto) for rol, texto in limpios)
+
+
+def validar(crudo: dict | None, caso: Caso, hoy: date, mensajes: list[dict] | None = None, *,
+            revalidar: bool = False) -> Plan:
+    """Deja solo lo que está en la lista cerrada y es coherente con el caso. Lo demás se descarta. `cambiar_escenario` y
+    `marcar_saldado` exigen `mensajes` (la transcripción) para comprobar que el usuario lo propuso; `aplicar` vuelve a
+    validar con `revalidar=True` (el plan ya pasó esa comprobación)."""
     plan = Plan()
     if not isinstance(crudo, dict):
         return plan
+    limpios = _mensajes_limpios(mensajes or [], caso)
     vistas: set[tuple] = set()
     notas = 0
     for a in (crudo.get("acciones") if isinstance(crudo.get("acciones"), list) else [])[:12]:
@@ -258,6 +295,38 @@ def validar(crudo: dict | None, caso: Caso, hoy: date) -> Plan:
                 continue
             notas += 1
             clave, accion = ("nota", texto), {"tipo": "nota", "texto": texto}
+        elif tipo == "cambiar_escenario":
+            nuevo = a.get("escenario")
+            if nuevo not in ESCENARIOS_LLAMADA:
+                plan.descartadas.append("cambiar_escenario: escenario fuera de la lista")
+                continue
+            if not revalidar and not _dicho_por_el_usuario(a.get("cita"), limpios, caso):
+                plan.descartadas.append("cambiar_escenario: no consta que lo pidiera el usuario")
+                continue
+            try:
+                transiciones.cambiar_escenario(caso, nuevo, None, "llamada", hoy)
+            except ValueError:
+                plan.descartadas.append("cambiar_escenario: transición no permitida")
+                continue
+            clave = ("cambiar_escenario",)
+            accion = {"tipo": tipo, "escenario": nuevo, "motivo": _texto_guardable(a.get("motivo"), caso, MAX_MOTIVO) or ""}
+        elif tipo == "marcar_saldado":
+            contraparte = resolver_contraparte(caso, a.get("contraparte"))
+            if contraparte is None:
+                plan.descartadas.append("marcar_saldado: persona que no es deudora del caso")
+                continue
+            if a.get("via") not in transiciones.VIAS_MANUALES:
+                plan.descartadas.append("marcar_saldado: vía fuera de efectivo, invitacion u otro")
+                continue
+            if next(d for d in caso.deudores if d.contraparte == contraparte).estado == "saldada" or caso.estado in ciclo.CERRADOS:
+                plan.descartadas.append("marcar_saldado: ya estaba saldada o el caso está cerrado")
+                continue
+            if not revalidar and not _dicho_por_el_usuario(a.get("cita"), limpios, caso):
+                plan.descartadas.append("marcar_saldado: no consta que lo dijera el usuario")
+                continue
+            clave = ("marcar_saldado", contraparte)
+            accion = {"tipo": tipo, "contraparte": contraparte, "via": a["via"],
+                      "motivo": _texto_guardable(a.get("motivo"), caso, MAX_MOTIVO) or ""}
         else:
             contraparte = resolver_contraparte(caso, a.get("contraparte"))
             if contraparte is None:
@@ -303,7 +372,7 @@ def aplicar(caso: Caso, modelo: ModeloUsuario, plan: Plan, hoy: date, ahora: dat
     contra el caso que recibe (pudo cambiar mientras Haiku pensaba). Sin consentimiento de memoria no guarda notas ni
     resumen: posponer, corregir y silenciar son órdenes explícitas del usuario y se aplican igual."""
     ahora = ahora or ahora_por_defecto(hoy)
-    plan = validar({"acciones": plan.acciones, "resumen": plan.resumen}, caso, hoy)
+    plan = validar({"acciones": plan.acciones, "resumen": plan.resumen}, caso, hoy, revalidar=True)
     memoria = tiene_memoria(modelo)
     nuevo, m_nuevo, cambios = caso.model_copy(deep=True), modelo, []
     for a in plan.acciones:
@@ -331,6 +400,19 @@ def aplicar(caso: Caso, modelo: ModeloUsuario, plan: Plan, hoy: date, ahora: dat
             if nuevo.estado not in ciclo.CERRADOS and not any(d.estado not in ("saldada", "olvidada") for d in nuevo.deudores) \
                     and any(d.estado == "olvidada" for d in nuevo.deudores):
                 nuevo = ciclo.descartar(nuevo, hoy, "dijiste en la llamada que no te deben.", origen="llamada", ahora=ahora)
+        elif tipo == "cambiar_escenario":
+            try:
+                nuevo = transiciones.cambiar_escenario(nuevo, a["escenario"], a.get("motivo"), "llamada", hoy, ahora)
+                cambios.append(f"Cambia a {transiciones.ETIQUETA[a['escenario']]}.")
+            except ValueError:
+                pass                                 # el caso cambió mientras Haiku pensaba: no se aplica
+        elif tipo == "marcar_saldado":
+            try:
+                nuevo = transiciones.saldar_manual(nuevo, a["contraparte"], a["via"], a.get("motivo"), hoy, ahora,
+                                                   origen="llamada")
+                cambios.append(f"{ciclo.nombre_visible(a['contraparte'])} marcada como saldada ({a['via']}).")
+            except ValueError:
+                pass
     if plan.resumen and memoria:
         frase = f"{hoy.isoformat()}: {plan.resumen}"
         if frase not in nuevo.conversaciones:

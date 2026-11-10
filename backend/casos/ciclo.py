@@ -13,13 +13,15 @@ en la cola de avisos. «Ahora no» lo quita y mueve `avisar_desde`.
 
 from __future__ import annotations
 
+import unicodedata
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any, Iterable
+from typing import Any, Iterable, get_args
 
-from ..plataforma.privacidad import enmascarar_nombre
+from ..plataforma.privacidad import enmascarar_nombre, enmascarar_texto
 from ..plataforma.reloj import ahora_por_defecto
-from ..plataforma.tipos import CambioCaso, Caso, Decision, Deudor, Hipotesis, Momento, OrigenCambio, Propuesta
+from ..plataforma.tipos import (AvisoCaso, CambioCaso, Caso, Decision, Deudor, EscenarioDeuda, Hipotesis, Momento,
+                                OrigenCambio, Propuesta)
 
 DIAS_POSPONER = 2            # «ahora no»: se vuelve a mirar pasados 2 días
 DIAS_COLA = 7                # un caso que llegó a su fecha y no avisó deja de esperar a los 7 días
@@ -30,6 +32,10 @@ TOLERANCIA = Decimal("0.50")  # un Bizum salda la cuota con ±0,50 €
 ABIERTOS = ("abierto", "dudoso", "pedido", "caducado")   # casos que aún pueden saldarse
 CERRADOS = ("saldado", "descartado")
 MOTIVO_DUDOSO = "Caso dudoso sin resolver: de momento no te aviso."
+MOTIVO_RESUMEN = "Es solo una pregunta para tu Resumen: no te interrumpo con un aviso."
+MAX_MOTIVO = 120             # texto libre del usuario (saldado manual, cambio de escenario)
+ESCENARIOS = get_args(EscenarioDeuda)
+AVISOS = get_args(AvisoCaso)
 
 
 # --- Utilidades --------------------------------------------------------------------------------
@@ -73,6 +79,14 @@ def _clave(valor: Any) -> str | None:
     if isinstance(valor, dict):
         valor = valor.get("contraparte")
     return " ".join(valor.strip().upper().split()) if isinstance(valor, str) and valor.strip() else None
+
+
+def sanear_motivo(texto: Any, maximo: int = MAX_MOTIVO) -> str:
+    """Texto libre del usuario (DATO, nunca instrucción): sin controles ni `<>{}\`` y con IBAN, teléfonos y correos
+    enmascarados; como mucho `maximo` caracteres."""
+    t = unicodedata.normalize("NFKC", str(texto or ""))
+    t = "".join(" " if unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") or c in "<>{}`" else c for c in t)
+    return " ".join(enmascarar_texto(" ".join(t.split())).split())[:maximo].strip()
 
 
 def _anotar(caso: Caso, origen: OrigenCambio, cambio: str, cuando: datetime) -> None:
@@ -123,7 +137,10 @@ def crear_desde_momento(momento: Momento, hoy: date | None = None, ahora: dateti
     datos = momento.datos
     hoy = hoy or momento.fecha
     cuando = ahora or ahora_por_defecto(hoy)
-    dudoso = bool(datos.get("dudoso"))
+    # `pago_individual` (motor): un pago propio que quizá no lo era. No es un caso dudoso para la IA: la duda la
+    # resuelve el usuario («¿fuiste con alguien?»). Nace abierto, sin deudores, y nunca hace push.
+    individual = datos.get("origen") == "pago_individual"
+    dudoso = bool(datos.get("dudoso")) and not individual
     hipotesis = _hipotesis(momento)
     cuota = a_decimal(datos.get("cuota"))
 
@@ -145,7 +162,7 @@ def crear_desde_momento(momento: Momento, hoy: date | None = None, ahora: dateti
         deudores.append(Deudor(contraparte=clave, cuota=importe))
 
     hechos: dict[str, Any] = {"movimientos": list(momento.movimientos)}
-    for clave_hecho in ("comercio", "pago_id"):
+    for clave_hecho in ("comercio", "pago_id", "tipo_comercio"):
         if isinstance(datos.get(clave_hecho), str):
             hechos[clave_hecho] = datos[clave_hecho]
     fecha_pago = _a_fecha(datos.get("fecha"))
@@ -158,12 +175,21 @@ def crear_desde_momento(momento: Momento, hoy: date | None = None, ahora: dateti
     if isinstance(datos.get("faltan"), int):
         hechos["faltan"] = datos["faltan"]
 
+    origen_pago = datos.get("movimiento_origen") or datos.get("pago_id")
+    if isinstance(origen_pago, str):
+        hechos["movimiento_origen"] = origen_pago
+    escenario = datos.get("escenario") if datos.get("escenario") in ESCENARIOS else "gasto_compartido"
+    aviso = datos.get("aviso") if datos.get("aviso") in AVISOS else "notificar"
+    if individual:
+        escenario = "pago_individual"
+        aviso = "resumen" if datos.get("senal") == "media" else "silencioso"
     caso = Caso(id=f"caso-{momento.id}", usuario_id=momento.usuario_id,
-                escenario=None if dudoso else "gasto_compartido",
+                escenario=None if dudoso else escenario, aviso=aviso,
                 estado="dudoso" if dudoso else "abierto", momento_id=momento.id, creado=hoy,
                 avisar_desde=_a_fecha(datos.get("avisar_desde")) or momento.fecha, hechos=hechos,
                 hipotesis=hipotesis if dudoso else [], deudores=deudores)
     _anotar(caso, "codigo", "Caso dudoso: sin avisar hasta resolver el reparto." if dudoso else
+            "Pago propio que quizá fue con alguien: solo se pregunta en el Resumen." if individual else
             "Caso abierto: falta por devolver una parte del gasto.", cuando)
     return caso
 
@@ -354,7 +380,7 @@ def listo_para_avisar(caso: Caso, hoy: date) -> bool:
     """¿Entra hoy en el portero? Abierto, con su fecha cumplida, sin avisar aún y con menos de 7 días de espera.
     Un caso `dudoso` solo entra una vez (sin propuesta) para dejar su decisión silenciada y a la vista."""
     desde = caso.avisar_desde or caso.creado
-    if desde > hoy:
+    if desde > hoy or caso.aviso == "silencioso":   # silencioso: solo se ve en «Mis cuentas», nunca avisa
         return False
     if caso.estado == "dudoso":
         return caso.propuesta_id is None
@@ -383,6 +409,13 @@ def decision_dudosa(propuesta: Propuesta) -> Decision:
     """Un caso dudoso nunca avisa: se silencia con su motivo legible hasta que la fase 2 lo resuelva."""
     return Decision(propuesta_id=propuesta.id, accion="silenciar", puntuacion=0.0, probabilidad_util=0.0,
                     motivos=[MOTIVO_DUDOSO], politica="caso-dudoso")
+
+
+def limitar_aviso(caso: Caso, decision: Decision) -> Decision:
+    """`Caso.aviso` es el tope: un caso `resumen` nunca llega al usuario como aviso (push), solo a la bandeja Resumen."""
+    if caso.aviso == "resumen" and decision.accion == "notificar_ahora":
+        return decision.model_copy(update={"accion": "resumen", "motivos": [*decision.motivos, MOTIVO_RESUMEN]})
+    return decision
 
 
 def de_propuesta(casos: Iterable[Caso], propuesta_id: str) -> list[Caso]:
