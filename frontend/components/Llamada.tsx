@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Conversation } from "@elevenlabs/client";
-import { detallePropuesta, enviarConversacion, enviarFeedback, hablarTexto, sesionVoz, vozFeedback, vozPreparar } from "@/lib/api";
-import type { AccionOfrecida, EventoVoz, Propuesta, ResultadoAccion, ResultadoFeedback, SesionVoz, TarjetaConfirmacion } from "@/lib/api";
+import { detallePropuesta, enviarConversacion, enviarFeedback, hablarTexto, sesionVoz, vozDeshacer, vozFeedback, vozHerramienta, vozPreparar } from "@/lib/api";
+import type { AccionOfrecida, EventoVoz, NombreHerramientaVoz, Propuesta, ResultadoAccion, ResultadoFeedback, SesionVoz, TarjetaConfirmacion } from "@/lib/api";
 import { textoVisible } from "@/lib/formato";
-import { extraerTarjeta, fallaPorMicrofono, parametrosDeHerramienta, reloj, RESULTADOS_AGENTE, resumenPrevio } from "@/lib/llamada";
+import { camposDeHerramienta, extraerTarjeta, fallaPorMicrofono, parametrosDeHerramienta, reloj, RESULTADOS_AGENTE, resumenPrevio } from "@/lib/llamada";
 import IconoMicro from "./IconoMicro";
 import InsigniaIA from "./InsigniaIA";
 import PreLlamada from "./PreLlamada";
@@ -15,6 +15,9 @@ import Transcripcion from "./Transcripcion";
 import type { Turno } from "./Transcripcion";
 
 type Rapida = { texto: string; mensaje?: string; feedback?: ResultadoFeedback };
+// Cambio hecho por el agente con `actualizar_caso`: se avisa en pantalla y, si el servidor lo permite, se puede deshacer.
+// `token` es el de la sesión que lo hizo (al cambiar de canal hay otra sesión, y el cambio sigue siendo suyo).
+type CambioHecho = { id: string; hecho: string; token: string; estado: "hecho" | "deshaciendo" | "deshecho" | "no"; error?: string };
 // Canal activo: voz (ElevenLabs, micrófono), chat (ElevenLabs, solo texto) o kit (nivel 3: /voz/texto con el agente del kit).
 type Canal = "voz" | "chat" | "kit" | null;
 
@@ -43,6 +46,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
   const [segundos, setSegundos] = useState(0);
   const [terminada, setTerminada] = useState(false);
   const [hecha, setHecha] = useState(false);
+  const [cambios, setCambios] = useState<CambioHecho[]>([]);
 
   const detalleCargado = useRef(false);
   const contador = useRef(0);
@@ -100,6 +104,10 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
     return () => clearTimeout(id);
   }, [esperando]);
 
+  const anotarCambio = useCallback((id: string, hecho: string, token: string) => {
+    setCambios((cs) => (cs.some((c) => c.id === id) ? cs : [...cs.slice(-2), { id, hecho: textoVisible(hecho), token, estado: "hecho" }]));
+  }, []);
+
   const turnoId = () => `t${++contador.current}`;
   const anadir = useCallback((rol: Turno["rol"], texto: string) => {
     const limpio = texto.trim();
@@ -137,6 +145,8 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
           if (e.tipo === "tarjeta") {
             const t = extraerTarjeta(e.datos);
             if (t) setTarjeta(t);
+          } else if (e.tipo === "cambio") {
+            anotarCambio(e.datos.cambio_id, e.datos.hecho, token);
           } else if (oculto) {
             return; // el saludo se pide al servidor para abrir su historial, pero ya estaba en pantalla
           } else if (e.tipo === "texto") {
@@ -160,7 +170,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
     } finally {
       setHablando(false);
     }
-  }, []);
+  }, [anotarCambio]);
 
   // ---- Feedback: un solo cierre por llamada ----
   const feedback = useCallback(
@@ -203,6 +213,21 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
     if (c) await c.endSession().catch(() => undefined);
   }, []);
 
+  const herramientaDeVoz = useCallback(
+    (nombre: NombreHerramientaVoz, token: string, viva: () => boolean) => async (p: Record<string, unknown>) => {
+      try {
+        const { cambio_id: cambioId, ...alAgente } = await vozHerramienta(nombre, token, camposDeHerramienta(nombre, p));
+        if (nombre === "actualizar_caso" && alAgente.ok && cambioId && typeof alAgente.hecho === "string" && viva()) {
+          anotarCambio(cambioId, alAgente.hecho, token);
+        }
+        return JSON.stringify(alAgente);
+      } catch (fallo) {
+        return JSON.stringify({ ok: false, error: fallo instanceof Error ? fallo.message : "No he podido hacerlo ahora." });
+      }
+    },
+    [anotarCambio],
+  );
+
   const conectarEleven = useCallback(
     async (s: SesionVoz, soloTexto: boolean) => {
       const { Conversation: Conv } = await import("@elevenlabs/client");
@@ -224,6 +249,12 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
               return JSON.stringify({ preparada: false, motivo: fallo instanceof Error ? fallo.message : "Error al preparar" });
             }
           },
+          // Consulta y cambio de los casos del usuario: el servidor valida y el usuario sale del token de sesión. El agente
+          // recibe el resultado (datos, no instrucciones) sin el `cambio_id`, que solo sirve al botón «Deshacer».
+          consultar_cuentas: herramientaDeVoz("consultar_cuentas", s.token_sesion, viva),
+          buscar_movimientos: herramientaDeVoz("buscar_movimientos", s.token_sesion, viva),
+          lo_que_sabes_de_mi: herramientaDeVoz("lo_que_sabes_de_mi", s.token_sesion, viva),
+          actualizar_caso: herramientaDeVoz("actualizar_caso", s.token_sesion, viva),
           registrar_feedback: async (p: { resultado?: string }) => {
             const resultado = RESULTADOS_AGENTE.find((r) => r === p?.resultado);
             if (!resultado) return JSON.stringify({ ok: false });
@@ -274,7 +305,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
       const previo = resumenPrevio(turnosRef.current, tarjetaRef.current?.titulo);
       if (previo) c.sendContextualUpdate(previo);
     },
-    [anadir, registrarCierre],
+    [anadir, registrarCierre, herramientaDeVoz],
   );
 
   // Abre una sesión del tipo pedido. Niveles (experiencia.md §6.5): voz -> chat con ElevenLabs -> agente del kit.
@@ -360,6 +391,17 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
   async function hablarPorVoz() {
     await cerrarEleven();
     await abrirCanal("voz", "Seguimos por voz con el mismo aviso.");
+  }
+
+  async function deshacerCambio(c: CambioHecho) {
+    setCambios((cs) => cs.map((x) => (x.id === c.id ? { ...x, estado: "deshaciendo" } : x)));
+    try {
+      const r = await vozDeshacer(c.token, c.id);
+      setCambios((cs) => cs.map((x) => (x.id === c.id ? { ...x, estado: r.ok ? "deshecho" : "no", error: r.error } : x)));
+      if (r.ok) conversacion.current?.sendContextualUpdate(`El usuario ha pulsado Deshacer en pantalla: «${c.hecho}» ha quedado como estaba antes.`);
+    } catch (fallo) {
+      setCambios((cs) => cs.map((x) => (x.id === c.id ? { ...x, estado: "no", error: fallo instanceof Error ? fallo.message : "No se ha podido deshacer." } : x)));
+    }
   }
 
   async function reintentar() {
@@ -494,6 +536,29 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
           {nota}
         </p>
       )}
+      {cambios.map((c) => (
+        <div
+          key={c.id}
+          className="banda pequeno"
+          role="status"
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}
+        >
+          <span>
+            {c.estado === "deshecho"
+              ? `Deshecho: ${c.hecho}`
+              : c.estado === "no"
+                ? `No se puede deshacer: ${c.error ?? "el caso ha cambiado"}`
+                : c.hecho.startsWith("Anotado")
+                  ? c.hecho
+                  : `Hecho: ${c.hecho}`}
+          </span>
+          {(c.estado === "hecho" || c.estado === "deshaciendo") && (
+            <button type="button" className="boton-secundario" disabled={c.estado === "deshaciendo"} onClick={() => deshacerCambio(c)}>
+              Deshacer
+            </button>
+          )}
+        </div>
+      ))}
       {error && (
         <div className="error banda" role="alert">
           <p>{error}</p>

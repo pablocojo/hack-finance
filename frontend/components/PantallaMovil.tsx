@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import Campana from "./Campana";
 import InsigniaIA from "./InsigniaIA";
 
 // Marco común de las pantallas secundarias del cliente: cabecera del banco, contenido y aviso de IA siempre visible.
@@ -11,9 +12,12 @@ export default function PantallaMovil({ titulo, children }: { titulo: string; ch
           <p className="banco-nombre">Banco Aurora</p>
           <h1 className="banco-saludo">{titulo}</h1>
         </div>
-        <Link href="/app" className="banco-salir">
-          Volver
-        </Link>
+        <div className="banco-acciones">
+          <Campana />
+          <Link href="/app" className="banco-salir">
+            Volver
+          </Link>
+        </div>
       </header>
       {children}
       <footer className="aviso-ia-fijo">

@@ -1,7 +1,7 @@
 // Ayudas puras de la pantalla de llamada (sin React): reloj, tarjeta, parámetros de las herramientas del agente
 // de ElevenLabs y resumen de lo hablado al cambiar de canal. Se prueban a mano en la app y con tsc.
 
-import type { AccionId, ResultadoFeedback, TarjetaConfirmacion } from "./api";
+import type { AccionId, NombreHerramientaVoz, ResultadoFeedback, TarjetaConfirmacion } from "./api";
 
 export function reloj(segundos: number): string {
   const m = Math.floor(segundos / 60);
@@ -77,4 +77,37 @@ export function resumenPrevio(turnos: { rol: "meisam" | "usuario"; texto: string
 export function fallaPorMicrofono(fallo: unknown): boolean {
   const texto = fallo instanceof Error ? `${fallo.name} ${fallo.message}` : String(fallo);
   return /NotAllowed|NotFound|NotReadable|Permission|denied|microphone|micr[oó]fono/i.test(texto);
+}
+
+// Campos planos de las herramientas de consulta y cambio (experiencia.md, «Herramientas de la llamada») -> cuerpo de la
+// petición. Solo pasan los campos conocidos y con su tipo: el agente no puede colar otros (p. ej. un `usuario_id`;
+// además, el servidor los rechaza y el usuario sale siempre del token de sesión).
+const CAMPOS_HERRAMIENTAS: Record<NombreHerramientaVoz, { texto?: readonly string[]; numero?: readonly string[]; entero?: readonly string[] }> = {
+  consultar_cuentas: { texto: ["persona", "estado"] },
+  buscar_movimientos: { texto: ["texto", "desde", "hasta"], numero: ["importe_min", "importe_max"], entero: ["limite"] },
+  lo_que_sabes_de_mi: {},
+  actualizar_caso: { texto: ["caso_id", "accion", "persona", "via", "motivo", "escenario", "respuesta"], numero: ["importe"], entero: ["dias"] },
+};
+
+export function camposDeHerramienta(nombre: NombreHerramientaVoz, p: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  const entrada = p ?? {};
+  const grupos = CAMPOS_HERRAMIENTAS[nombre];
+  const campos: Record<string, unknown> = {};
+  for (const c of grupos.texto ?? []) {
+    const v = entrada[c];
+    if (typeof v === "string" && v.trim()) campos[c] = v.trim().slice(0, 300);
+  }
+  const comoNumero = (v: unknown): number | null => {
+    const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v.replace(",", ".")) : NaN;
+    return Number.isFinite(n) ? n : null;
+  };
+  for (const c of grupos.numero ?? []) {
+    const n = comoNumero(entrada[c]);
+    if (n !== null) campos[c] = n;
+  }
+  for (const c of grupos.entero ?? []) {
+    const n = comoNumero(entrada[c]);
+    if (n !== null && Number.isInteger(n)) campos[c] = n;
+  }
+  return campos;
 }

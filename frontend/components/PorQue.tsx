@@ -5,12 +5,13 @@ import { detallePropuesta, enviarFeedback } from "@/lib/api";
 import type { DetallePropuesta, ResultadoFeedback } from "@/lib/api";
 import { nombreVisible, textoVisible } from "@/lib/formato";
 
-type Props = { usuarioId: string; propuestaId: string };
+// `alCargar`: la consulta del detalle marca el aviso como visto; el panel de avisos lo usa para actualizar la campana.
+type Props = { usuarioId: string; propuestaId: string; alCargar?: () => void };
 type Opcion = { resultado: ResultadoFeedback; texto: string };
 
 // «Por qué te aviso»: la explicación del momento, el contexto personal y los motivos de la decisión del portero,
 // con botones para corregir a Meisam. Se carga al abrirlo (la consulta marca el aviso como visto).
-export default function PorQue({ usuarioId, propuestaId }: Props) {
+export default function PorQue({ usuarioId, propuestaId, alCargar }: Props) {
   const [abierto, setAbierto] = useState(false);
   const [detalle, setDetalle] = useState<DetallePropuesta | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -27,6 +28,7 @@ export default function PorQue({ usuarioId, propuestaId }: Props) {
     setError(null);
     try {
       setDetalle(await detallePropuesta(usuarioId, propuestaId));
+      alCargar?.();
     } catch (fallo) {
       setError(fallo instanceof Error ? fallo.message : String(fallo));
     } finally {

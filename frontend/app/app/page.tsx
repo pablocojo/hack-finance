@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import Activacion from "@/components/Activacion";
 import Bandeja from "@/components/Bandeja";
+import { useAvisos } from "@/components/AvisosProvider";
+import Campana from "@/components/Campana";
 import InsigniaIA from "@/components/InsigniaIA";
 import RelojDemo from "@/components/RelojDemo";
 import { activar, avanzarReloj, cargarDemo, estadoUsuario, notificaciones } from "@/lib/api";
@@ -22,6 +24,8 @@ export default function PantallaCliente() {
   const [resumen, setResumen] = useState<Notificacion[]>([]);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // El proveedor de /app/layout.tsx sondea los avisos; aquí solo se le pide que mire ya cuando el reloj o la activación cambian algo.
+  const { refrescar: refrescarAvisos } = useAvisos();
 
   const refrescar = useCallback(async (id: string) => {
     const [e, a, r] = await Promise.all([estadoUsuario(id), notificaciones(id, "ahora"), notificaciones(id, "resumen")]);
@@ -30,7 +34,8 @@ export default function PantallaCliente() {
     setSaldo(e.saldo);
     setAhora(a);
     setResumen(r);
-  }, []);
+    void refrescarAvisos();
+  }, [refrescarAvisos]);
 
   // Al volver de la llamada se recupera al usuario de esta pestaña, sin volver a activar.
   useEffect(() => {
@@ -79,6 +84,7 @@ export default function PantallaCliente() {
     setSaldo(null);
     setAhora([]);
     setResumen([]);
+    void refrescarAvisos();
   };
 
   const alEventoReloj = (e: EventoReloj) => {
@@ -103,9 +109,12 @@ export default function PantallaCliente() {
           <p className="banco-nombre">Banco Aurora</p>
           <p className="banco-saludo">{usuarioId ? "Hola, Lucía" : "Tu app del banco"}</p>
         </div>
-        <Link href="/" className="banco-salir">
-          Inicio
-        </Link>
+        <div className="banco-acciones">
+          <Campana />
+          <Link href="/" className="banco-salir">
+            Inicio
+          </Link>
+        </div>
       </header>
 
       {error && (
@@ -148,6 +157,9 @@ export default function PantallaCliente() {
           />
 
           <nav className="atajos" aria-label="Más de Meisam">
+            <Link href="/app/notificaciones" className="atajo">
+              Todos los avisos
+            </Link>
             <Link href="/app/cuentas" className="atajo">
               Mis cuentas
             </Link>

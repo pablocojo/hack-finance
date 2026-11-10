@@ -546,7 +546,8 @@ export type EventoReloj =
   | { tipo: "fin"; datos: { hoy: string; contadores: Contadores; pausado?: boolean } }
   | { tipo: "error"; datos: { mensaje: string; tipo?: string } };
 
-export type EventoVoz = EventoChat | { tipo: "tarjeta"; datos: TarjetaConfirmacion };
+// `cambio`: la herramienta `actualizar_caso` ha cambiado algo (nivel 3); `cambio_id` es para «Deshacer».
+export type EventoVoz = EventoChat | { tipo: "tarjeta"; datos: TarjetaConfirmacion } | { tipo: "cambio"; datos: { hecho: string; cambio_id: string } };
 
 export type EventoBorrador =
   | { tipo: "paso"; datos: { nombre: string; estado: string } }
@@ -715,6 +716,15 @@ export const vozPreparar = (tokenSesion: string, accionId: AccionId, parametros:
   });
 export const vozFeedback = (tokenSesion: string, resultado: ResultadoFeedback) =>
   enviar<{ ok: boolean }>("/voz/herramientas/feedback", "POST", { token_sesion: tokenSesion, resultado });
+// Herramientas de consulta y cambio del agente (experiencia.md, «Herramientas de la llamada»): campos planos más el
+// token de sesión, que fija el usuario en el servidor. `actualizar_caso` devuelve además `cambio_id` (para «Deshacer»),
+// que el navegador no pasa al agente.
+export type NombreHerramientaVoz = "consultar_cuentas" | "buscar_movimientos" | "lo_que_sabes_de_mi" | "actualizar_caso";
+export type ResultadoHerramienta = { ok: boolean; error?: string; hecho?: string; cambio_id?: string; [clave: string]: unknown };
+export const vozHerramienta = (nombre: NombreHerramientaVoz, tokenSesion: string, campos: Record<string, unknown> = {}) =>
+  enviar<ResultadoHerramienta>(`/voz/herramientas/${nombre}`, "POST", { token_sesion: tokenSesion, ...campos });
+export const vozDeshacer = (tokenSesion: string, cambioId: string) =>
+  enviar<{ ok: boolean; hecho?: string; error?: string }>("/voz/herramientas/deshacer", "POST", { token_sesion: tokenSesion, cambio_id: cambioId });
 // Al colgar: la transcripción va al agente post-llamada (voz y chat). El backend la enmascara y solo aplica cambios de una
 // lista cerrada al caso; nunca mueve dinero. Quien la llama debe ignorar el fallo: no bloquea el cierre de la llamada.
 export const enviarConversacion = (opciones: {
