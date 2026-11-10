@@ -1,0 +1,20 @@
+id: cobro_duplicado
+version: 1
+nombre: Cobro duplicado
+descripcion: Avisa cuando te cobran dos veces lo mismo en pocos días y deja lista la reclamación.
+estado: activo
+origen: catalogo
+opcional: true
+escucha: [cargo_duplicado]
+cuando: "momento.confianza >= 0.7 y momento.datos.dias_entre <= 3"
+propuesta:
+  titulo: "Te han cobrado dos veces en {datos.comercio|dato}"
+  mensaje_notificacion: "{datos.comercio|dato} te ha cobrado {datos.importe|eur} dos veces en {datos.dias_entre|dias}."
+  contexto_llamada: "Posible cobro duplicado de {datos.importe|eur} en {datos.comercio|dato}, con {datos.dias_entre|dias} de diferencia. Ofrece reclamar el segundo cargo."
+  urgencia: media
+  valor_estimado_eur: "momento.datos.importe"
+acciones:
+  - accion_id: reclamar_cargo
+    parametros: {movimiento_id: "{datos.id_segundo}", motivo: "Cargo duplicado"}
+  - accion_id: recordar
+    parametros: {cuando: "+10d", texto: "Comprobar la reclamación de {datos.comercio|dato}"}

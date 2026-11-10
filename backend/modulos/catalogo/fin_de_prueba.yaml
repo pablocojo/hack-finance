@@ -1,0 +1,24 @@
+id: fin_de_prueba
+version: 1
+nombre: Fin de prueba gratuita
+descripcion: Avisa unos días antes de que una prueba gratuita pase a ser de pago, para cancelar a tiempo.
+estado: activo
+origen: catalogo
+opcional: true
+escucha: [prueba_gratuita]
+cuando: "momento.datos.dias_hasta >= 1 y momento.datos.dias_hasta <= 5"
+propuesta:
+  titulo: "Tu prueba de {datos.comercio|dato} está a punto de acabar"
+  mensaje_notificacion: "Tu prueba de {datos.comercio|dato} acaba el {datos.fecha_primer_cobro|fecha}: después te cobrará {datos.importe_previsto|eur}."
+  contexto_llamada: "Prueba gratuita de {datos.comercio|dato}, empezada el {datos.fecha_alta|fecha}, con primer cobro el {datos.fecha_primer_cobro|fecha} (quedan {datos.dias_hasta|dias}). Precio tras la prueba: {datos.importe_previsto|eur}. Pregunta si quiere seguir; si no, ofrece guiar la baja y bloquear el cobro."
+  urgencia: alta
+  valor_estimado_eur: "momento.datos.importe_previsto"
+  alternativa:
+    falta: datos.importe_previsto
+    mensaje_notificacion: "Tu prueba de {datos.comercio|dato} acaba el {datos.fecha_primer_cobro|fecha}: después empezará a cobrarte."
+    contexto_llamada: "Prueba gratuita de {datos.comercio|dato} con primer cobro el {datos.fecha_primer_cobro|fecha} (quedan {datos.dias_hasta|dias}). No conocemos el precio posterior; no lo inventes. Pregunta si quiere seguir; si no, ofrece guiar la baja."
+acciones:
+  - accion_id: cancelar_suscripcion
+    parametros: {comercio: "{datos.comercio}", bloquear_cobros: true}
+  - accion_id: recordar
+    parametros: {cuando: "{datos.fecha_primer_cobro}", texto: "Hoy acaba la prueba de {datos.comercio|dato}"}

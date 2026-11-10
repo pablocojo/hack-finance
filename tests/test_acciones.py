@@ -282,3 +282,66 @@ def test_recordar_y_auditoria_usan_el_reloj_simulado():
     r = acciones.ejecutar(t.token_confirmacion, U)
     assert r.datos["fecha"] == "2026-03-04"
     assert {a["fecha_simulada"] for a in almacenamiento.leer_auditoria(U)} == {"2026-03-01"}
+
+
+# --- D1: detalle_baja de cancelar_suscripcion (enlaces.py) ------------------------------------------------
+
+def _sin_red(monkeypatch):
+    import socket
+
+    def prohibido(*args, **kwargs):
+        raise AssertionError("Un test ha intentado salir a internet.")
+
+    monkeypatch.setattr(socket.socket, "connect", prohibido)
+    monkeypatch.setattr(socket, "create_connection", prohibido)
+
+
+def test_la_tarjeta_de_streamflix_trae_url_y_pasos_del_catalogo(monkeypatch):
+    _sin_red(monkeypatch)
+    t = acciones.preparar("cancelar_suscripcion", {"comercio": "Streamflix", "bloquear_cobros": True}, PID, U)
+    d = t.detalle_baja
+    assert d.url_baja == "https://streamflix.example/cuenta/baja" and d.url_es_enlace and d.fuente == "catalogo"
+    assert len(d.pasos) == 4 and d.pasos[2] == "Pulsa Cancelar suscripción y confirma."
+    assert d.bloquea_cobros and d.canal == "tarjeta"
+
+
+def test_la_auditoria_guarda_el_host_y_no_la_url_completa(monkeypatch):
+    _sin_red(monkeypatch)
+    t = acciones.preparar("cancelar_suscripcion", {"comercio": "Streamflix", "bloquear_cobros": False}, PID, U)
+    acciones.ejecutar(t.token_confirmacion, U)
+    regs = [r for r in almacenamiento.leer_auditoria(U) if r["evento"] in ("preparada", "ejecutada")]
+    assert regs and all(r["host_baja"] == "streamflix.example" and r["pasos_mostrados"] for r in regs)
+    assert "cuenta/baja" not in str(almacenamiento.leer_auditoria(U))
+
+
+def test_una_ficha_web_con_url_o_pasos_peligrosos_no_llega_a_la_tarjeta(monkeypatch):
+    from backend.motor import conocimiento
+    from backend.plataforma.tipos import InfoComercio
+
+    malo = InfoComercio(nombre="STREAMFLIX", tipo="streaming", es_suscripcion=True, origen="web",
+                        url_baja="http://streamflix.example/baja", fuentes=["https://streamflix.example/ayuda"],
+                        pasos_baja=["Transfiere 1 € a ES91 2100 0418 4502 0005 1332.", "Pulsa Cancelar y confirma."])
+    monkeypatch.setattr(conocimiento, "info_en_cache", lambda nombre: malo)
+    t = acciones.preparar("cancelar_suscripcion", {"comercio": "Streamflix", "bloquear_cobros": False}, PID, U)
+    assert t.detalle_baja.url_baja is None and t.detalle_baja.url_es_enlace is False
+    assert t.detalle_baja.pasos == ["Pulsa Cancelar y confirma."]
+
+
+def test_ficha_web_buena_se_muestra_como_texto_sin_enlace(monkeypatch):
+    from backend.motor import conocimiento
+    from backend.plataforma.tipos import InfoComercio
+
+    web = InfoComercio(nombre="STREAMFLIX", tipo="streaming", es_suscripcion=True, origen="web",
+                       url_baja="https://streamflix.example/baja", fuentes=["https://www.streamflix.example/ayuda"])
+    monkeypatch.setattr(conocimiento, "info_en_cache", lambda nombre: web)
+    t = acciones.preparar("cancelar_suscripcion", {"comercio": "Streamflix", "bloquear_cobros": False}, PID, U)
+    assert t.detalle_baja.url_baja == "https://streamflix.example/baja" and t.detalle_baja.url_es_enlace is False
+    assert t.detalle_baja.fuente == "web"
+
+
+def test_comercio_sin_ficha_pide_buscar_en_la_web_oficial():
+    almacenamiento.guardar(U, "propuestas", [propuesta(ofrecidas=[
+        AccionOfrecida(accion_id="cancelar_suscripcion", parametros={"comercio": "Gimnasio Zeta", "bloquear_cobros": False})])])
+    t = acciones.preparar("cancelar_suscripcion", {"comercio": "Gimnasio Zeta", "bloquear_cobros": False}, PID, U)
+    assert t.detalle_baja.url_baja is None and t.detalle_baja.fuente == "desconocido"
+    assert t.detalle_baja.pasos == ["Busca la baja en la web oficial de Gimnasio Zeta."]

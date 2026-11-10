@@ -324,3 +324,6 @@ Tests clave: la gramática rechaza `__import__`, llamadas y rutas fuera de lista
 4. Esquema de módulo: `propuesta.alternativa` y regla de 2 o 3 acciones declaradas; `Modulo` con `estado`; `BorradorModulo` e `InformePrueba` en `tipos.py`.
 5. `ModeloUsuario.perfil` expone como numéricos `umbral_relevante_eur`, `ticket_tipico`, `ingreso_mensual_tipico` y `dia_cobro_nomina` (el evaluador los convierte con `Decimal(str(x))`); `Momento.impacto_relativo` también como `Decimal`.
 6. Pendiente de `experto-banca`: confirmar el alcance real del bloqueo de cobros con tarjeta (texto ya fijado en el contrato).
+
+
+> **Nota (10 nov)**: el catálogo `cobro_duplicado` usa `confianza >= 0.7` (no 0.75): el detector da 0,70 a un duplicado de tarjeta el mismo día. `reclamar_cargo` no lleva `limites.importe_max` (el registro de acciones no lo admite para esa acción).

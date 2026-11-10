@@ -18,8 +18,8 @@ from decimal import Decimal
 from typing import Any
 
 from ..plataforma import almacenamiento
-from ..plataforma.tipos import DetalleBaja, Propuesta, ResultadoAccion, TarjetaConfirmacion, Deshacer
-from . import auditoria, banco_sim, tokens
+from ..plataforma.tipos import Propuesta, ResultadoAccion, TarjetaConfirmacion, Deshacer
+from . import auditoria, banco_sim, enlaces, tokens
 from .errores import ErrorAccion
 from .registro import REGISTRO, normalizar, obtener
 
@@ -101,13 +101,14 @@ def _preparar(accion_id: str, parametros: dict, propuesta_id: str, usuario_id: s
                             fecha_simulada=sim.isoformat(), extra={"fase": "preparar", "editado": editado})
         raise
     token, caduca = tokens.emitir(usuario_id, propuesta_id, accion_id, params, editado=editado)
-    detalle = None
+    detalle, extra = None, {}
     if accion_id == "cancelar_suscripcion":
-        detalle = DetalleBaja(bloquea_cobros=params["bloquear_cobros"], canal="tarjeta")
-    extra: dict[str, Any] = {}
+        # Solo de la caché del conocimiento: sin red y sin seguir la URL (enlaces.py).
+        detalle = enlaces.detalle_baja(params["comercio"], params["bloquear_cobros"], canal="tarjeta")
+        extra = {"host_baja": enlaces.host_para_auditoria(detalle), "pasos_mostrados": bool(detalle.pasos)}
     if defn.editables:
         propuesto, confirmado = _campos_editables(defn, ofrecidos), _campos_editables(defn, params)
-        extra = {"editado": propuesto != confirmado, "propuesto": propuesto, "confirmado": confirmado}
+        extra.update({"editado": propuesto != confirmado, "propuesto": propuesto, "confirmado": confirmado})
     auditoria.registrar(usuario_id, "preparada", propuesta_id=propuesta_id, accion_id=accion_id, parametros=params,
                         fecha_simulada=sim.isoformat(), extra=extra or None)
     return TarjetaConfirmacion(
@@ -190,7 +191,9 @@ def ejecutar(token_confirmacion: str, usuario_id: str) -> ResultadoAccion:
         if defn.editables:
             extra.update({"editado": propuesto != confirmado, "propuesto": propuesto, "confirmado": confirmado})
         if accion_id == "cancelar_suscripcion":
-            extra.update({"canal_pago": "tarjeta", "bloquear_cobros": params["bloquear_cobros"], "pasos_mostrados": False})
+            det = enlaces.detalle_baja(params["comercio"], params["bloquear_cobros"])
+            extra.update({"canal_pago": "tarjeta", "bloquear_cobros": params["bloquear_cobros"],
+                          "host_baja": enlaces.host_para_auditoria(det), "pasos_mostrados": bool(det.pasos)})
         auditoria.registrar(usuario_id, "ejecutada", propuesta_id=propuesta_id, accion_id=accion_id, parametros=params,
                             fecha_simulada=sim, extra=extra)
         return resultado
