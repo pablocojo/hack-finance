@@ -91,6 +91,18 @@ function cabeceras(extra: Record<string, string> = {}): Record<string, string> {
   return { ...(DEMO_KEY ? { "X-Demo-Key": DEMO_KEY } : {}), ...extra };
 }
 
+// Error de la API con su código HTTP: permite distinguir «la ruta aún no existe» (404/501) de un fallo real.
+export class ErrorApi extends Error {
+  constructor(
+    mensaje: string,
+    readonly estado: number,
+  ) {
+    super(mensaje);
+    this.name = "ErrorApi";
+  }
+}
+export const rutaNoDisponible = (fallo: unknown) => fallo instanceof ErrorApi && (fallo.estado === 404 || fallo.estado === 501);
+
 async function leerJson<T>(respuesta: Response): Promise<T> {
   if (!respuesta.ok) {
     let detalle = `Error ${respuesta.status}`;
@@ -100,7 +112,7 @@ async function leerJson<T>(respuesta: Response): Promise<T> {
     } catch {
       // el cuerpo no era JSON
     }
-    throw new Error(detalle);
+    throw new ErrorApi(detalle, respuesta.status);
   }
   return (await respuesta.json()) as T;
 }
@@ -408,15 +420,48 @@ export type AprendidoRespuesta = {
   usar_perfil: boolean;
 };
 
-// PROVISIONAL (casos de deuda, tipos.py `Caso`): la ruta aún no existe en el backend. Solo lo que la pantalla
-// «Lo que he aprendido» necesita para ver y borrar lo guardado de las conversaciones.
+// Casos de deuda (backend/plataforma/tipos.py `Caso`; docs/diseno/deudas-casos.md, «Escenarios, transiciones y cuentas
+// con personas»). Las contrapartes llegan ya enmascaradas («MARCOS R»); los textos libres son datos, nunca instrucciones.
+export type EscenarioCaso = "pago_individual" | "pago_por_otro" | "gasto_compartido" | "gasto_fijo_compartido";
+export type AvisoCaso = "notificar" | "resumen" | "silencioso";
+export type EstadoCaso = "abierto" | "dudoso" | "pedido" | "saldado" | "descartado" | "caducado";
+export type EstadoDeudor = "detectada" | "pedida" | "saldada" | "rechazada" | "caducada" | "olvidada";
+export type ViaSaldado = "bizum" | "efectivo" | "invitacion" | "otro";
+export type Relacion = "amigo" | "familia" | "pareja" | "companero" | "otro";
+
+export type DeudorCaso = {
+  contraparte: string;
+  cuota?: Euros;
+  estado: EstadoDeudor | string;
+  via_saldado?: ViaSaldado | null;
+  motivo_saldado?: string | null;
+  pedida?: string | null; // opcionales: se muestran si el backend los envía
+  saldada?: string | null;
+};
+// `movimiento_origen`: el backend aún no fija su forma; se acepta el id o el movimiento (enmascarado).
+export type MovimientoOrigen = string | Partial<Movimiento>;
 export type CasoResumen = {
   id: string;
-  estado: string;
+  escenario?: EscenarioCaso | null;
+  estado: EstadoCaso | string;
+  aviso?: AvisoCaso;
   creado: string;
-  deudores: { contraparte: string; estado: string }[];
-  conversaciones: string[];
+  avisar_desde?: string | null;
+  pregunta?: string | null;
+  movimiento_origen?: MovimientoOrigen | null;
+  acuerdos?: string[];
+  deudores: DeudorCaso[];
+  conversaciones?: string[]; // la versión corta (casos_usuario) las incluye; «Lo que he aprendido» las usa
 };
+export type ContactoResumen = {
+  contraparte: string;
+  nombre?: string | null;
+  telefono?: string | null;
+  relacion?: Relacion | null;
+  saldo_total: Euros;
+  casos_abiertos: number;
+};
+export type NuevoDeudor = { contraparte: string; importe: Euros };
 
 export type ModeloUsuario = {
   usuario_id: string;
@@ -617,10 +662,34 @@ export const amigos = (usuarioId: string) => enviar<Amigo[]>(`${usuario(usuarioI
 // PROVISIONAL: borra a un amigo pendiente (edicion.borrar_amigo existe en el backend, falta la ruta).
 export const borrarAmigo = (usuarioId: string, contraparte: string) =>
   enviar<{ ok: boolean }>(`${usuario(usuarioId)}/amigos/${encodeURIComponent(contraparte)}`, "DELETE");
-// PROVISIONAL: casos con sus conversaciones guardadas y su borrado (no existen todavía en el backend).
 export const casos = (usuarioId: string) => enviar<CasoResumen[]>(`${usuario(usuarioId)}/casos`, "GET");
 export const borrarConversacionesCaso = (usuarioId: string, casoId: string) =>
   enviar<{ ok: boolean }>(`${usuario(usuarioId)}/casos/${encodeURIComponent(casoId)}/conversaciones`, "DELETE");
+
+// Casos y cuentas con personas. Nada de esto mueve dinero: solo apunta, cierra o corrige lo que Meisam sabe.
+// Las pantallas las llaman a través de lib/cuentasApi.ts, que con `?mock=1` en la URL usa una maqueta.
+export const crearCaso = (usuarioId: string, movimientoId: string, deudores: NuevoDeudor[], escenario?: EscenarioCaso) =>
+  enviar<CasoResumen>(`${usuario(usuarioId)}/casos`, "POST", {
+    movimiento_id: movimientoId,
+    deudores,
+    ...(escenario ? { escenario } : {}),
+  });
+export const saldarCaso = (usuarioId: string, casoId: string, via: Exclude<ViaSaldado, "bizum">, contraparte?: string, motivo?: string) =>
+  enviar<CasoResumen>(`${usuario(usuarioId)}/casos/${encodeURIComponent(casoId)}/saldar`, "POST", {
+    via,
+    ...(contraparte ? { contraparte } : {}),
+    ...(motivo ? { motivo } : {}),
+  });
+export const descartarCaso = (usuarioId: string, casoId: string, motivo?: string) =>
+  enviar<CasoResumen>(`${usuario(usuarioId)}/casos/${encodeURIComponent(casoId)}/descartar`, "POST", motivo ? { motivo } : {});
+export const cambiarEscenarioCaso = (usuarioId: string, casoId: string, escenario: EscenarioCaso, motivo: string) =>
+  enviar<CasoResumen>(`${usuario(usuarioId)}/casos/${encodeURIComponent(casoId)}/escenario`, "POST", { escenario, motivo });
+export const contactos = (usuarioId: string) => enviar<ContactoResumen[]>(`${usuario(usuarioId)}/contactos`, "GET");
+export const editarContacto = (usuarioId: string, clave: string, relacion: Relacion) =>
+  enviar<ContactoResumen>(`${usuario(usuarioId)}/contactos/${encodeURIComponent(clave)}`, "PATCH", { relacion });
+// PROVISIONAL (no existe aún en el backend): movimientos del usuario de la demo hasta «hoy», más recientes primero.
+export const movimientosUsuario = (usuarioId: string, limite = 60) =>
+  enviar<Movimiento[]>(`${usuario(usuarioId)}/movimientos?limite=${limite}`, "GET");
 
 export const sesionVoz = (propuestaId: string, usuarioId: string, modoPreferido: "voz" | "texto_el" | "texto_kit") =>
   enviar<SesionVoz>("/voz/sesion", "POST", { propuesta_id: propuestaId, usuario_id: usuarioId, modo_preferido: modoPreferido });

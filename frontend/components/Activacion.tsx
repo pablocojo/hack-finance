@@ -7,7 +7,7 @@ export type ModuloActivable = { id: string; nombre: string; ejemplo: string; dis
 
 // Módulos del MVP. `id` es el del catálogo del backend; «próximamente» no se puede marcar.
 export const MODULOS_MVP: ModuloActivable[] = [
-  { id: "gasto_compartido", nombre: "Cena compartida", ejemplo: "«Pagaste 120 € de una cena para cinco y falta un Bizum de 24 €: te ayudamos a pedirlo.»", disponible: true },
+  { id: "gasto_compartido", nombre: "Gastos compartidos", ejemplo: "«Pagaste 120 € de una cena para cinco y falta un Bizum de 24 €: te ayudamos a pedirlo.»", disponible: true },
   { id: "cobro_duplicado", nombre: "Cobro duplicado", ejemplo: "«Te han cobrado dos veces 9,99 € en el mismo comercio.»", disponible: true },
   { id: "fin_de_prueba", nombre: "Fin de prueba gratis", ejemplo: "«Tu prueba gratis de Streamflix acaba en 3 días; después te cobrará 9,99 € al mes.»", disponible: true },
   { id: "renovacion", nombre: "Renovación de suscripciones", ejemplo: "Te avisaremos antes de que se renueve una suscripción.", disponible: false },

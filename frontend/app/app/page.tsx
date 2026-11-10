@@ -148,8 +148,11 @@ export default function PantallaCliente() {
           />
 
           <nav className="atajos" aria-label="Más de Meisam">
-            <Link href="/app/amigos" className="atajo">
-              Cuentas con amigos
+            <Link href="/app/cuentas" className="atajo">
+              Mis cuentas
+            </Link>
+            <Link href="/app/movimientos" className="atajo">
+              Movimientos
             </Link>
             <Link href="/app/aprendido" className="atajo">
               Lo que he aprendido de ti

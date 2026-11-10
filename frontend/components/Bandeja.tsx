@@ -1,18 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { prepararAccion } from "@/lib/api";
-import type { Notificacion, TarjetaConfirmacion } from "@/lib/api";
+import type { CasoResumen, Notificacion, TarjetaConfirmacion } from "@/lib/api";
+import { casoAbierto } from "@/lib/cuentas";
+import { casos as pedirCasos } from "@/lib/cuentasApi";
 import { eur, textoVisible } from "@/lib/formato";
 import InsigniaIA from "./InsigniaIA";
 import PorQue from "./PorQue";
+import PreguntaConAlguien from "./PreguntaConAlguien";
 import TarjetaAccion from "./TarjetaAccion";
 
 type Pestana = "ahora" | "resumen";
 type Props = { usuarioId: string; ahora: Notificacion[]; resumen: Notificacion[]; alResolver?: () => void };
 
 const URGENCIA: Record<string, string> = { alta: "Urgente", media: "Importante", baja: "Sin prisa" };
+
+const CLAVE_AHORA_NO = "meisam-preguntas-ahora-no";
+const leerAhoraNo = (): string[] => {
+  try {
+    return JSON.parse(window.sessionStorage.getItem(CLAVE_AHORA_NO) ?? "[]") as string[];
+  } catch {
+    return [];
+  }
+};
 
 function sin<T>(registro: Record<string, T>, clave: string): Record<string, T> {
   const copia = { ...registro };
@@ -26,6 +38,27 @@ export default function Bandeja({ usuarioId, ahora, resumen, alResolver }: Props
   const [preparando, setPreparando] = useState<string | null>(null);
   const [errores, setErrores] = useState<Record<string, string>>({});
   const lista = pestana === "ahora" ? ahora : resumen;
+
+  // «¿Fuiste con alguien a …?»: casos `pago_individual` con aviso `resumen`. Solo viven en esta pestaña, nunca como notificación.
+  const [preguntas, setPreguntas] = useState<CasoResumen[]>([]);
+  const [ahoraNo, setAhoraNo] = useState<string[]>([]);
+  const cargarPreguntas = useCallback(() => {
+    pedirCasos(usuarioId)
+      .then((c) => setPreguntas(c.filter((k) => k.escenario === "pago_individual" && k.aviso === "resumen" && k.deudores.length === 0 && casoAbierto(k))))
+      .catch(() => setPreguntas([])); // sin la ruta de casos, el Resumen sigue como antes
+  }, [usuarioId]);
+  useEffect(() => {
+    setAhoraNo(leerAhoraNo());
+  }, []);
+  useEffect(() => {
+    cargarPreguntas();
+  }, [cargarPreguntas, ahora, resumen]);
+  const visibles = preguntas.filter((k) => !ahoraNo.includes(k.id));
+  const posponer = (id: string) => {
+    const nuevo = [...ahoraNo, id];
+    window.sessionStorage.setItem(CLAVE_AHORA_NO, JSON.stringify(nuevo));
+    setAhoraNo(nuevo);
+  };
 
   // Acceso rápido: sin llamada, prepara la primera acción ofrecida y pinta la misma tarjeta de confirmación.
   async function accesoRapido({ propuesta }: Notificacion) {
@@ -58,19 +91,23 @@ export default function Bandeja({ usuarioId, ahora, resumen, alResolver }: Props
             onClick={() => setPestana(p)}
           >
             {p === "ahora" ? "Ahora" : "Resumen"}
-            <span className="contador">{(p === "ahora" ? ahora : resumen).length}</span>
+            <span className="contador">{p === "ahora" ? ahora.length : resumen.length + visibles.length}</span>
           </button>
         ))}
       </div>
 
       <div id="panel-bandeja" role="tabpanel" aria-live="polite" aria-labelledby={`pestana-${pestana}`} className="lista-avisos">
-        {lista.length === 0 && (
+        {lista.length === 0 && (pestana === "ahora" || visibles.length === 0) && (
           <p className="vacio-bandeja">
             {pestana === "ahora"
               ? "Nada que resolver ahora. Meisam solo te avisa cuando ahorra o protege."
               : "Todavía no hay nada en el resumen."}
           </p>
         )}
+        {pestana === "resumen" &&
+          visibles.map((caso) => (
+            <PreguntaConAlguien key={caso.id} usuarioId={usuarioId} caso={caso} alAhoraNo={() => posponer(caso.id)} alCambiar={cargarPreguntas} />
+          ))}
         {lista.map((notificacion) => {
           const { propuesta, decision, estado } = notificacion;
           const tarjeta = tarjetas[propuesta.id];

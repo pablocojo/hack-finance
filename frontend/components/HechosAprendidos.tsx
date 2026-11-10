@@ -70,7 +70,7 @@ export default function HechosAprendidos({ usuarioId }: { usuarioId: string }) {
     );
   }
 
-  const conConversacion = listaCasos.filter((c) => c.conversaciones.length > 0);
+  const conConversacion = listaCasos.filter((c) => (c.conversaciones ?? []).length > 0);
   const hechos = datos?.hechos ?? [];
   const silencios = datos?.silencios ?? [];
   const amigos = datos?.amigos ?? [];
@@ -184,7 +184,7 @@ export default function HechosAprendidos({ usuarioId }: { usuarioId: string }) {
                   Caso del {fechaLarga(c.creado)} con {c.deudores.map((d) => nombreVisible(d.contraparte)).join(", ") || "tus amigos"}
                 </p>
                 <ul className="resumenes">
-                  {c.conversaciones.map((t, i) => (
+                  {(c.conversaciones ?? []).map((t, i) => (
                     <li key={i}>{textoVisible(t)}</li>
                   ))}
                 </ul>
