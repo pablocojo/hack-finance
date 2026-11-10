@@ -930,33 +930,48 @@ def registrar_conversacion(usuario_id: str, propuesta_id: str, mensajes: list[di
     """Al colgar: Haiku propone cambios de una lista cerrada (`casos/resumir.py`) y el código los valida y aplica al
     caso de esa propuesta (posponer, nota, silenciar contacto, olvidar a un deudor y resumen). Nunca mueve dinero ni
     toca importes. Sin caso para la propuesta, no hace nada. Sin consentimiento `memoria`, no guarda notas ni resumen.
-    Haiku corre fuera del candado (tarda segundos): se lee el caso, se razona y se vuelve a leer para aplicar."""
+    Haiku corre fuera del candado (tarda segundos): se lee el caso, se razona y se vuelve a leer para aplicar.
+    Los casos en los que la herramienta `actualizar_caso` dejó un `cambio_propuesto` también se revisan (hasta 3), solo
+    para confirmar ese cambio de escenario con la cita literal del usuario; la propuesta se borra al colgar."""
     from ..casos import resumir
 
     with alm.candado(usuario_id):
         estado = _estado(usuario_id)
         hoy = _hoy(estado)
-        propios = casos.de_propuesta(casos.cargar(usuario_id), propuesta_id)
-        caso = next((c for c in propios if c.estado not in casos.CERRADOS), propios[0] if propios else None)
-    if caso is None:
-        return {"ok": True, "cambios": []}
-    plan = resumir.validar(resumir.extraer(mensajes, caso, hoy), caso, hoy, mensajes)
-    if plan.vacio:
-        _auditar(usuario_id, "conversacion", propuesta_id=propuesta_id, acciones=[], descartadas=len(plan.descartadas))
-        return {"ok": True, "cambios": []}
-    with alm.candado(usuario_id):
         lista = casos.cargar(usuario_id)
-        actual = next((c for c in lista if c.id == caso.id), None)
-        modelo = _leer(usuario_id, "modelo")
-        if actual is None or modelo is None:
-            return {"ok": True, "cambios": []}
-        hecho = resumir.aplicar(actual, modelo, plan, hoy, ahora_por_defecto(hoy), canal)
-        lista = [hecho.caso if c.id == actual.id else c for c in lista]
-        casos.guardar(usuario_id, lista)
-        alm.guardar(usuario_id, "modelo", casos.sincronizar_amigos(hecho.modelo, lista, hoy))
-        _auditar(usuario_id, "conversacion", propuesta_id=propuesta_id, acciones=[a["tipo"] for a in plan.acciones],
-                 descartadas=len(plan.descartadas), resumen=bool(plan.resumen))
-        return {"ok": True, "cambios": hecho.cambios}
+        propios = casos.de_propuesta(lista, propuesta_id)
+        principal = next((c for c in propios if c.estado not in casos.CERRADOS), propios[0] if propios else None)
+        extras = [c for c in lista if "cambio_propuesto" in c.hechos and (principal is None or c.id != principal.id)][:3]
+    objetivos = ([principal] if principal else []) + extras
+    cambios: list[str] = []
+    for caso in objetivos:
+        plan = resumir.validar(resumir.extraer(mensajes, caso, hoy), caso, hoy, mensajes)
+        if caso is not principal:    # un caso que solo estaba en la conversación: únicamente su cambio de tipo
+            plan.acciones = [a for a in plan.acciones if a["tipo"] == "cambiar_escenario"]
+            plan.resumen = None
+        with alm.candado(usuario_id):
+            lista = casos.cargar(usuario_id)
+            actual = next((c for c in lista if c.id == caso.id), None)
+            modelo = _leer(usuario_id, "modelo")
+            if actual is None or modelo is None:
+                continue
+            if plan.vacio:
+                _auditar(usuario_id, "conversacion", propuesta_id=propuesta_id, acciones=[], descartadas=len(plan.descartadas))
+                hecho = None
+            else:
+                hecho = resumir.aplicar(actual, modelo, plan, hoy, ahora_por_defecto(hoy), canal)
+                actual, modelo = hecho.caso, hecho.modelo
+                cambios += hecho.cambios
+                _auditar(usuario_id, "conversacion", propuesta_id=propuesta_id, acciones=[a["tipo"] for a in plan.acciones],
+                         descartadas=len(plan.descartadas), resumen=bool(plan.resumen))
+            if "cambio_propuesto" in actual.hechos:     # la propuesta vale solo para esta llamada
+                actual = actual.model_copy(update={"hechos": {k: v for k, v in actual.hechos.items() if k != "cambio_propuesto"}})
+                hecho = hecho or True
+            if hecho:
+                lista = [actual if c.id == caso.id else c for c in lista]
+                casos.guardar(usuario_id, lista)
+                alm.guardar(usuario_id, "modelo", casos.sincronizar_amigos(modelo, lista, hoy))
+    return {"ok": True, "cambios": cambios}
 
 
 def _origen_caso(c: Caso, por_id: dict[str, Movimiento]) -> dict | None:
@@ -1133,6 +1148,80 @@ def cambiar_escenario_caso_usuario(usuario_id: str, caso_id: str, escenario: str
         nuevo = casos.cambiar_escenario(caso, escenario, motivo, "usuario", hoy, ahora_por_defecto(hoy))
         _guardar_caso(usuario_id, hoy, lista, nuevo, caso)
         _auditar(usuario_id, "caso_escenario", caso_id=caso_id, de=caso.escenario, a=escenario)
+        return _resumen_caso(nuevo, _movimientos_por_id(usuario_id))
+
+
+def _personas_de_texto(texto: Any) -> list[str]:
+    """«Marcos R., Ana L. y Pedro» -> ['Marcos R.', 'Ana L.', 'Pedro'] (como mucho 11: el límite lo comprueba `casos`)."""
+    import re
+    partes = re.split(r"\s*(?:[,;]|\by\b|\be\b)\s*", str(texto or ""))
+    return [p.strip() for p in partes if p and p.strip()][:11]
+
+
+def actualizar_caso_llamada(usuario_id: str, caso_id: str, accion: str, persona: str | None = None,
+                            importe: Any = None, via: str | None = None, motivo: str | None = None,
+                            dias: int | None = None, escenario: str | None = None,
+                            respuesta: str | None = None) -> dict:
+    """Herramienta `actualizar_caso` de la llamada: una acción de la lista cerrada de `casos/llamada.py` sobre un caso
+    DE ESTE USUARIO (un id ajeno es «no existe»). El servidor valida con las reglas de `casos/` y las personas salen de
+    la agenda o del caso; `proponer_cambio_de_escenario` solo deja la propuesta en `hechos["cambio_propuesto"]`.
+    Auditado y con rastro en `Caso.historial` (origen `llamada`). Devuelve `{antes, caso, hecho, resumen}`: `antes` y
+    `caso` son `Caso` (para «Deshacer»), `resumen` es el `CasoResumen` del resultado."""
+    from ..casos import llamada as _llamada
+
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        hoy = _hoy(estado)
+        ahora = ahora_por_defecto(hoy)
+        lista = casos.cargar(usuario_id)
+        caso = _caso_de(lista, caso_id)
+        modelo = _leer(usuario_id, "modelo")
+        historial = _leer(usuario_id, "movimientos", [])
+        claves: list[str] = []
+        movimiento = None
+        if accion == "con_personas":
+            if modelo is None:
+                raise NoEncontrado(f"El usuario {usuario_id!r} aún no tiene modelo.")
+            for texto in _personas_de_texto(persona):
+                clave = _clave_de_contacto(modelo, lista, texto)
+                if clave is None:
+                    raise ValueError(f"No tengo a «{casos.sanear_motivo(texto, 30)}» en tu agenda: usa a alguien de tu agenda.")
+                if clave not in claves:
+                    claves.append(clave)
+            origen = caso.hechos.get("movimiento_origen") or caso.hechos.get("pago_id")
+            movimiento = next((m for m in historial if m.id == origen), None)
+        cambio = _llamada.aplicar(caso, accion, hoy, ahora, persona=persona, personas=claves, importe=importe, via=via,
+                                  motivo=motivo, dias=dias, escenario=escenario, respuesta=respuesta, movimiento=movimiento)
+        nuevo = cambio.caso
+        if accion == "con_personas":
+            nuevo = casos.conciliar_con_historial(nuevo, historial, hoy, ahora)   # quien ya había pagado, saldada
+            if modelo is not None:
+                for clave in claves:
+                    modelo = _contactos.anotar_contacto(modelo, clave, hoy)
+        _guardar_caso(usuario_id, hoy, lista, nuevo, caso, modelo)
+        pregunta = caso.hechos.get("pregunta")
+        if accion == "responder_duda" and isinstance(pregunta, dict) and isinstance(pregunta.get("propuesta_id"), str):
+            _estado_notificacion(usuario_id, pregunta["propuesta_id"], "resuelta")
+        _auditar(usuario_id, "caso_llamada", caso_id=caso_id, accion=accion, escenario=nuevo.escenario, estado=nuevo.estado)
+        return {"antes": caso, "caso": nuevo, "hecho": cambio.hecho, "resumen": _resumen_caso(nuevo, _movimientos_por_id(usuario_id))}
+
+
+def restaurar_caso_llamada(usuario_id: str, antes: Caso, despues: Caso) -> dict:
+    """«Deshacer» un cambio de la llamada: vuelve a `antes` solo si el caso sigue exactamente como lo dejó el cambio
+    (`despues`); si ha cambiado desde entonces, no se toca. Queda rastro en `historial` y en la auditoría."""
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        hoy = _hoy(estado)
+        lista = casos.cargar(usuario_id)
+        actual = _caso_de(lista, antes.id)
+        if actual.model_dump(mode="json") != despues.model_dump(mode="json"):
+            raise ValueError("El caso ha cambiado después de ese cambio: ya no se puede deshacer.")
+        nuevo = antes.model_copy(deep=True)
+        casos.ciclo._anotar(nuevo, "usuario", "Cambio de la llamada deshecho por ti.", ahora_por_defecto(hoy))
+        _guardar_caso(usuario_id, hoy, lista, nuevo, actual)
+        if actual.estado in casos.CERRADOS and nuevo.estado not in casos.CERRADOS and nuevo.propuesta_id:
+            _estado_notificacion(usuario_id, nuevo.propuesta_id, "vista")
+        _auditar(usuario_id, "caso_deshecho", caso_id=antes.id)
         return _resumen_caso(nuevo, _movimientos_por_id(usuario_id))
 
 

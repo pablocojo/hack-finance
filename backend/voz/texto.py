@@ -1,7 +1,8 @@
 """
 Nivel 3 de la llamada (sin clave o sin red a ElevenLabs): el agente del kit con el contexto de la
 propuesta en el sistema y solo las herramientas de la llamada. Misma tarjeta y eventos SSE:
-`texto`, `herramienta_inicio`, `herramienta_fin`, `tarjeta {tarjeta}`, `fin`, `error`.
+`texto`, `herramienta_inicio`, `herramienta_fin`, `tarjeta {tarjeta}`, `cambio {hecho, cambio_id}` (un cambio de
+`actualizar_caso`, para el aviso con «Deshacer»), `fin`, `error`.
 """
 
 from __future__ import annotations
@@ -16,7 +17,8 @@ from ..api.sse import mensaje_error
 from . import contexto, herramientas_llamada  # noqa: F401  (importar registra las herramientas)
 from .sesiones import RegistroSesion
 
-HERRAMIENTAS = ["preparar_accion", "registrar_feedback"]
+HERRAMIENTAS = ["preparar_accion", "registrar_feedback", "consultar_cuentas", "buscar_movimientos_llamada", "lo_que_sabes_de_mi",
+                "actualizar_caso"]
 
 
 def _agente(registro: RegistroSesion) -> Agente:
@@ -54,6 +56,9 @@ def eventos(registro: RegistroSesion, mensaje: str | None) -> Iterator[tuple[str
         if tipo == "herramienta_fin" and datos.get("nombre") == "preparar_accion":
             while kit.tarjetas:
                 cola.put(("tarjeta", {"tarjeta": kit.tarjetas.pop(0)}))
+        if tipo == "herramienta_fin" and datos.get("nombre") == "actualizar_caso":
+            while kit.cambios:
+                cola.put(("cambio", kit.cambios.pop(0)))
 
     def trabajar() -> None:
         try:

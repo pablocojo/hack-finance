@@ -9,7 +9,7 @@ escucha: [gasto_compartido]
 cuando: "momento.confianza >= 0.7 y momento.datos.faltan >= 1 y momento.datos.importe_pendiente >= 5"
 propuesta:
   titulo: "Falta por devolverte {datos.importe_pendiente|eur}"
-  mensaje_notificacion: "Pagaste {datos.importe_total|eur} en {datos.comercio|dato}. Te han devuelto una parte; faltan {datos.faltan|n} persona(s)."
+  mensaje_notificacion: "Pagaste {datos.importe_total|eur} en {datos.comercio|dato}. Te han devuelto una parte; quedan {datos.faltan|n} por pagar."
   contexto_llamada: "Gasto compartido en {datos.comercio|dato} de {datos.importe_total|eur} el {datos.fecha|fecha}. Personas estimadas: {datos.personas_estimadas|n}. Pendiente: {datos.importe_pendiente|eur}. Candidatos a pedir: {datos.candidatos|lista}. Ofrece pedir el Bizum solo a los candidatos."
   urgencia: media
   valor_estimado_eur: "momento.datos.importe_pendiente"

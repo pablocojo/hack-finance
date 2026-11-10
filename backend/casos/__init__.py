@@ -11,6 +11,7 @@ API pública (todo puro salvo `cargar` y `guardar`; solo el orquestador escribe 
     cerrar(caso, estado, hoy, motivo="", origen="codigo", ahora=None) -> Caso
     marcar_pedido(caso, contraparte, hoy, origen="usuario", ahora=None) -> Caso
     aplicar_feedback(caso, resultado, hoy, ahora=None) -> Caso
+    aplicar_respuesta(caso, respuesta, hoy, ahora=None, origen="llamada") -> Caso    (pregunta pendiente de un caso dudoso)
     listo_para_avisar(caso, hoy) -> bool;  agrupar_por_contacto(casos) -> list[list[Caso]]
     amigos_desde_casos(casos, hoy) -> list[Amigo];  sincronizar_amigos(modelo, casos, hoy) -> ModeloUsuario
     cargar(usuario_id) -> list[Caso];  guardar(usuario_id, casos) -> None
@@ -21,6 +22,9 @@ Escenarios y personas (transiciones.py):
     aplicar_recurrente(caso, momento, hoy, ahora=None) -> Caso;  momento_sintetico(caso, hoy) -> Momento | None
     caso_de_movimiento(...) / deudores_de_peticion(...) / buscar_de_movimiento(...): «X me debe esto»
     limitar_aviso(caso, decision) -> Decision;  sanear_motivo(texto) -> str
+
+La herramienta `actualizar_caso` de la llamada (llamada.py, importar `backend.casos.llamada`):
+    aplicar(caso, accion, hoy, ahora=None, *, persona, personas, importe, via, motivo, dias, escenario, respuesta, movimiento) -> Cambio
 """
 
 from __future__ import annotations
@@ -39,6 +43,7 @@ from .ciclo import (
     TOLERANCIA,
     agrupar_por_contacto,
     aplicar_feedback,
+    aplicar_respuesta,
     caducar,
     cerrar,
     crear_desde_momento,

@@ -64,7 +64,8 @@ def test_preparar_pedir_bizum_emite_tarjeta_y_el_modelo_no_ve_el_token(falso):
     # el sistema lleva el contexto de la propuesta y las herramientas son solo las de la llamada
     primera = cliente.peticiones[0]
     assert "La Tasca" in json.dumps(primera["system"]) and "Marcos R." in json.dumps(primera["system"])
-    assert {t["name"] for t in primera["tools"]} == {"preparar_accion", "registrar_feedback"}
+    assert {t["name"] for t in primera["tools"]} == {"preparar_accion", "registrar_feedback", "consultar_cuentas", "buscar_movimientos_llamada",
+                                                          "lo_que_sabes_de_mi", "actualizar_caso"}
 
 
 def test_accion_fuera_de_la_propuesta_no_emite_tarjeta(falso):
@@ -98,8 +99,10 @@ def test_kit_no_ve_las_herramientas_de_la_llamada():
     import backend.voz.herramientas_llamada  # noqa: F401  (las registra)
     assert "preparar_accion" in registro.REGISTRO
     visibles = {h.nombre for h in registro.disponibles()}
-    assert "preparar_accion" not in visibles and "registrar_feedback" not in visibles
-    assert not {"preparar_accion", "registrar_feedback"} & {h["name"] for h in Agente().herramientas_api()}
+    de_la_llamada = {"preparar_accion", "registrar_feedback", "consultar_cuentas", "buscar_movimientos_llamada",
+                     "lo_que_sabes_de_mi", "actualizar_caso"}
+    assert not de_la_llamada & visibles
+    assert not de_la_llamada & {h["name"] for h in Agente().herramientas_api()}
     texto_error, es_error, _ = registro.ejecutar("preparar_accion", {"accion_id": "recordar"}, ctx=None,
                                                  permitidas={h.nombre for h in registro.disponibles()})
     assert es_error

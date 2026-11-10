@@ -223,6 +223,11 @@ def _contexto(caso: Caso, hoy: date) -> str:
               f"Tipo de caso actual: {caso.escenario or 'sin decidir'}.",
               "Personas con las que se comparte el gasto (nombres enmascarados):"]
     lineas += [f"- {ciclo.nombre_visible(d.contraparte)} (estado: {d.estado})" for d in caso.deudores]
+    propuesto = caso.hechos.get("cambio_propuesto")
+    if isinstance(propuesto, dict) and propuesto.get("escenario") in ESCENARIOS_LLAMADA:
+        lineas.append(f"Durante la llamada Meisam dejó anotado un posible cambio del tipo de caso a {propuesto['escenario']}. "
+                      "Es solo una propuesta: devuelve cambiar_escenario únicamente si el Usuario lo pidió con sus propias "
+                      "palabras (con su cita literal); si no, ignórala.")
     return "\n".join(lineas)
 
 

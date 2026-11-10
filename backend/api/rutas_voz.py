@@ -7,11 +7,11 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..plataforma import orquestador
 from ..plataforma.tipos import ACCIONES
-from ..voz import herramientas_llamada, sesiones, texto
+from ..voz import consultas, herramientas_llamada, sesiones, texto
 from ..voz import sesion as abrir_sesion
 from .rutas_copiloto import a_http, exigir_demo_key, no_implementado
 from .sse import evento_sse
@@ -40,6 +40,43 @@ class PeticionPreparar(BaseModel):
 class PeticionFeedback(BaseModel):
     token_sesion: str = Field(min_length=1, max_length=200)
     resultado: str = Field(min_length=1, max_length=40)
+
+
+class PeticionHerramienta(BaseModel):
+    """Cuerpo de las herramientas de consulta y de cambio: solo `token_sesion` y los campos planos de cada una. Un campo
+    desconocido (p. ej. `usuario_id`) se rechaza: el usuario sale siempre de la sesión del servidor."""
+    model_config = ConfigDict(extra="forbid")
+    token_sesion: str = Field(min_length=1, max_length=200)
+
+
+class PeticionCuentas(PeticionHerramienta):
+    persona: str | None = Field(default=None, max_length=60)
+    estado: str | None = Field(default=None, max_length=12)
+
+
+class PeticionMovimientos(PeticionHerramienta):
+    texto: str | None = Field(default=None, max_length=80)
+    desde: str | None = Field(default=None, max_length=10)
+    hasta: str | None = Field(default=None, max_length=10)
+    importe_min: float | None = None
+    importe_max: float | None = None
+    limite: int | None = None
+
+
+class PeticionActualizarCaso(PeticionHerramienta):
+    caso_id: str = Field(min_length=1, max_length=80)
+    accion: str = Field(min_length=1, max_length=40)
+    persona: str | None = Field(default=None, max_length=120)
+    importe: float | None = None
+    via: str | None = Field(default=None, max_length=12)
+    motivo: str | None = Field(default=None, max_length=300)
+    dias: int | None = None
+    escenario: str | None = Field(default=None, max_length=30)
+    respuesta: str | None = Field(default=None, max_length=4)
+
+
+class PeticionDeshacer(PeticionHerramienta):
+    cambio_id: str = Field(min_length=1, max_length=40)
 
 
 @router.post("/sesion")
@@ -85,6 +122,60 @@ def herramienta_feedback(peticion: PeticionFeedback) -> dict:
         registro = sesiones.obtener(peticion.token_sesion)
         canal = "voz" if registro.modo in ("voz", "texto_el") else "texto"
         return herramientas_llamada.registrar(registro.usuario_id, registro.propuesta_id, peticion.resultado, canal)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.post("/herramientas/consultar_cuentas")
+def herramienta_consultar_cuentas(peticion: PeticionCuentas) -> dict:
+    """Solo lectura, del usuario de la sesión. `{ok, personas, casos, …}` o `{ok: false, error}`."""
+    try:
+        registro = sesiones.obtener(peticion.token_sesion)
+        return consultas.cuentas(registro.usuario_id, peticion.persona, peticion.estado)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.post("/herramientas/buscar_movimientos")
+def herramienta_buscar_movimientos(peticion: PeticionMovimientos) -> dict:
+    """Solo lectura, hasta «hoy», sin la nota de Bizum, como mucho 10 resultados."""
+    try:
+        registro = sesiones.obtener(peticion.token_sesion)
+        return consultas.movimientos(registro.usuario_id, peticion.texto, peticion.desde, peticion.hasta,
+                                     peticion.importe_min, peticion.importe_max, peticion.limite)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.post("/herramientas/lo_que_sabes_de_mi")
+def herramienta_lo_que_sabes_de_mi(peticion: PeticionHerramienta) -> dict:
+    try:
+        registro = sesiones.obtener(peticion.token_sesion)
+        return consultas.aprendido(registro.usuario_id)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.post("/herramientas/actualizar_caso")
+def herramienta_actualizar_caso(peticion: PeticionActualizarCaso) -> dict:
+    """Cambio de un caso del usuario de la sesión, validado por el servidor con las reglas de `casos/`. Devuelve
+    `{ok, hecho, caso, cambio_id}` (el navegador usa `cambio_id` para «Deshacer» y no se lo pasa al agente) o
+    `{ok: false, error}` con el motivo en español. Nunca mueve dinero ni marca pagos de Bizum."""
+    try:
+        registro = sesiones.obtener(peticion.token_sesion)
+        return herramientas_llamada.actualizar(
+            registro.kit, peticion.caso_id, peticion.accion, peticion.persona, peticion.importe, peticion.via,
+            peticion.motivo, peticion.dias, peticion.escenario, peticion.respuesta)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.post("/herramientas/deshacer")
+def herramienta_deshacer(peticion: PeticionDeshacer) -> dict:
+    """«Deshacer» del aviso de un cambio de esta llamada (solo si el caso no ha cambiado desde entonces)."""
+    try:
+        registro = sesiones.obtener(peticion.token_sesion)
+        return herramientas_llamada.deshacer(registro.kit, peticion.cambio_id)
     except Exception as error:
         raise a_http(error) from error
 

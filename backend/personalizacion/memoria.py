@@ -64,11 +64,23 @@ def _accion_habitual(modelo: ModeloUsuario) -> str | None:
     return f"Suele resolver los avisos con la acción «{accion.replace('_', ' ')}»."
 
 
-def memoria_para_agente(modelo: ModeloUsuario) -> str:
+def _candidatos(modelo: ModeloUsuario) -> list[str]:
     candidatos = [h.texto for h in modelo.hechos_aprendidos if h.activo and h.origen in ORIGENES_OPERATIVOS]
     habitual = _accion_habitual(modelo)
     if habitual:
         candidatos.append(habitual)
+    return candidatos
+
+
+def textos_para_agente(modelo: ModeloUsuario, maximo: int = 10) -> list[str]:
+    """Lo mismo que `memoria_para_agente` (mismos orígenes y mismo filtro de órdenes y datos sensibles), un texto por
+    elemento y sin etiquetas, para la herramienta `lo_que_sabes_de_mi` de la llamada. Nunca ingresos ni `resumen_vida`."""
+    lineas = (_linea(t) for t in _candidatos(modelo))
+    return [l[2:] for l in lineas if l][:maximo]
+
+
+def memoria_para_agente(modelo: ModeloUsuario) -> str:
+    candidatos = _candidatos(modelo)
     lineas: list[str] = []
     largo = len("<datos>\n</datos>")
     for texto in candidatos:

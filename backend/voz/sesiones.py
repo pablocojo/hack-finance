@@ -28,11 +28,15 @@ class ErrorSesion(ValueError):
 @dataclass
 class SesionLlamada(Sesion):
     """Sesión del agente del kit para el nivel 3, con la propuesta fijada por el servidor y un
-    buzón de tarjetas: la tarjeta (con su token de confirmación) va al navegador, no al modelo."""
+    buzón de tarjetas: la tarjeta (con su token de confirmación) va al navegador, no al modelo. `cambios` es el
+    buzón de los cambios que hizo `actualizar_caso` (`{hecho, cambio_id}`, para el aviso con «Deshacer») y `deshacer`
+    guarda, por `cambio_id`, el caso antes y después (se pierde con la sesión, 10 min)."""
 
     usuario_id: str = ""
     propuesta_id: str = ""
     tarjetas: list[dict] = field(default_factory=list)
+    cambios: list[dict] = field(default_factory=list)
+    deshacer: dict[str, dict] = field(default_factory=dict)
 
 
 @dataclass

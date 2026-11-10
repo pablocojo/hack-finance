@@ -362,6 +362,44 @@ def aplicar_resolucion(caso: Caso, resolucion: Any, hoy: date, ahora: datetime |
     return nuevo
 
 
+def aplicar_respuesta(caso: Caso, respuesta: str, hoy: date, ahora: datetime | None = None,
+                      origen: OrigenCambio = "llamada") -> Caso:
+    """El usuario contesta la pregunta pendiente de un caso `dudoso` (`hechos["pregunta"]`, estado `pendiente`).
+    `si`: los candidatos de la pregunta quedan fuera del reparto (p. ej. Daniel pagó también lo de Marcos) y el caso
+    se abre con los demás; si no queda nadie, se descarta. `no`: se deja a todos y el caso se abre. Quita `propuesta_id`
+    para que el portero prepare una propuesta nueva con los deudores definitivos. Rastro en `historial`. Nunca toca
+    cuotas ni mueve dinero. `ValueError` (en español) si no hay pregunta pendiente o la respuesta no es sí o no."""
+    pregunta = caso.hechos.get("pregunta")
+    if caso.estado != "dudoso" or not isinstance(pregunta, dict) or pregunta.get("estado") != "pendiente":
+        raise ValueError("Este caso no tiene ninguna pregunta pendiente que responder.")
+    texto = "".join(c for c in unicodedata.normalize("NFD", str(respuesta or "").strip().lower()) if unicodedata.category(c) != "Mn")
+    if texto not in ("si", "no"):
+        raise ValueError("La respuesta debe ser sí o no.")
+    cuando = ahora or ahora_por_defecto(hoy)
+    nuevo = _copia(caso)
+    candidatos = {c for c in (_clave(x) for x in pregunta.get("candidatos", [])) if c}
+    nuevo.hechos["pregunta"] = {**pregunta, "estado": "respondida", "respuesta": texto}
+    quitados = [d for d in nuevo.deudores if d.contraparte in candidatos] if texto == "si" else []
+    if quitados:
+        nuevo.deudores = [d for d in nuevo.deudores if d.contraparte not in candidatos]
+        quien = ", ".join(nombre_visible(d.contraparte) for d in quitados)
+        if not nuevo.deudores:
+            _anotar(nuevo, origen, f"Respondiste que sí: {quien} ya estaba cubierto y no queda nadie por cobrar.", cuando)
+            return descartar(nuevo, hoy, "no queda nadie por cobrar.", origen, cuando)
+        _anotar(nuevo, origen, f"Respondiste que sí: se quita a {quien} del reparto.", cuando)
+    else:
+        _anotar(nuevo, origen, "Respondiste que no: se deja a todos en el reparto." if texto == "no" else
+                "Respondiste que sí: no hay a quién quitar del reparto.", cuando)
+    nuevo.escenario = next((h.escenario for h in nuevo.hipotesis if h.escenario in ESCENARIOS), None) or "gasto_compartido"
+    nuevo.estado = "abierto"
+    nuevo.propuesta_id = None
+    nuevo.hechos.pop("avisado_el", None)
+    nuevo.hechos["resuelto_por"] = origen
+    nuevo.hechos["faltan"] = len(pendientes(nuevo))
+    nuevo.hechos["importe_pendiente"] = eur_texto(importe_pendiente(nuevo))
+    return nuevo
+
+
 def aplicar_feedback(caso: Caso, resultado: str, hoy: date, ahora: datetime | None = None) -> Caso:
     """Respuesta al aviso -> caso. «No me lo debe» (`falso_positivo`, `no_avisar_contacto`) lo descarta;
     «ahora no» (`rechazada`) lo pospone; `ignorada` olvida a quien no se había pedido. El resto no lo toca."""

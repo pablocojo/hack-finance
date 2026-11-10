@@ -6,6 +6,7 @@ una URL firmada, más un `token_sesion` propio que liga la llamada a un usuario 
 
 from __future__ import annotations
 
+from .. import casos
 from ..plataforma import almacenamiento as alm
 from ..plataforma import orquestador
 from ..plataforma.tipos import ModeloUsuario, Propuesta, SesionVoz
@@ -17,7 +18,7 @@ def sesion(propuesta_id: str, usuario_id: str, modo_preferido: str) -> SesionVoz
     detalle = orquestador.propuesta_detalle(usuario_id, propuesta_id)
     propuesta = Propuesta.model_validate(detalle["propuesta"])
     modelo = alm.cargar(usuario_id, "modelo", tipo=ModeloUsuario)
-    variables = contexto.variables(propuesta, modelo, usuario_id)
+    variables = contexto.variables(propuesta, modelo, usuario_id, casos.cargar(usuario_id))
     modo, token, url = elevenlabs.abrir(modo_preferido)
     registro = sesiones.crear(usuario_id, propuesta_id, modo, variables)
     return SesionVoz(modo=modo, token=token, signed_url=url, variables=variables,
