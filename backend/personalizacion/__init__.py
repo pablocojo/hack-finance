@@ -5,7 +5,8 @@ Hecho: `nuevo_modelo`, `decidir` (política `beta-jerarquica-v2`, en politica.py
 (aprendizaje.py), `registrar_decision` (abre el aviso para poder aprender de la respuesta),
 `perfilar` (perfil.py, U1) y `ordenar_acciones` + `registrar_accion` (orden_acciones.py, U1).
 Todas puras: no guardan nada; guarda el orquestador.
-Stubs: `observar` y la parte de amigos de `registrar_decision`.
+`observar` (amigos.py, O7): contactos del día y saldo con cada amigo calculado desde los `Caso`.
+Pendiente: crear amigos en `registrar_decision` (ya no hace falta: salen de los casos).
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from ..plataforma.tipos import (
+    Caso,
     Decision,
     Feedback,
     ModeloUsuario,
@@ -23,6 +25,8 @@ from ..plataforma.tipos import (
     ResultadoAccion,
 )
 from . import edicion  # noqa: F401
+from .amigos import observar as _observar
+from .amigos import saldo_amigos as _saldo_amigos
 from .aprendizaje import abrir_aviso
 from .aprendizaje import aprender as _aprender
 from .memoria import memoria_para_agente as _memoria_para_agente
@@ -64,8 +68,8 @@ def aprender(feedback: Feedback, modelo: ModeloUsuario) -> ModeloUsuario:
 
 
 def registrar_decision(modelo: ModeloUsuario, propuesta: Propuesta, decision: Decision) -> ModeloUsuario:
-    """Pura. Abre el aviso (si no es `silenciar`) y lo cuenta para el tope diario.
-    Pendiente: crear amigos desde `candidatos`."""
+    """Pura. Abre el aviso (si no es `silenciar`) y lo cuenta para el tope diario. Los amigos no se crean
+    aquí: se calculan desde los casos (`observar`)."""
     return abrir_aviso(modelo, propuesta, decision)
 
 
@@ -75,8 +79,13 @@ def registrar_accion(modelo: ModeloUsuario, propuesta: Propuesta, resultado: Res
 
 
 def observar(modelo: ModeloUsuario, movimientos: list[Movimiento], hoy: date) -> ModeloUsuario:
-    """Contactos y amigos. Stub: sin cambios."""
-    return modelo
+    """Pura. Suma los Bizums y transferencias del día a `contactos` (solo claves, nunca conceptos)."""
+    return _observar(modelo, movimientos, hoy)
+
+
+def saldo_amigos(modelo: ModeloUsuario, casos: list[Caso], hoy: date) -> ModeloUsuario:
+    """Pura. El saldo con cada amigo (`amigos`) se calcula desde los casos; `Amigo` no se estira."""
+    return _saldo_amigos(modelo, casos, hoy)
 
 
 def memoria_para_agente(modelo: ModeloUsuario) -> str:

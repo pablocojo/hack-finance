@@ -109,6 +109,7 @@ class PeticionPreparar(BaseModel):
     propuesta_id: str
     accion_id: str
     parametros: dict = Field(default_factory=dict)
+    editado: bool = False   # solo el botón del usuario; el agente de voz nunca lo envía
 
 
 class PeticionConfirmar(BaseModel):
@@ -231,7 +232,7 @@ def feedback(peticion: PeticionFeedback) -> dict:
 def acciones_preparar(peticion: PeticionPreparar) -> dict:
     try:
         tarjeta = orquestador.preparar_accion(peticion.usuario_id, peticion.propuesta_id, peticion.accion_id,
-                                              peticion.parametros)
+                                              peticion.parametros, editado=peticion.editado)
     except Exception as error:
         raise a_http(error) from error
     return tarjeta.model_dump(mode="json")
@@ -333,5 +334,19 @@ def pruebas(usuario_id: str) -> None:
 
 
 @router.get("/usuarios/{usuario_id}/amigos")
-def amigos(usuario_id: str) -> None:
-    raise no_implementado("O7")
+def amigos(usuario_id: str) -> list[dict]:
+    """O7, saldo con cada amigo: `list[Amigo]` calculada desde los casos (contraparte enmascarada, saldo
+    y estado; sin conceptos). Se borran al saldarse o a los 90 días."""
+    try:
+        return orquestador.amigos_usuario(usuario_id)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.delete("/usuarios/{usuario_id}/amigos/{contraparte}", dependencies=[Depends(exigir_demo_key)])
+def amigo_borrar(usuario_id: str, contraparte: str) -> list[dict]:
+    """Borra a un amigo de «Lo que he aprendido» (por su nombre enmascarado, p. ej. `Marcos R.`)."""
+    try:
+        return orquestador.borrar_amigo_usuario(usuario_id, contraparte)
+    except Exception as error:
+        raise a_http(error) from error

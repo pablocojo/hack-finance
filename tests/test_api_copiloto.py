@@ -110,7 +110,7 @@ def test_reproducir_sse(activo):
 
 
 def test_rutas_futuras_responden_501():
-    for metodo, ruta in [("post", "/usuarios/u/pruebas"), ("get", "/usuarios/u/amigos"),
+    for metodo, ruta in [("post", "/usuarios/u/pruebas"),
                          ("post", "/acciones/deshacer"),
                          ("post", "/voz/herramientas/consultar"), ("get", "/banco/modulos"),
                          ("post", "/banco/modulos/borrador"), ("post", "/banco/modulos/x/aprobar")]:

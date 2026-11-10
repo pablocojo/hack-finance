@@ -7,7 +7,12 @@ Orden de un día (CONTRATO.md, «Cambios aceptados tras los cambios de Pablo»):
     -> decidir -> registrar_decision -> observar -> guardar
 
 Archivos por usuario: estado, modelo, movimientos (hasta hoy), pendientes (del escenario, aún en
-el futuro), momentos, propuestas, decisiones, notificaciones, recordatorios, motor_estado.
+el futuro), momentos, propuestas, decisiones, notificaciones, recordatorios, motor_estado, casos.
+
+Casos de deuda (docs/diseno/deudas-casos.md): cada momento de `gasto_compartido` abre un `Caso`. Antes de
+mirar los momentos nuevos, los movimientos del día cierran los casos que se saldan. El portero diario revisa
+los casos que llegan a `avisar_desde` (no solo los momentos nuevos): agrupa por contacto, aplica `decidir`
+(silencios, franja, tope) y lo que va al resumen vuelve a la cola. Un caso dudoso nunca avisa.
 El token de confirmación nunca se guarda en disco ni llega a un modelo.
 """
 
@@ -18,7 +23,8 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Iterator
 
-from .. import acciones, config, modulos, motor, personalizacion
+from .. import acciones, casos, config, modulos, motor, personalizacion
+from ..acciones import banco_sim as _banco_sim   # directo: los tests sustituyen `acciones` por un stub
 from . import almacenamiento as alm
 from ..modulos.plantillas import CABECERA_DATOS, sanear_dato
 from ..personalizacion import edicion
@@ -182,7 +188,7 @@ def cargar_escenario(escenario_id: str) -> dict:
         alm.guardar(uid, "estado", {"hoy": activacion.isoformat(), "activado": False, "activacion": activacion.isoformat(),
                                     "ultimo_perfil": None, "escenario_id": escenario_id})
         alm.guardar(uid, "modelo", personalizacion.nuevo_modelo(uid))
-        for nombre in ("momentos", "propuestas", "decisiones"):
+        for nombre in ("momentos", "propuestas", "decisiones", "casos"):
             alm.guardar(uid, nombre, [])
         alm.guardar(uid, "notificaciones", [])
         alm.guardar(uid, "recordatorios", [])
@@ -263,6 +269,7 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         propuestas = _leer(uid, "propuestas", [])
         decisiones = _leer(uid, "decisiones", [])
         notificaciones = _leer(uid, "notificaciones", [])
+        lista_casos = _actualizar_casos(uid, casos.cargar(uid), nuevos, hoy, ahora, notificaciones)
         vistos = {m.id for m in momentos}
         items: list[tuple[Momento, Propuesta, Decision]] = []
         momentos_dia: list[Momento] = []
@@ -272,9 +279,17 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
             vistos.add(momento.id)
             momentos.append(momento)
             momentos_dia.append(momento)
+            if momento.tipo == "gasto_compartido":   # abre un caso; el portero de casos decide el aviso
+                if not any(c.momento_id == momento.id for c in lista_casos):
+                    lista_casos.append(casos.crear_desde_momento(momento, hoy, ahora))
+                    _auditar(uid, "caso_abierto", caso_id=f"caso-{momento.id}", dudoso=bool(momento.datos.get("dudoso")))
+                continue
             for propuesta in modulos.proponer(momento, modelo):
                 propuesta = personalizacion.ordenar_acciones(propuesta, modelo)
-                decision = personalizacion.decidir(propuesta, modelo, ahora)
+                if momento.datos.get("dudoso"):   # ante la duda, silencio
+                    decision = casos.decision_dudosa(propuesta)
+                else:
+                    decision = personalizacion.decidir(propuesta, modelo, ahora)
                 modelo = personalizacion.registrar_decision(modelo, propuesta, decision)
                 propuestas.append(propuesta)
                 decisiones.append(decision)
@@ -284,16 +299,26 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
                 _auditar(uid, "decision", propuesta_id=propuesta.id, tipo=propuesta.tipo_momento,
                          accion=decision.accion, politica=decision.politica)
 
-        # 3. recordatorios que vencen y avisos sin respuesta tras 48 h
-        _recordatorios_vencidos(uid, hoy, ahora, propuestas, decisiones, notificaciones, items)
-        modelo = _marcar_ignoradas(uid, modelo, propuestas, decisiones, notificaciones, ahora)
+        # 3. portero diario de los casos que llegan a su fecha (agrupa por contacto, respeta silencios,
+        #    franja y tope; lo que va al resumen vuelve a la cola)
+        modelo, lista_casos = _portero_casos(uid, hoy, ahora, modelo, lista_casos, momentos, propuestas, decisiones,
+                                             notificaciones, items)
 
-        # 4. observar y gancho de búsqueda web
+        # 4. recordatorios que vencen y avisos sin respuesta tras 48 h
+        _recordatorios_vencidos(uid, hoy, ahora, propuestas, decisiones, notificaciones, items)
+        ignoradas: list[str] = []
+        modelo = _marcar_ignoradas(uid, modelo, propuestas, decisiones, notificaciones, ahora, ignoradas)
+        if ignoradas:
+            ids = {c.id for pid in ignoradas for c in casos.de_propuesta(lista_casos, pid)}
+            lista_casos = [casos.marcar_ignorado(c, hoy, ahora) if c.id in ids else c for c in lista_casos]
+
+        # 5. observar (contactos), saldo con cada amigo (desde los casos) y gancho de búsqueda web
         modelo = personalizacion.observar(modelo, nuevos, hoy)
+        modelo = casos.sincronizar_amigos(modelo, lista_casos, hoy)
         if config.ajustes().busqueda_web:
             _buscar_comercios(uid)
 
-        # 5. guardar
+        # 6. guardar
         modelo = modelo.model_copy(update={"actualizado": ahora})
         estado["hoy"] = hoy.isoformat()
         alm.guardar(uid, "movimientos", historial)
@@ -302,6 +327,7 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         alm.guardar(uid, "propuestas", propuestas)
         alm.guardar(uid, "decisiones", decisiones)
         alm.guardar(uid, "notificaciones", notificaciones)
+        casos.guardar(uid, lista_casos)
         alm.guardar(uid, "modelo", modelo)
         alm.guardar(uid, "estado", estado)
         alm.guardar(uid, "reloj", {"hoy": hoy.isoformat()})
@@ -309,6 +335,95 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         return {"hoy": hoy, "movimientos": nuevos, "saldo": _saldo(historial), "perfil": modelo.perfil if perfil_recalculado else None,
                 "perfil_recalculado": perfil_recalculado, "items": items, "momentos": momentos_dia,
                 "contadores": _contadores(uid)}
+
+
+def _actualizar_casos(uid: str, lista: list[Caso], nuevos: list[Movimiento], hoy: date, ahora: datetime,
+                      notificaciones: list[dict]) -> list[Caso]:
+    """Cierre: con los movimientos del día salda a quien paga (cuota ±0,50 €, cualquier concepto); caduca
+    solicitudes y purga lo viejo. Si un caso se salda, su aviso pendiente pasa a «resuelta»."""
+    antes = {c.id: c.estado for c in lista}
+    _banco_sim.actualizar_solicitudes(uid)   # persiste y audita las solicitudes caducadas (7 días)
+    salida = [casos.caducar(c, hoy, ahora) for c in casos.saldar_casos(lista, nuevos, hoy, ahora)]
+    salida = casos.purgar(salida, hoy)
+    for c in salida:
+        if c.estado == "saldado" and antes.get(c.id) != "saldado":
+            _auditar(uid, "caso_saldado", caso_id=c.id)
+            for n in notificaciones:
+                if c.propuesta_id and n["propuesta_id"] == c.propuesta_id and n["estado"] in ("nueva", "vista"):
+                    n.update(estado="resuelta", actualizado=ahora.isoformat(timespec="seconds"))
+    return salida
+
+
+def _sin_silenciados(propuesta: Propuesta, caso: Caso, modelo: ModeloUsuario) -> Propuesta:
+    """`decidir` silencia por `propuesta.contraparte` (el primer candidato). Si ese contacto está silenciado pero
+    otro deudor del caso no, el aviso va por el otro; si lo están todos, se queda el primero (y se silencia)."""
+    silenciados = {" ".join(s.valor.upper().split()) for s in modelo.preferencias.silencios if s.ambito == "contacto"}
+    pendientes = [d.contraparte for d in casos.pendientes(caso)]
+    libres = [c for c in pendientes if c not in silenciados]
+    if libres and propuesta.contraparte not in libres:
+        return propuesta.model_copy(update={"contraparte": libres[0]})
+    if pendientes and not libres and propuesta.contraparte not in silenciados:
+        return propuesta.model_copy(update={"contraparte": pendientes[0]})
+    return propuesta
+
+
+def _portero_casos(uid, hoy, ahora, modelo, lista, momentos, propuestas, decisiones, notificaciones, items):
+    """Portero diario sin IA. Pasa por `decidir` los casos que han llegado a `avisar_desde` y aún no han avisado:
+    los nuevos de hoy y los que esperan en la cola. Un solo aviso por contacto (el caso de mayor importe
+    representa al grupo). `dudoso` se silencia. Resumen o silencio dejan el caso en la cola (máx. 7 días)."""
+    por_momento = {m.id: m for m in momentos}
+    por_propuesta = {p.id: p for p in propuestas}
+    lista = list(lista)
+    posicion = {c.id: i for i, c in enumerate(lista)}
+    listos = [c for c in lista if casos.listo_para_avisar(c, hoy)]
+    for grupo in casos.agrupar_por_contacto(listos):
+        rep = grupo[0]
+        momento = por_momento.get(rep.momento_id or "")
+        if momento is None:
+            continue
+        existente = por_propuesta.get(rep.propuesta_id) if rep.propuesta_id else None
+        if existente is not None:
+            candidatas = [existente.model_copy(update={"creada": ahora})]
+        else:
+            candidatas = [personalizacion.ordenar_acciones(p, modelo) for p in modulos.proponer(momento, modelo)]
+        avisa = False
+        for k, propuesta in enumerate(candidatas):
+            if casos.es_dudoso(rep) or momento.datos.get("dudoso"):
+                decision = casos.decision_dudosa(propuesta)
+            else:
+                propuesta = _sin_silenciados(propuesta, rep, modelo)
+                decision = personalizacion.decidir(propuesta, modelo, ahora)
+            if existente is None:
+                modelo = personalizacion.registrar_decision(modelo, propuesta, decision)
+                propuestas.append(propuesta)
+                decisiones.append(decision)
+                notificaciones.append({"propuesta_id": propuesta.id, "estado": "nueva",
+                                       "actualizado": ahora.isoformat(timespec="seconds")})
+                if k == 0:
+                    rep = casos.vincular_propuesta(rep, propuesta.id)
+            else:
+                anterior = next((d for d in decisiones if d.propuesta_id == propuesta.id), None)
+                if anterior is not None and decision.accion != "notificar_ahora" and anterior.accion != "notificar_ahora":
+                    continue   # sigue igual (resumen o silencio): no se repite el registro
+                modelo = personalizacion.registrar_decision(modelo, propuesta, decision)
+                propuestas[:] = [propuesta if p.id == propuesta.id else p for p in propuestas]
+                decisiones[:] = [decision if d.propuesta_id == propuesta.id else d for d in decisiones]
+                for n in notificaciones:
+                    if n["propuesta_id"] == propuesta.id:
+                        n.update(estado="nueva", actualizado=ahora.isoformat(timespec="seconds"))
+            items.append((momento, propuesta, decision))
+            _auditar(uid, "decision", propuesta_id=propuesta.id, tipo=propuesta.tipo_momento,
+                     accion=decision.accion, politica=decision.politica, caso_id=rep.id)
+            avisa = avisa or decision.accion == "notificar_ahora"
+        if avisa:
+            rep = casos.marcar_avisado(rep, hoy, ahora)
+            for otro in grupo[1:]:
+                otro = casos.vincular_propuesta(
+                    otro, rep.propuesta_id or "", "Agrupado con otra deuda del mismo contacto en un solo aviso.",
+                    ahora, hoy)
+                lista[posicion[otro.id]] = casos.marcar_avisado(otro, hoy, ahora, "Incluido en el aviso agrupado.")
+        lista[posicion[rep.id]] = rep
+    return modelo, lista
 
 
 def _buscar_comercios(uid: str) -> None:
@@ -321,7 +436,7 @@ def _buscar_comercios(uid: str) -> None:
         _auditar(uid, "busqueda_web_fallida", error=type(error).__name__)
 
 
-def _marcar_ignoradas(uid, modelo, propuestas, decisiones, notificaciones, ahora) -> ModeloUsuario:
+def _marcar_ignoradas(uid, modelo, propuestas, decisiones, notificaciones, ahora, ignoradas=None) -> ModeloUsuario:
     por_id = {p.id: p for p in propuestas}
     ahora_decision = {d.propuesta_id: d for d in decisiones}
     for n in notificaciones:
@@ -331,6 +446,8 @@ def _marcar_ignoradas(uid, modelo, propuestas, decisiones, notificaciones, ahora
         if ahora - datetime.fromisoformat(n["actualizado"]) >= timedelta(hours=HORAS_IGNORADA):
             n.update(estado="ignorada", actualizado=ahora.isoformat(timespec="seconds"))
             p = por_id[n["propuesta_id"]]
+            if ignoradas is not None:
+                ignoradas.append(p.id)
             modelo = personalizacion.aprender(
                 Feedback(propuesta_id=p.id, usuario_id=uid, resultado="ignorada", canal="app", fecha=ahora), modelo)
     return modelo
@@ -481,23 +598,39 @@ def _estado_notificacion(uid: str, propuesta_id: str, estado: str) -> None:
     alm.guardar(uid, "notificaciones", notificaciones_)
 
 
+def _feedback_a_casos(uid: str, feedback: Feedback, modelo: ModeloUsuario, hoy: date) -> ModeloUsuario:
+    """La respuesta al aviso mueve el caso: «no me lo debe» (falso_positivo, no_avisar_contacto) lo descarta y
+    «ahora no» (rechazada) lo pospone. Devuelve el modelo con el saldo de amigos al día."""
+    lista = casos.cargar(uid)
+    ids = {c.id for c in casos.de_propuesta(lista, feedback.propuesta_id)}
+    if not ids:
+        return modelo
+    ahora = ahora_por_defecto(hoy)
+    lista = [casos.aplicar_feedback(c, feedback.resultado, hoy, ahora) if c.id in ids else c for c in lista]
+    casos.guardar(uid, lista)
+    _auditar(uid, "caso_feedback", resultado=feedback.resultado, casos=sorted(ids))
+    return casos.sincronizar_amigos(modelo, lista, hoy)
+
+
 def registrar_feedback(feedback: Feedback) -> list[HechoAprendido]:
-    """Aprende (`personalizacion.aprender`, pura), guarda y devuelve los hechos nuevos."""
+    """Aprende (`personalizacion.aprender`, pura), mueve el caso de la propuesta, guarda y devuelve los hechos nuevos."""
     uid = feedback.usuario_id
     with alm.candado(uid):
-        _estado(uid)
+        estado = _estado(uid)
         _propuesta(uid, feedback.propuesta_id)
         modelo = _leer(uid, "modelo")
         antes = {h.id for h in modelo.hechos_aprendidos}
         nuevo = personalizacion.aprender(feedback, modelo)
+        nuevo = _feedback_a_casos(uid, feedback, nuevo, _hoy(estado))
         alm.guardar(uid, "modelo", nuevo)
         _estado_notificacion(uid, feedback.propuesta_id, _ESTADO_TRAS_FEEDBACK.get(feedback.resultado, "vista"))
         _auditar(uid, "feedback", propuesta_id=feedback.propuesta_id, resultado=feedback.resultado, canal=feedback.canal)
         return [h for h in nuevo.hechos_aprendidos if h.id not in antes]
 
 
-def preparar_accion(usuario_id: str, propuesta_id: str, accion_id: str, parametros: dict) -> TarjetaConfirmacion:
-    """Sin efectos. La acción debe estar en `acciones_ofrecidas` de esa propuesta (si no, 403)."""
+def preparar_accion(usuario_id: str, propuesta_id: str, accion_id: str, parametros: dict,
+                     editado: bool = False) -> TarjetaConfirmacion:
+    """Sin efectos. `editado` solo lo envía el botón del usuario (importe y concepto editables). La acción debe estar en `acciones_ofrecidas` de esa propuesta (si no, 403)."""
     if accion_id not in ACCIONES:
         raise Prohibido(f"Acción no permitida: {accion_id!r}. Las válidas son: {', '.join(ACCIONES)}.")
     with alm.candado(usuario_id):
@@ -505,7 +638,8 @@ def preparar_accion(usuario_id: str, propuesta_id: str, accion_id: str, parametr
         propuesta = _propuesta(usuario_id, propuesta_id)
         if accion_id not in {a.accion_id for a in propuesta.acciones_ofrecidas}:
             raise Prohibido(f"La acción {accion_id!r} no se ofrece en esta propuesta.")
-        tarjeta = acciones.preparar(accion_id, dict(parametros or {}), propuesta_id, usuario_id)
+        preparar = acciones.preparar_editada if editado else acciones.preparar
+        tarjeta = preparar(accion_id, dict(parametros or {}), propuesta_id, usuario_id)
         _auditar(usuario_id, "accion_preparada", propuesta_id=propuesta_id, accion_id=accion_id)
         return tarjeta
 
@@ -530,11 +664,26 @@ def confirmar_accion(usuario_id: str, token_confirmacion: str) -> ResultadoAccio
         if not resultado.ok or propuesta is None:
             return resultado
         modelo = personalizacion.registrar_accion(_leer(usuario_id, "modelo"), propuesta, resultado)
+        if resultado.accion_id == "pedir_bizum":
+            modelo = _tras_pedir(usuario_id, hoy, propuesta, parametros, modelo)
         alm.guardar(usuario_id, "modelo", modelo)
         _estado_notificacion(usuario_id, propuesta.id, "resuelta")
         if resultado.accion_id == "cancelar_suscripcion":
             _tras_cancelar(usuario_id, hoy, propuesta, parametros, resultado)
         return resultado
+
+
+def _tras_pedir(uid: str, hoy: date, propuesta: Propuesta, parametros: dict, modelo: ModeloUsuario) -> ModeloUsuario:
+    """`pedir_bizum` confirmado: el deudor de esa contraparte pasa a `pedida` y el caso a `pedido`."""
+    contraparte = parametros.get("contraparte")
+    lista = casos.cargar(uid)
+    ids = {c.id for c in casos.de_propuesta(lista, propuesta.id)}
+    if not ids or not isinstance(contraparte, str):
+        return modelo
+    ahora = ahora_por_defecto(hoy)
+    lista = [casos.marcar_pedido(c, contraparte, hoy, "usuario", ahora) if c.id in ids else c for c in lista]
+    casos.guardar(uid, lista)
+    return casos.sincronizar_amigos(modelo, lista, hoy)
 
 
 def _tras_cancelar(uid: str, hoy: date, propuesta: Propuesta, parametros: dict, resultado: ResultadoAccion) -> None:
@@ -667,4 +816,32 @@ def borrar_hecho_usuario(usuario_id: str, hecho_id: str) -> dict:
 def olvidar_todo_usuario(usuario_id: str) -> dict:
     """Deja solo los consentimientos y los módulos activos."""
     _cambiar_modelo(usuario_id, lambda m, e: edicion.olvidar_todo(m), "olvidar_todo")
+    with alm.candado(usuario_id):   # los saldos con amigos salen de los casos: se borran con lo aprendido
+        casos.guardar(usuario_id, [])
     return aprendido_usuario(usuario_id)
+
+
+# --- Saldo con cada amigo (O7): se calcula desde los casos --------------------------------------
+
+def amigos_usuario(usuario_id: str) -> list[dict]:
+    """`list[Amigo]` en JSON: contraparte enmascarada, saldo y estado, sin conceptos. Se borran al saldarse o a
+    los 90 días. El agente nunca valora a una persona: aquí solo hay saldos."""
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        lista = casos.cargar(usuario_id)
+    return [a.model_dump(mode="json") for a in casos.amigos_desde_casos(lista, _hoy(estado))]
+
+
+def borrar_amigo_usuario(usuario_id: str, contraparte: str) -> list[dict]:
+    """Borra a un amigo de «Lo que he aprendido»: sale de los casos (por «Marcos R.» o «MARCOS R»)."""
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        nueva, cambio = casos.olvidar_contacto(casos.cargar(usuario_id), contraparte)
+        if not cambio:
+            raise NoEncontrado("No hay ningún amigo pendiente con ese nombre.")
+        casos.guardar(usuario_id, nueva)
+        modelo = _leer(usuario_id, "modelo")
+        if modelo is not None:
+            alm.guardar(usuario_id, "modelo", casos.sincronizar_amigos(modelo, nueva, _hoy(estado)))
+        _auditar(usuario_id, "amigo_borrado")
+    return amigos_usuario(usuario_id)
