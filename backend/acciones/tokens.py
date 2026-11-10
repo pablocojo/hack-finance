@@ -29,7 +29,9 @@ def _huella(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def emitir(usuario_id: str, propuesta_id: str, accion_id: str, parametros: dict) -> tuple[str, datetime]:
+def emitir(usuario_id: str, propuesta_id: str, accion_id: str, parametros: dict,
+           editado: bool = False) -> tuple[str, datetime]:
+    """`editado`: el usuario cambió campos editables en la tarjeta; queda en el servidor, ligado al token."""
     token = secrets.token_urlsafe(24)
     caduca = ahora() + VIGENCIA
     with almacenamiento.candado(usuario_id):
@@ -38,7 +40,7 @@ def emitir(usuario_id: str, propuesta_id: str, accion_id: str, parametros: dict)
         tabla[_huella(token)] = {
             "usuario_id": usuario_id, "propuesta_id": propuesta_id, "accion_id": accion_id,
             "hash": hash_parametros(parametros), "parametros": json.loads(json.dumps(parametros, default=str)),
-            "caduca": caduca.isoformat(), "usado": False,
+            "caduca": caduca.isoformat(), "usado": False, "editado": bool(editado),
         }
         almacenamiento.guardar(usuario_id, "tokens", tabla)
     return token, caduca

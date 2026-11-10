@@ -14,6 +14,9 @@ HTTP_POR_CODIGO = {
     "token_usado": 409,
     "token_caducado": 410,
     "no_se_puede": 409,
+    "importe_fuera_de_rango": 400,
+    "limite_solicitudes_mes": 409,
+    "solicitud_abierta": 409,
 }
 
 

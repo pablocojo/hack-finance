@@ -49,13 +49,13 @@ def formatear_eur(x: Any) -> str:
     return f"{signo}{_miles(entero)},{dec} €"
 
 
-def sanear_dato(x: Any) -> str:
-    """Texto libre -> texto plano seguro: NFKC, sin control, sin `{}<>` ni comillas, máx. 40."""
+def sanear_dato(x: Any, maximo: int = 40) -> str:
+    """Texto libre -> texto plano seguro: NFKC, sin control, sin `{}<>` ni comillas, máx. `maximo` (40)."""
     t = unicodedata.normalize("NFKC", str(x))
     t = "".join(" " if unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") else c for c in t)
     t = _PROHIBIDO.sub("", t)
     t = re.sub(r"\s+", " ", t).strip()
-    return t[:40].strip()
+    return t[:maximo].strip()
 
 
 def _fecha(x: Any) -> date:
