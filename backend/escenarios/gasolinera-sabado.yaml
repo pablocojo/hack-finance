@@ -1,0 +1,15 @@
+# Trampa de pago_individual. Datos sintéticos. Repsol (gasolinera) un sábado por 58,30 €: importe alto y fin de semana,
+# pero no es un lugar donde se vaya «con alguien»: no sale nada.
+id: gasolinera-sabado
+usuario_id: lucia
+descripcion: "Gasolinera un sábado: no abre ningún pago individual"
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: {calculado: 2026-10-01, dias_historial: 60, ticket_tipico: 12, umbral_relevante_eur: 20}   # a mano: así también se mide con perfil
+movimientos:
+  - {id: gas-g1, fecha: 2026-11-07, concepto: "COMPRA TARJETA REPSOL MADRID", comercio: "REPSOL", importe: -58.30, canal: tarjeta, categoria: transporte}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: pago_individual, ids: [gas-g1], motivo: "gasolinera: gasto personal"}
+  - {tipo: gasto_compartido, ids: [gas-g1], motivo: "no hay deuda"}

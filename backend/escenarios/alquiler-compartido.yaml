@@ -1,0 +1,30 @@
+# Gasto fijo compartido (tarea B): `gasto_compartido` con `datos.recurrente = true`. Datos sintéticos.
+# Lucía paga el alquiler (800 €, transferencia el día 1) y tres compañeros le envían 200 € cada mes. En agosto y
+# septiembre (antes de activar) pagan los tres; en octubre pagan Carlos y Elena, y Hugo no. Con el p75 de retraso de
+# los dos meses cerrados (2 días) la espera es de 3 días -> el 4/10, con `recurrente = true`: el mismo comercio, tres
+# ciclos de ≈ un mes y las mismas personas.
+id: alquiler-compartido
+usuario_id: lucia
+descripcion: "Alquiler compartido de tres meses: el tercer mes falta Hugo y el momento es recurrente"
+activacion: 2026-09-15
+hasta: 2026-10-12
+perfil: null
+movimientos:
+  - {id: alq-a1, fecha: 2026-08-01, concepto: "TRANSFERENCIA EMITIDA ALQUILER PISO", comercio: "ALQUILER PISO", importe: -800.00, canal: transferencia, categoria: vivienda}
+  - {id: alq-a1-b1, fecha: 2026-08-01, concepto: "BIZUM RECIBIDO", contraparte: "Carlos Gil Ortiz", nota: "alquiler", importe: 200.00, canal: bizum}
+  - {id: alq-a1-b2, fecha: 2026-08-02, concepto: "BIZUM RECIBIDO", contraparte: "Elena Ruiz Mora", nota: "alquiler", importe: 200.00, canal: bizum}
+  - {id: alq-a1-b3, fecha: 2026-08-03, concepto: "BIZUM RECIBIDO", contraparte: "Hugo Sanz Pena", nota: "alquiler agosto", importe: 200.00, canal: bizum}
+  - {id: alq-a2, fecha: 2026-09-01, concepto: "TRANSFERENCIA EMITIDA ALQUILER PISO", comercio: "ALQUILER PISO", importe: -800.00, canal: transferencia, categoria: vivienda}
+  - {id: alq-a2-b1, fecha: 2026-09-01, concepto: "BIZUM RECIBIDO", contraparte: "Carlos Gil Ortiz", nota: "alquiler", importe: 200.00, canal: bizum}
+  - {id: alq-a2-b2, fecha: 2026-09-02, concepto: "BIZUM RECIBIDO", contraparte: "Elena Ruiz Mora", nota: "alquiler", importe: 200.00, canal: bizum}
+  - {id: alq-a2-b3, fecha: 2026-09-04, concepto: "BIZUM RECIBIDO", contraparte: "Hugo Sanz Pena", nota: "alquiler septiembre", importe: 200.00, canal: bizum}
+  - {id: alq-a3, fecha: 2026-10-01, concepto: "TRANSFERENCIA EMITIDA ALQUILER PISO", comercio: "ALQUILER PISO", importe: -800.00, canal: transferencia, categoria: vivienda}
+  - {id: alq-a3-b1, fecha: 2026-10-01, concepto: "BIZUM RECIBIDO", contraparte: "Carlos Gil Ortiz", nota: "alquiler", importe: 200.00, canal: bizum}
+  - {id: alq-a3-b2, fecha: 2026-10-02, concepto: "BIZUM RECIBIDO", contraparte: "Elena Ruiz Mora", nota: "alquiler", importe: 200.00, canal: bizum}
+eventos: []
+esperado:
+  - {tipo: gasto_compartido, fecha_detectable: 2026-10-04, ids: [alq-a3], tolerancia_dias: 0,
+     datos: {pago_id: alq-a3, importe_total: "800.00", personas_estimadas: 4, faltan: 1, importe_pendiente: "200.00", cuota: "200.00", recurrente: true},
+     candidatos: ["HUGO S"]}
+trampas:
+  - {tipo: gasto_compartido, ids: [alq-a1, alq-a2], motivo: "pagaron los tres: no falta nadie"}

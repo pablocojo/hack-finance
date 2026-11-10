@@ -50,5 +50,18 @@
   "ZARA": {"nombre": "ZARA", "tipo": "moda", "es_suscripcion": false, "origen": "catalogo"},
   "REPSOL": {"nombre": "REPSOL", "tipo": "gasolinera", "es_suscripcion": false, "origen": "catalogo"},
   "NH HOTELES": {"nombre": "NH HOTELES", "tipo": "hotel", "es_suscripcion": false, "origen": "catalogo"},
-  "MERCADONA": {"nombre": "MERCADONA", "tipo": "supermercado", "es_suscripcion": false, "origen": "catalogo"}
+  "MERCADONA": {"nombre": "MERCADONA", "tipo": "supermercado", "es_suscripcion": false, "origen": "catalogo"},
+  "LA TASCA": {"nombre": "LA TASCA", "tipo": "restaurante", "es_suscripcion": false, "origen": "catalogo"},
+  "PIZZERIA NAPOLI": {"nombre": "PIZZERIA NAPOLI", "tipo": "restaurante", "es_suscripcion": false, "origen": "catalogo"},
+  "TABERNA EL PATIO": {"nombre": "TABERNA EL PATIO", "tipo": "restaurante", "es_suscripcion": false, "origen": "catalogo"},
+  "RESTAURANTE EL MIRADOR": {"nombre": "RESTAURANTE EL MIRADOR", "tipo": "restaurante", "es_suscripcion": false, "origen": "catalogo"},
+  "CINES ESTRELLA": {"nombre": "CINES ESTRELLA", "tipo": "ocio", "es_suscripcion": false, "origen": "catalogo"},
+  "LIBRERIA LUNA": {"nombre": "LIBRERIA LUNA", "tipo": "tienda", "es_suscripcion": false, "origen": "catalogo"},
+  "GLOVO": {"nombre": "GLOVO", "tipo": "otro", "es_suscripcion": false, "origen": "catalogo"},
+  "TELEPIZZA": {"nombre": "TELEPIZZA", "tipo": "otro", "es_suscripcion": false, "origen": "catalogo"},
+  "DECATHLON": {"nombre": "DECATHLON", "tipo": "tienda", "es_suscripcion": false, "origen": "catalogo"},
+  "TICKETMASTER": {"nombre": "TICKETMASTER", "tipo": "otro", "es_suscripcion": false, "origen": "catalogo"},
+  "CINES YELMO": {"nombre": "CINES YELMO", "tipo": "ocio", "es_suscripcion": false, "origen": "catalogo"},
+  "CINES KINEPOLIS": {"nombre": "CINES KINEPOLIS", "tipo": "ocio", "es_suscripcion": false, "origen": "catalogo"},
+  "CINES NERVION": {"nombre": "CINES NERVION", "tipo": "ocio", "es_suscripcion": false, "origen": "catalogo"}
 }

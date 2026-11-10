@@ -38,9 +38,13 @@ OBJETIVOS: dict[str, dict] = {
     "renovacion_proxima": {"precision_min": 0.9, "exhaustividad_min": 0.9, "retraso_medio_max": 0, "trampas_max": 0},
     "subida_recibo": {"precision_min": 0.9, "exhaustividad_min": 0.9, "retraso_medio_max": 0, "trampas_max": 0},
     "prueba_gratuita": {"precision_min": 1.0, "exhaustividad_min": 1.0, "retraso_medio_max": 0, "trampas_max": 0},
+    "pago_individual": {"precision_min": 1.0, "exhaustividad_min": 1.0, "retraso_medio_max": 0, "trampas_max": 0},
     "saldo_negativo_previsto": {"precision_min": 0.8, "exhaustividad_min": 0.8, "retraso_medio_max": 0,
                                 "trampas_max": 0},
 }
+# Dimensiones que no son un detector registrado sino una variante de otro: `pago_individual` es un `gasto_compartido` con
+# `datos.origen = pago_individual` (señal de lugar y día) y se mide aparte para no mezclarlo con las deudas.
+DIMENSIONES: dict[str, str] = {"pago_individual": "gasto_compartido"}
 # Métricas que se comparan con la ejecución anterior: (campo, mejor si sube).
 COMPARABLES = (("precision", True), ("exhaustividad", True), ("retraso_medio", False), ("trampas_violadas", False))
 
@@ -97,14 +101,15 @@ def medir_escenario(escenario: cargar.Escenario, con_perfil: bool) -> dict:
         "con_perfil": con_perfil,
         "dias_procesados": dias,
         "ms": round(ms, 1),
-        "momentos": len(momentos),
+        "momentos": sum(1 for m in momentos if cargar.tipo_medido(m) not in DIMENSIONES),
+        "momentos_pago_individual": sum(1 for m in momentos if cargar.tipo_medido(m) in DIMENSIONES),
         "aciertos": resultado["aciertos"],
         "omitidos": resultado["omitidos"],
         "omitidos_detalle": [{"tipo": e["tipo"], "fecha_detectable": str(e["fecha_detectable"]),
                               "ids": list(e.get("ids", []))} for e in resultado["detalle_omitidos"]],
-        "falsos_positivos": [{"id": i, "tipo": por_id[i].tipo, "fecha": por_id[i].fecha.isoformat(),
+        "falsos_positivos": [{"id": i, "tipo": cargar.tipo_medido(por_id[i]), "fecha": por_id[i].fecha.isoformat(),
                               "movimientos": list(por_id[i].movimientos)} for i in resultado["falsos_positivos"]],
-        "dudosos": [{"id": i, "tipo": por_id[i].tipo, "fecha": por_id[i].fecha.isoformat()}
+        "dudosos": [{"id": i, "tipo": cargar.tipo_medido(por_id[i]), "fecha": por_id[i].fecha.isoformat()}
                     for i in resultado["dudosos"]],
         "trampas_comprobadas": [{"tipo": t["tipo"], "motivo": t.get("motivo", "")} for t in esc.trampas],
         "trampas_violadas": resultado["trampas_violadas"],
@@ -135,7 +140,7 @@ def _cumple(tipo: str, fila: dict) -> bool | None:
 
 def por_detector(filas: list[dict]) -> dict[str, dict]:
     """Suma los escenarios etiquetados por tipo de momento."""
-    tipos = set(REGISTRO)
+    tipos = set(REGISTRO) | set(DIMENSIONES)
     for f in filas:
         tipos |= set(f["por_tipo"]) | set(f["retrasos"]) | {t["tipo"] for t in f["trampas_comprobadas"]}
     salida = {}
@@ -146,8 +151,8 @@ def por_detector(filas: list[dict]) -> dict[str, dict]:
         dudosos = sum(f["por_tipo"].get(tipo, {}).get("dudosos", 0) for f in filas)
         retrasos = [r for f in filas for r in f["retrasos"].get(tipo, [])]
         fila = {
-            "implementado": tipo in REGISTRO,
-            "version": REGISTRO[tipo].version if tipo in REGISTRO else None,
+            "implementado": tipo in REGISTRO or tipo in DIMENSIONES,
+            "version": REGISTRO[DIMENSIONES.get(tipo, tipo)].version if DIMENSIONES.get(tipo, tipo) in REGISTRO else None,
             "aciertos": aciertos,
             "omitidos": omitidos,
             "falsos_positivos": falsos,
@@ -175,6 +180,7 @@ def ruido(filas: list[dict]) -> dict:
         for falso in f["falsos_positivos"]:
             tipos[falso["tipo"]] = tipos.get(falso["tipo"], 0) + 1
         usuarios.append({"escenario": f["escenario"], "meses": round(meses, 2), "momentos": f["momentos"],
+                         "pago_individual": f.get("momentos_pago_individual", 0),   # preguntas silenciosas: no son ruido
                          "por_mes": round(f["momentos"] / meses, 3) if meses else None, "por_tipo": tipos,
                          "ms": f["ms"], "momentos_detalle": f["falsos_positivos"]})
     valores = [u["por_mes"] for u in usuarios if u["por_mes"] is not None]

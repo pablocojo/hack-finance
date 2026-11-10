@@ -27,7 +27,7 @@ from ...plataforma.tipos import MovimientoEnriquecido, PerfilUsuario
 from ..enriquecer import centimos
 from ..formato import eur, nombre_persona
 from ..parametros import GastoCompartido
-from ..reparto import Reparto, repartos
+from ..reparto import Reparto, es_pago, repartos
 from . import registrar
 from .base import Contexto, Hallazgo
 
@@ -116,7 +116,37 @@ def _hipotesis(reparto: Reparto, todos: list[str], extras: list[MovimientoEnriqu
     return hipotesis
 
 
-def _hallazgo_cuota_comun(ctx: Contexto, reparto: Reparto, p: GastoCompartido) -> Hallazgo:
+def _es_recurrente(ctx: Contexto, reparto: Reparto, personas: set[str], todos: dict[str, Reparto],
+                   p: GastoCompartido) -> bool:
+    """¿Es un gasto fijo compartido? El pago es del mismo comercio que `MIN_OCURRENCIAS_RECURRENTE - 1` pagos anteriores
+    seguidos, a ≈ un mes uno de otro (`DIAS_ENTRE_CICLOS`), y en todos esos ciclos pagaron `personas` (quienes ya han
+    pagado este y los candidatos que faltan). Dos cenas en el mismo restaurante con amigos distintos no lo son.
+    Solo mira el pasado: el historial ya llega cortado en `hoy`."""
+    pago = reparto.pago
+    if not pago.comercio_normalizado or not personas:
+        return False
+    previos = sorted((m for m in ctx.historial if m.fecha < pago.fecha and es_pago(m, p)
+                      and m.comercio_normalizado == pago.comercio_normalizado), key=lambda m: m.fecha)
+    cadena: list = []
+    siguiente = pago
+    for m in reversed(previos):
+        dias = (siguiente.fecha - m.fecha).days
+        if p.DIAS_ENTRE_CICLOS[0] <= dias <= p.DIAS_ENTRE_CICLOS[1]:
+            cadena.append(m)
+            siguiente = m
+        elif dias > p.DIAS_ENTRE_CICLOS[1]:
+            break
+    if len(cadena) + 1 < p.MIN_OCURRENCIAS_RECURRENTE:
+        return False
+    for m in cadena:
+        previo = todos.get(m.id)
+        if previo is None or not previo.valido or not personas <= {r.contraparte_normalizada for r in previo.reembolsos}:
+            return False
+    return True
+
+
+def _hallazgo_cuota_comun(ctx: Contexto, reparto: Reparto, p: GastoCompartido,
+                          todos_repartos: dict[str, Reparto] | None = None) -> Hallazgo:
     pago = reparto.pago
     reembolsos = reparto.reembolsos
     pagadores = {r.contraparte_normalizada for r in reembolsos}
@@ -143,6 +173,9 @@ def _hallazgo_cuota_comun(ctx: Contexto, reparto: Reparto, p: GastoCompartido) -
         "cuota": cuota,
     }
     confianza = _confianza(reparto, fuertes, p)
+    if todos_repartos is not None and _es_recurrente(ctx, reparto, pagadores | {c for c, _ in elegidos[: reparto.faltan]},
+                                                     todos_repartos, p):
+        datos["recurrente"] = True
     if hipotesis:
         datos["dudoso"] = True
         datos["hipotesis"] = hipotesis
@@ -156,7 +189,8 @@ def _hallazgo_cuota_comun(ctx: Contexto, reparto: Reparto, p: GastoCompartido) -
     )
 
 
-def _hallazgo_desigual(ctx: Contexto, reparto: Reparto, p: GastoCompartido) -> Hallazgo | None:
+def _hallazgo_desigual(ctx: Contexto, reparto: Reparto, p: GastoCompartido,
+                       todos_repartos: dict[str, Reparto] | None = None) -> Hallazgo | None:
     """Cada uno pagó una cantidad distinta: siempre dudoso (lo valora la fase 2 con el contexto)."""
     pago = reparto.pago
     recibidos = sorted([*reparto.reembolsos, *reparto.extras], key=lambda m: m.fecha)
@@ -202,12 +236,19 @@ def _hallazgo_desigual(ctx: Contexto, reparto: Reparto, p: GastoCompartido) -> H
                     confianza=p.CONFIANZA_DUDOSO, impacto_eur=pendiente, datos=datos)
 
 
-@registrar("gasto_compartido", version=2)
+@registrar("gasto_compartido", version=3)
 def detectar(ctx: Contexto) -> list[Hallazgo]:
+    from . import pago_individual      # la señal de lugar y día (`origen = pago_individual`): mismo tipo de momento
+
+    return _repartos_con_falta(ctx) + pago_individual.detectar(ctx)
+
+
+def _repartos_con_falta(ctx: Contexto) -> list[Hallazgo]:
     p: GastoCompartido = ctx.params["gasto_compartido"]
     propio = ctx.lineas_base.get("retraso_reembolso_p75")
     hallazgos = []
-    for reparto in repartos(ctx.historial, p).values():
+    todos = repartos(ctx.historial, p)
+    for reparto in todos.values():
         dias = (ctx.hoy - reparto.pago.fecha).days
         grupo = grupo_del_perfil(ctx.perfil, {r.contraparte_normalizada for r in [*reparto.reembolsos, *reparto.extras]})
         espera = dias_espera(p, grupo.retraso_p75_dias if grupo is not None and grupo.retraso_p75_dias is not None
@@ -223,7 +264,7 @@ def detectar(ctx: Contexto) -> list[Hallazgo]:
             continue
         if (ctx.hoy - ultimo).days < p.MIN_DIAS_DESDE_ULTIMO:
             continue
-        hallazgo = construir(ctx, reparto, p)
+        hallazgo = construir(ctx, reparto, p, todos)
         if hallazgo:
             hallazgos.append(hallazgo)
     return hallazgos

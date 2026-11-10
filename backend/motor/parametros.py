@@ -59,6 +59,25 @@ class GastoCompartido:
     MIN_CONOCIDOS_DESIGUAL: int = 2     # cuotas desiguales: al menos 2 pagadores de repartos anteriores
     CUBIERTO_MAX_PCT: Decimal = Decimal("0.95")  # desiguales: si ya se ha recibido el 95 % del total, no falta nada
     CONFIANZA_DUDOSO: float = 0.60      # un caso dudoso nunca llega al 0,7 del módulo: lo resuelve la fase 2
+    # Gasto fijo compartido (alquiler, hipoteca, comunidad): el pago puede ser una transferencia o un recibo de una serie
+    CATEGORIAS_FIJO: tuple[str, ...] = ("vivienda",)
+    CANALES_FIJO: tuple[str, ...] = ("tarjeta", "transferencia", "recibo")
+    PERSONAS_MAX_FIJO: int = 6          # un alquiler se reparte entre pocos: un Bizum de 31 € no es 1/12 de 380 €
+    MIN_OCURRENCIAS_RECURRENTE: int = 3  # con el de ahora: >= 3 ciclos seguidos del mismo comercio...
+    DIAS_ENTRE_CICLOS: tuple[int, int] = (25, 37)   # ...a ≈ un mes uno de otro
+
+
+@dataclass(frozen=True)
+class PagoIndividual:
+    """Señal de lugar y día (deudas-casos.md, «pago_individual»): un pago con tarjeta que pudo ser con otros."""
+    IMPORTE_MIN: Decimal = Decimal("20")                # sin perfil; con perfil: clamp(umbral_relevante_eur, 20, 60)
+    IMPORTE_MIN_TOPE: Decimal = Decimal("60")
+    MULT_ENTRE_SEMANA: Decimal = Decimal("2")           # entre semana solo cuenta un pago de >= 2 x el umbral
+    TIPOS_ELEGIBLES: tuple[str, ...] = ("restaurante", "bar", "ocio")   # nunca supermercado, gasolinera, servicios...
+    DIAS_FINDE: tuple[int, ...] = (5, 6)                # sábado y domingo (`date.weekday`)
+    DIAS_NOCHE: tuple[int, ...] = (4,)                  # viernes: plausible, solo señal débil
+    CONFIANZA: float = 0.50                             # baja y fija: el razonador descarta < 0,5 y aquí no avisa nadie
+    MAX_CARACTERES_BUSQUEDA: int = 30                   # la búsqueda web del tipo solo acepta nombres cortos
 
 
 @dataclass(frozen=True)
@@ -119,6 +138,7 @@ class Razonador:
 DEFECTO: dict[str, object] = {
     "series": Series(),
     "gasto_compartido": GastoCompartido(),
+    "pago_individual": PagoIndividual(),
     "cargo_duplicado": CargoDuplicado(),
     "subida_recibo": SubidaRecibo(),
     "prueba_gratuita": PruebaGratuita(),
@@ -146,6 +166,7 @@ def ajustar(params: Parametros, perfil: PerfilUsuario | None) -> Parametros:
     Con perfil, solo cambia lo de la tabla; un campo que falte o esté borrado no cambia nada.
 
     - `GastoCompartido.IMPORTE_MIN_PAGO` = clamp(2 x `ticket_tipico`, 20, 60).
+    - `PagoIndividual.IMPORTE_MIN` = clamp(`umbral_relevante_eur`, 20, 60): el perfil solo lo sube (ante la duda, silencio).
     - `CargoDuplicado.IMPORTE_MIN_TARJETA` = clamp(0,5 x `ticket_tipico`, 5, 30).
     - `SubidaRecibo.SUBIDA_MIN_ANUAL` = max(12, 0,10 x `umbral_relevante_eur`).
     - `PruebaGratuita`: nada numérico; `suscripciones_activas` se lee en `pruebas.py` (ignora `en_prueba`).
@@ -156,6 +177,8 @@ def ajustar(params: Parametros, perfil: PerfilUsuario | None) -> Parametros:
     ticket, umbral = _campo(perfil, "ticket_tipico"), _campo(perfil, "umbral_relevante_eur")
     if isinstance(params, GastoCompartido) and ticket is not None:
         return replace(params, IMPORTE_MIN_PAGO=_eur(_acotar(2 * ticket, Decimal("20"), Decimal("60"))))
+    if isinstance(params, PagoIndividual) and umbral is not None:
+        return replace(params, IMPORTE_MIN=_eur(_acotar(umbral, params.IMPORTE_MIN, params.IMPORTE_MIN_TOPE)))
     if isinstance(params, CargoDuplicado) and ticket is not None:
         return replace(params, IMPORTE_MIN_TARJETA=_eur(_acotar(ticket / 2, Decimal("5"), Decimal("30"))))
     if isinstance(params, SubidaRecibo) and umbral is not None:

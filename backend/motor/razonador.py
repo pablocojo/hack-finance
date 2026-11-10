@@ -50,7 +50,20 @@ def _plural(n: int, singular: str, plural: str) -> str:
 
 # --- Plantillas de explicación ---------------------------------------------------------------
 
+_DIAS_SEMANA = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+
+
+def _explicar_pago_individual(d: dict) -> str:
+    """Solo pregunta: no hay deuda calculada. El comercio es un dato y solo entra por `nombre_visible`."""
+    fecha = date.fromisoformat(str(d["fecha"]))
+    return (f"Pagaste {eur(d['importe_total'])} en {nombre_visible(d.get('comercio'))} el "
+            f"{_DIAS_SEMANA[fecha.weekday()]} {fecha.day}/{fecha.month} y nadie te ha enviado un Bizum: "
+            f"¿fuiste con alguien?")
+
+
 def _explicar_gasto_compartido(d: dict) -> str:
+    if d.get("origen") == "pago_individual":
+        return _explicar_pago_individual(d)
     reembolsos = d.get("reembolsos", [])
     devuelto = sum((_decimal(r["importe"]) for r in reembolsos), Decimal("0"))
     n, faltan = len(reembolsos), int(d["faltan"])

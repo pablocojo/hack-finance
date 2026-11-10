@@ -11,10 +11,12 @@ import threading
 from datetime import date
 from typing import Literal
 
+from .. import config
 from ..plataforma.tipos import Momento, Movimiento, MovimientoEnriquecido, PerfilUsuario
 from . import conocimiento, parametros, pruebas, razonador
 from .detectores import REGISTRO
 from .detectores.base import Contexto
+from .detectores.pago_individual import tipos_por_buscar
 from .enriquecer import enriquecer as _enriquecer
 from .enriquecer import enriquecer_normalizados, lineas_base
 from .estado import EstadoMotor
@@ -63,6 +65,7 @@ def procesar(
             pruebas=tuple(dict(p) for p in estado.pruebas),
         )
         hallazgos = [h for detector in REGISTRO.values() for h in detector.detectar(ctx)]
+        estado.tipos_pendientes = tipos_por_buscar(ctx) if config.ajustes().busqueda_web else []
         fechas = {m.id: m.fecha for m in historial}
         saldo_hoy = next((m.saldo for m in reversed(historial) if m.saldo is not None), None)
         momentos = razonador.razonar(usuario_id, hallazgos, estado.claves_emitidas, hoy, fechas,
@@ -159,3 +162,13 @@ def comercios_pendientes(usuario_id: str) -> list[str]:
     with _CANDADO:
         estado = _ESTADOS.get(usuario_id)
         return list(estado.comercios_pendientes) if estado else []
+
+
+def tipos_pendientes(usuario_id: str) -> list[str]:
+    """Nombres de comercio de tarjeta de los últimos días cuyo tipo (restaurante, supermercado...) no se conoce y que
+    pueden abrir un `pago_individual`. Solo con `BUSQUEDA_WEB=on`. El orquestador, fuera de `procesar`, llama a
+    `conocimiento.tipo_comercio(nombre)` por cada uno (una consulta web por nombre, con caché): solo nombres, nunca
+    contrapartes ni importes."""
+    with _CANDADO:
+        estado = _ESTADOS.get(usuario_id)
+        return list(estado.tipos_pendientes) if estado else []

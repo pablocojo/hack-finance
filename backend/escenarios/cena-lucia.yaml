@@ -10,6 +10,13 @@ fondo: {perfil: estudiante, meses: 4, semilla: 7, hasta: 2026-11-16, anomalias: 
 activacion: 2026-10-01          # hasta este día (incluido): cargar_historial; después, procesar día a día
 hasta: 2026-11-16
 perfil: null                    # sin perfil (arranque en frío); M9 añade la variante con perfil
+contactos:     # la agenda inventada de Lucía (teléfonos falsos y enmascarados); la lee el orquestador
+  - {contraparte: "MARCOS R", nombre: "Marcos R.", telefono: "+34 6** *** 123", relacion: amigo}
+  - {contraparte: "DANIEL P", nombre: "Daniel P.", telefono: "+34 6** *** 245", relacion: amigo}
+  - {contraparte: "SARA L", nombre: "Sara L.", telefono: "+34 6** *** 367", relacion: amigo}
+  - {contraparte: "LAURA M", nombre: "Laura M.", telefono: "+34 6** *** 489", relacion: amigo}
+  - {contraparte: "ANA G", nombre: "Ana G.", telefono: "+34 6** *** 501", relacion: amigo}
+  - {contraparte: "MAMA", nombre: "Mamá", telefono: "+34 6** *** 612", relacion: familia}
 movimientos:
   # Cena 1 (antes de activar): pagan los cuatro
   - {id: luc-p1, fecha: 2026-09-12, concepto: "COMPRA TARJETA LA TASCA MADRID", comercio: "LA TASCA", importe: -100.00, canal: tarjeta, categoria: restaurantes}

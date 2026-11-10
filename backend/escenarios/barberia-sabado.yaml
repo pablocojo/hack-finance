@@ -1,0 +1,14 @@
+# Trampa de pago_individual. Datos sintéticos. Una barbería (comercio fuera del catálogo) un sábado por 22 €:
+# la heurística por palabras («BARBER») la clasifica `servicios_personales`, un gasto personal: no sale nada.
+id: barberia-sabado
+usuario_id: lucia
+descripcion: "Barbería un sábado: servicios personales, no abre ningún pago individual"
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: {calculado: 2026-10-01, dias_historial: 60, ticket_tipico: 12, umbral_relevante_eur: 20}   # a mano: así también se mide con perfil
+movimientos:
+  - {id: bar-b1, fecha: 2026-11-07, concepto: "COMPRA TARJETA BARBERIA EL CORTE", comercio: "BARBERIA EL CORTE", importe: -22.00, canal: tarjeta}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: pago_individual, ids: [bar-b1], motivo: "servicios personales: gasto personal"}

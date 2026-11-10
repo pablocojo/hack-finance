@@ -1,0 +1,31 @@
+# Trampa de `recurrente` (tarea B). Datos sintéticos. Tres cenas en La Tasca con ≈ un mes entre ellas (importes distintos:
+# no es una serie de cargo), pero con amigos distintos: Sara no estuvo en la segunda y Ana sí. La tercera cena deja a
+# Marcos sin pagar: es un `gasto_compartido` normal, NO recurrente (las mismas personas no pagaron en los ciclos previos).
+# Espera = 2 días (p75 = 1) tras el último Bizum (4/10) -> el 5/10.
+id: cenas-mismo-restaurante
+usuario_id: lucia
+descripcion: "Tres cenas en La Tasca con amigos distintos: falta Marcos y el momento NO es recurrente"
+activacion: 2026-09-15
+hasta: 2026-10-12
+perfil: null
+movimientos:
+  - {id: cmr-p1, fecha: 2026-08-07, concepto: "COMPRA TARJETA LA TASCA MADRID", comercio: "LA TASCA", importe: -100.00, canal: tarjeta, categoria: restaurantes}
+  - {id: cmr-p1-b1, fecha: 2026-08-07, concepto: "BIZUM RECIBIDO", contraparte: "Laura Martinez Garcia", nota: "cena", importe: 20.00, canal: bizum}
+  - {id: cmr-p1-b2, fecha: 2026-08-08, concepto: "BIZUM RECIBIDO", contraparte: "Daniel Perez Ruiz", nota: "cena", importe: 20.00, canal: bizum}
+  - {id: cmr-p1-b3, fecha: 2026-08-08, concepto: "BIZUM RECIBIDO", contraparte: "Sara Lopez Gil", importe: 20.00, canal: bizum}
+  - {id: cmr-p1-b4, fecha: 2026-08-09, concepto: "BIZUM RECIBIDO", contraparte: "Marcos Ruiz Sanz", nota: "cena", importe: 20.00, canal: bizum}
+  - {id: cmr-p2, fecha: 2026-09-04, concepto: "COMPRA TARJETA LA TASCA MADRID", comercio: "LA TASCA", importe: -110.00, canal: tarjeta, categoria: restaurantes}
+  - {id: cmr-p2-b1, fecha: 2026-09-04, concepto: "BIZUM RECIBIDO", contraparte: "Laura Martinez Garcia", nota: "cena", importe: 22.00, canal: bizum}
+  - {id: cmr-p2-b2, fecha: 2026-09-05, concepto: "BIZUM RECIBIDO", contraparte: "Daniel Perez Ruiz", importe: 22.00, canal: bizum}
+  - {id: cmr-p2-b3, fecha: 2026-09-05, concepto: "BIZUM RECIBIDO", contraparte: "Ana Gil Vera", nota: "cena", importe: 22.00, canal: bizum}
+  - {id: cmr-p2-b4, fecha: 2026-09-06, concepto: "BIZUM RECIBIDO", contraparte: "Marcos Ruiz Sanz", importe: 22.00, canal: bizum}
+  - {id: cmr-p3, fecha: 2026-10-02, concepto: "COMPRA TARJETA LA TASCA MADRID", comercio: "LA TASCA", importe: -120.00, canal: tarjeta, categoria: restaurantes}
+  - {id: cmr-p3-b1, fecha: 2026-10-02, concepto: "BIZUM RECIBIDO", contraparte: "Laura Martinez Garcia", nota: "cena", importe: 24.00, canal: bizum}
+  - {id: cmr-p3-b2, fecha: 2026-10-03, concepto: "BIZUM RECIBIDO", contraparte: "Daniel Perez Ruiz", nota: "cena", importe: 24.00, canal: bizum}
+  - {id: cmr-p3-b3, fecha: 2026-10-04, concepto: "BIZUM RECIBIDO", contraparte: "Sara Lopez Gil", nota: "cena", importe: 24.00, canal: bizum}
+eventos: []
+esperado:
+  - {tipo: gasto_compartido, fecha_detectable: 2026-10-05, ids: [cmr-p3], tolerancia_dias: 0,
+     datos: {pago_id: cmr-p3, importe_total: "120.00", personas_estimadas: 5, faltan: 1, importe_pendiente: "24.00", cuota: "24.00"}}   # sin `candidatos`: con perfil, el grupo aprendido junta a Ana y Marcos
+trampas:
+  - {tipo: gasto_compartido, ids: [cmr-p1, cmr-p2], motivo: "pagaron todos"}

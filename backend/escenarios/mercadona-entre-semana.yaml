@@ -1,0 +1,16 @@
+# Trampa de pago_individual. Datos sintéticos. Un Mercadona de 86,40 € un martes y otro de 70 € un sábado: compra diaria
+# de supermercado, no «iba con alguien». No sale nada (el catálogo dice `supermercado`; no se busca en la web).
+id: mercadona-entre-semana
+usuario_id: lucia
+descripcion: "Mercadona un martes y un sábado: no abre ningún pago individual"
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: {calculado: 2026-10-01, dias_historial: 60, ticket_tipico: 12, umbral_relevante_eur: 20}   # a mano: así también se mide con perfil
+movimientos:
+  - {id: mes-m1, fecha: 2026-11-03, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -86.40, canal: tarjeta, categoria: supermercado}
+  - {id: mes-m2, fecha: 2026-11-07, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -70.00, canal: tarjeta, categoria: supermercado}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: pago_individual, ids: [mes-m1, mes-m2], motivo: "supermercado: compra diaria, ni entre semana ni en fin de semana"}
+  - {tipo: gasto_compartido, ids: [mes-m1, mes-m2], motivo: "no hay deuda"}

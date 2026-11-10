@@ -16,6 +16,11 @@ Formato del YAML:
 - `esperado`: `{tipo, fecha_detectable, ids, tolerancia_dias, datos?, candidatos?, solo_con_perfil?}`
   (`ids: []` = un momento sin movimientos que lo prueben, como una prueba que dijo el cliente).
 - `trampas`: `{tipo, ids, motivo}`: ningún momento de ese tipo puede tocar esos ids.
+- `contactos` (opcional): la agenda inventada del usuario, `[{contraparte: "MARCOS R", nombre: "Marcos R.",
+  telefono: "+34 6** *** 123", relacion?}]` (`Escenario.contactos`, `Contacto` del contrato). La lee el orquestador al
+  cargar el escenario; el motor no la usa.
+- Un `tipo` de etiqueta o trampa puede ser `pago_individual`: es un momento `gasto_compartido` con
+  `datos.origen = pago_individual`, que se mide aparte (siempre `dudoso`). Ver `tipo_medido`.
 """
 
 from __future__ import annotations
@@ -31,7 +36,7 @@ import yaml
 
 from .. import motor
 from ..datos.sinteticos import generar_movimientos
-from ..plataforma.tipos import Momento, Movimiento, PerfilUsuario
+from ..plataforma.tipos import Contacto, Momento, Movimiento, PerfilUsuario
 
 DIRECTORIO = Path(__file__).resolve().parent
 DIAS_PERFIL = 7
@@ -51,6 +56,7 @@ class Escenario:
     esperado: list[dict] = field(default_factory=list)
     trampas: list[dict] = field(default_factory=list)
     fondo: dict | None = None
+    contactos: list[Contacto] = field(default_factory=list)
     crudo: dict = field(default_factory=dict, repr=False)
 
     def previos(self) -> list[Movimiento]:
@@ -106,6 +112,7 @@ def desde_dict(datos: dict) -> Escenario:
         esperado=list(datos.get("esperado") or []),
         trampas=list(datos.get("trampas") or []),
         fondo=fondo,
+        contactos=[Contacto.model_validate(c) for c in datos.get("contactos") or []],
         crudo=dict(datos),
     )
 
@@ -211,12 +218,23 @@ def _fecha_cerca(esperado: Any, real: Any, dias: int = 1) -> bool:
         return False
 
 
+ORIGEN_INDIVIDUAL = "pago_individual"
+
+
+def tipo_medido(momento: Momento) -> str:
+    """El tipo con el que se mide un momento: `pago_individual` (señal de lugar y día) es un `gasto_compartido` con
+    `datos.origen = pago_individual` y tiene su propia dimensión; así `gasto_compartido` sigue midiendo solo las deudas."""
+    if momento.tipo == "gasto_compartido" and momento.datos.get("origen") == ORIGEN_INDIVIDUAL:
+        return ORIGEN_INDIVIDUAL
+    return momento.tipo
+
+
 def encaja(etiqueta: dict, momento: Momento) -> bool:
     """Acierto: mismo tipo, toca los ids, sale en [fecha_detectable, + tolerancia] y `datos` coinciden."""
     ids = etiqueta.get("ids") or []        # sin ids (una prueba que dijo el cliente): vale cualquiera del tipo
-    if momento.tipo != etiqueta["tipo"] or (ids and not set(ids) & set(momento.movimientos)):
+    if tipo_medido(momento) != etiqueta["tipo"] or (ids and not set(ids) & set(momento.movimientos)):
         return False
-    if bool(momento.datos.get("dudoso")) != bool(etiqueta.get("dudoso", False)):
+    if bool(momento.datos.get("dudoso")) != bool(etiqueta.get("dudoso", etiqueta["tipo"] == ORIGEN_INDIVIDUAL)):
         return False
     desde = _fecha(etiqueta["fecha_detectable"])
     if not desde <= momento.fecha <= desde + timedelta(days=int(etiqueta.get("tolerancia_dias", 0))):
@@ -253,16 +271,20 @@ def evaluar(escenario: Escenario, momentos: list[Momento], con_perfil: bool = Fa
         retrasos.append((momento.fecha - _fecha(etiqueta["fecha_detectable"])).days)
         cuenta(etiqueta["tipo"], "aciertos")
     sobrantes = [m for m in momentos if m.id not in usados]
-    dudosos = [m for m in sobrantes if m.datos.get("dudoso")]
-    falsos = [m for m in sobrantes if not m.datos.get("dudoso")]
+    # Un `pago_individual` sin etiqueta es una pregunta legítima (dudoso) salvo en los escenarios que lo miden a propósito
+    # (tienen etiquetas o trampas de ese tipo): ahí, uno de más es un falso positivo.
+    mide_individual = any(e["tipo"] == ORIGEN_INDIVIDUAL for e in [*escenario.esperado, *escenario.trampas])
+    dudoso = lambda m: bool(m.datos.get("dudoso")) and not (mide_individual and tipo_medido(m) == ORIGEN_INDIVIDUAL)  # noqa: E731
+    dudosos = [m for m in sobrantes if dudoso(m)]
+    falsos = [m for m in sobrantes if not dudoso(m)]
     for m in falsos:
-        cuenta(m.tipo, "falsos")
+        cuenta(tipo_medido(m), "falsos")
     for m in dudosos:
-        cuenta(m.tipo, "dudosos")
+        cuenta(tipo_medido(m), "dudosos")
     violadas = [{"tipo": t["tipo"], "ids": list(t.get("ids", [])), "motivo": t.get("motivo", ""), "momento": m.id}
                 for t in escenario.trampas for m in momentos
-                if m.tipo == t["tipo"] and set(t.get("ids", [])) & set(m.movimientos)
-                and (t.get("incluye_dudosos") or not m.datos.get("dudoso"))]
+                if tipo_medido(m) == t["tipo"] and set(t.get("ids", [])) & set(m.movimientos)
+                and (t.get("incluye_dudosos") or t["tipo"] == ORIGEN_INDIVIDUAL or not m.datos.get("dudoso"))]
     return {
         "escenario": escenario.id,
         "con_perfil": con_perfil,

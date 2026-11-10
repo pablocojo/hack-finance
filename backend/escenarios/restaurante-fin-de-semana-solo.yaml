@@ -1,0 +1,23 @@
+# pago_individual (deudas-casos.md, «Escenarios, transiciones y cuentas con personas»). Datos sintéticos.
+# Lucía paga 45,60 € en un restaurante el sábado 7/11 y nadie le envía un Bizum. Es una señal de lugar y día
+# (restaurante + fin de semana + importe >= 20 €), así que sale un `pago_individual` de señal `media` (aviso `resumen`
+# en el hilo de casos, nunca push). Sin línea base, DIAS_ESPERA = 3 -> el martes 10/11.
+# Trampas: la gasolinera del domingo y el supermercado del martes no abren nada.
+id: restaurante-fin-de-semana-solo
+usuario_id: lucia
+descripcion: "Lucía cena sola un sábado (45,60 €, sin Bizums): sale la pregunta «¿fuiste con alguien?», nunca un aviso"
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: {calculado: 2026-10-01, dias_historial: 60, ticket_tipico: 12, umbral_relevante_eur: 20}   # a mano: así también se mide con perfil
+movimientos:
+  - {id: rfs-n1, fecha: 2026-10-30, concepto: "NOMINA EMPRESA SOL", importe: 1450.00, canal: transferencia, categoria: ingresos}
+  - {id: rfs-m1, fecha: 2026-11-03, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -64.20, canal: tarjeta, categoria: supermercado}
+  - {id: rfs-c1, fecha: 2026-11-07, concepto: "COMPRA TARJETA RESTAURANTE EL MIRADOR", comercio: "RESTAURANTE EL MIRADOR", importe: -45.60, canal: tarjeta, categoria: restaurantes}
+  - {id: rfs-g1, fecha: 2026-11-08, concepto: "COMPRA TARJETA REPSOL MADRID", comercio: "REPSOL", importe: -52.00, canal: tarjeta, categoria: transporte}
+eventos: []
+esperado:
+  - {tipo: pago_individual, fecha_detectable: 2026-11-10, ids: [rfs-c1], tolerancia_dias: 0,
+     datos: {origen: pago_individual, senal: media, tipo_comercio: restaurante, pago_id: rfs-c1, comercio: "RESTAURANTE EL MIRADOR", importe_total: "45.60"}}
+trampas:
+  - {tipo: pago_individual, ids: [rfs-m1, rfs-g1], motivo: "supermercado y gasolinera: compra diaria"}
+  - {tipo: gasto_compartido, ids: [rfs-c1, rfs-m1, rfs-g1], motivo: "no hay deuda: nadie ha enviado nada"}

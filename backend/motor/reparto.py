@@ -8,6 +8,7 @@ Cada reembolso va al pago anterior más reciente (en `VENTANA_REEMBOLSO` días) 
    de la cuota (redondeo), o k x cuota con 2 <= k <= `MAX_MULTIPLO` (cuenta como k personas).
 3. **Sin explicar** (`extras`): un envío plausible que no encaja con nada. No cuenta como pago, pero el
    detector lo usa para dudar (cuotas desiguales, alguien que paga otra cantidad).
+Un gasto fijo de vivienda (`CATEGORIAS_FIJO`) también cuenta como pago.
 Lo usan el detector `gasto_compartido` y las líneas base (retraso p75 y grupos propios).
 """
 
@@ -23,8 +24,23 @@ from .parametros import GastoCompartido
 
 
 def es_pago(m: MovimientoEnriquecido, p: GastoCompartido) -> bool:
-    return (m.canal == "tarjeta" and m.tipo_operacion == "cargo" and -m.importe >= p.IMPORTE_MIN_PAGO
-            and m.serie_id is None and m.categoria in p.CATEGORIAS_PAGO)
+    """Un pago que otros pueden devolver: de tarjeta, fuera de las series y de una categoría de gasto compartible, o
+    un gasto fijo de vivienda (alquiler) aunque sea una transferencia o un recibo de una serie mensual."""
+    if m.tipo_operacion != "cargo" or -m.importe < p.IMPORTE_MIN_PAGO:
+        return False
+    if m.canal == "tarjeta" and m.serie_id is None and m.categoria in p.CATEGORIAS_PAGO:
+        return True
+    return m.canal in p.CANALES_FIJO and m.categoria in p.CATEGORIAS_FIJO
+
+
+def es_fijo(m: MovimientoEnriquecido, p: GastoCompartido) -> bool:
+    """Un gasto fijo de vivienda: solo se le asignan cuotas exactas y entre pocas personas (`PERSONAS_MAX_FIJO`)."""
+    return m.categoria in p.CATEGORIAS_FIJO
+
+
+def encaja_cuota(pago: MovimientoEnriquecido, cuota: Decimal, p: GastoCompartido) -> bool:
+    personas = personas_que_encajan(-pago.importe, cuota, p)
+    return bool(personas) and (not es_fijo(pago, p) or personas <= p.PERSONAS_MAX_FIJO)
 
 
 def personas_que_encajan(total: Decimal, cuota: Decimal, p: GastoCompartido) -> int | None:
@@ -146,7 +162,7 @@ def repartos(historial: list[MovimientoEnriquecido], p: GastoCompartido) -> dict
     # 1. cuota exacta
     restantes = []
     for r in entrantes:
-        pago = next((x for x in en_ventana(r) if personas_que_encajan(-x.importe, r.importe, p)), None)
+        pago = next((x for x in en_ventana(r) if encaja_cuota(x, r.importe, p)), None)
         if pago:
             asignados.setdefault(pago.id, Reparto(pago=pago)).reembolsos.append(r)
         else:
@@ -164,7 +180,7 @@ def repartos(historial: list[MovimientoEnriquecido], p: GastoCompartido) -> dict
             sin_explicar.append(r)
     # 3. envíos plausibles sin explicar: al pago más reciente de su ventana
     for r in sin_explicar:
-        ventana = [x for x in en_ventana(r) if r.importe <= -x.importe * p.PARTE_MAX_PCT]
+        ventana = [x for x in en_ventana(r) if r.importe <= -x.importe * p.PARTE_MAX_PCT and not es_fijo(x, p)]
         if ventana:
             asignados.setdefault(ventana[0].id, Reparto(pago=ventana[0])).extras.append(r)
     for rep in asignados.values():
