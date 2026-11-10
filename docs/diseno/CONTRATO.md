@@ -276,3 +276,12 @@ El reto exige usar la voz y las herramientas de ElevenLabs por la API. La **llam
 - **Clave de demo**: `X-Demo-Key` (variable `DEMO_KEY`) protege todas las rutas que cambian estado o gastan; sin `DEMO_KEY` se permite (local). El frontend lee los SSE (`/reloj/reproducir`) con `fetch` y su lector del kit, no con `EventSource`, para poder enviar la cabecera.
 - **Confirmar sin memoria**: `acciones.ejecutar` devuelve `propuesta_id` y `parametros` en `ResultadoAccion.datos`; el orquestador no guarda nada en memoria entre preparar y confirmar (sobrevive a un reinicio).
 - **Reloj de las acciones**: el orquestador escribe `reloj.json` al cargar el escenario y en cada día procesado.
+
+### Casos de deuda (Pablo, 10 nov; diseño en `docs/diseno/deudas-casos.md`)
+
+- Tipo nuevo `Caso` en `backend/plataforma/tipos.py` (con `Deudor`, `Hipotesis`, `Acuerdo`, `CambioCaso`). Se guarda por usuario en `casos.json` (`list[Caso]`, vía `almacenamiento`; lo registra `_tipo` del orquestador). «Escenario» = tipo de deuda (`EscenarioDeuda`); «caso» = el objeto real (la cena del viernes).
+- `Momento` no cambia: sigue siendo «se abre un caso», así `/medir` y los tests actuales valen. El caso guarda `momento_id` y `propuesta_id`.
+- **Estados**: `Caso.estado` = `abierto | dudoso | pedido | saldado | descartado | caducado`; `Deudor.estado` = `detectada | pedida | saldada | rechazada | caducada | olvidada`. Transiciones en el diagrama de `deudas-casos.md`.
+- **Código frente a IA**: el código calcula cifras (`hechos`, `Deudor.cuota`) y solo asigna escenario cuando la señal es completamente clara; todo lo demás queda `dudoso` con sus `hipotesis` y lo resuelve la fase 2 (Haiku). La IA elige entre escenarios de la lista y candidatos; nunca cambia importes ni marca pagos. Sin IA o sin red, un caso dudoso **no avisa**.
+- **`Amigo` no se estira**: el saldo con cada amigo (O7) se calcula a partir de los `Caso` abiertos y cerrados.
+- **Privacidad**: `contraparte` enmascarada, sin conceptos ni notas de Bizum; `conversaciones` y `acuerdos` son resúmenes enmascarados, visibles y borrables en «Lo que he aprendido». El agente nunca valora a una persona.

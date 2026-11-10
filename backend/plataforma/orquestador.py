@@ -25,6 +25,7 @@ from ..personalizacion import edicion
 from .privacidad import enmascarar_nombre, enmascarar_texto
 from .reloj import ahora_por_defecto
 from .tipos import (
+    Caso,
     ACCIONES,
     Decision,
     Evento,
@@ -57,7 +58,8 @@ class Prohibido(ValueError):
 
 def _tipo(nombre: str):
     return {"movimientos": list[Movimiento], "pendientes": list[Movimiento], "momentos": list[Momento],
-            "propuestas": list[Propuesta], "decisiones": list[Decision], "modelo": ModeloUsuario}.get(nombre)
+            "propuestas": list[Propuesta], "decisiones": list[Decision], "modelo": ModeloUsuario,
+            "casos": list[Caso]}.get(nombre)
 
 
 def _leer(uid: str, nombre: str, defecto: Any = None) -> Any:

@@ -72,6 +72,17 @@ ResultadoFeedback = Literal[
 CanalFeedback = Literal["voz", "texto", "app"]
 ModoVoz = Literal["voz", "texto_el", "texto_kit", "grabado"]
 EstadoModulo = Literal["borrador", "en_prueba", "activo", "pausado"]
+# Deudas por casos (docs/diseno/deudas-casos.md). "Escenario" = tipo de deuda (la clase); `Caso` = el objeto.
+EscenarioDeuda = Literal[
+    "gasto_compartido_puntual",
+    "gasto_fijo_compartido",
+    "viaje",
+    "prestamo_amigo",
+    "bizum_recibido_sin_pagar",
+]
+EstadoCaso = Literal["abierto", "dudoso", "pedido", "saldado", "descartado", "caducado"]
+EstadoDeudor = Literal["detectada", "pedida", "saldada", "rechazada", "caducada", "olvidada"]
+OrigenCambio = Literal["codigo", "ia_dudas", "feedback", "llamada", "usuario"]
 
 
 # --- Motor -----------------------------------------------------------------------------------
@@ -312,6 +323,53 @@ class AvisoAbierto(Base):
     tipo_momento: str
     accion: str
     fecha: datetime
+
+
+class Deudor(Base):
+    contraparte: str                        # clave enmascarada (p. ej. "MARCOS R"); nunca el concepto
+    cuota: Euros                            # la calcula el código
+    estado: EstadoDeudor = "detectada"
+    pedida: date | None = None
+    saldada: date | None = None
+    movimiento_pago: str | None = None      # id del movimiento que la saldó
+    solicitudes: int = 0                    # una sola solicitud abierta por deudor y caso
+
+
+class Hipotesis(Base):
+    escenario: EscenarioDeuda
+    confianza: float = Field(ge=0, le=1)
+    deudores: list[str] = Field(default_factory=list)   # claves candidatas
+    motivo: str = ""                                    # frase legible, sin conceptos de Bizum
+
+
+class Acuerdo(Base):
+    fecha: date
+    texto: str                              # lo extrae el agente post-llamada de una lista cerrada; enmascarado
+
+
+class CambioCaso(Base):
+    cuando: datetime
+    origen: OrigenCambio
+    cambio: str                             # frase legible: "Marcos R. pasa a saldada"
+
+
+class Caso(Base):
+    """Una deuda real entre personas. El `Momento` sigue siendo «se abre un caso»; el caso sigue vivo después."""
+    id: str
+    usuario_id: str
+    escenario: EscenarioDeuda | None = None  # None mientras es dudoso y nadie lo ha resuelto
+    estado: EstadoCaso = "abierto"
+    momento_id: str | None = None
+    propuesta_id: str | None = None
+    creado: date
+    avisar_desde: date | None = None         # no se avisa antes; si entra el Bizum antes, se salda sin avisar
+    urgente: bool = False
+    hechos: dict[str, Any] = Field(default_factory=dict)   # cifras del código (total, cuota, comercio, movimientos)
+    hipotesis: list[Hipotesis] = Field(default_factory=list)
+    deudores: list[Deudor] = Field(default_factory=list)
+    acuerdos: list[Acuerdo] = Field(default_factory=list)
+    conversaciones: list[str] = Field(default_factory=list)  # resúmenes enmascarados y borrables
+    historial: list[CambioCaso] = Field(default_factory=list)
 
 
 class ModeloUsuario(Base):

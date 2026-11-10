@@ -315,3 +315,25 @@ def test_procesar_y_decidir_devuelven_tipos_del_contrato():
     modelo = personalizacion.nuevo_modelo("lucia")
     decision = personalizacion.decidir(propuesta_cena(), modelo, AHORA)
     assert isinstance(decision, Decision) and decision.motivos
+
+
+def test_caso_ida_y_vuelta_con_dinero_exacto():
+    from backend.plataforma.tipos import Caso, Deudor, Hipotesis
+
+    caso = Caso(
+        id="caso-1", usuario_id="lucia", estado="dudoso", creado=date(2026, 11, 9),
+        hechos={"total": "120.00"},
+        hipotesis=[Hipotesis(escenario="gasto_compartido_puntual", confianza=0.6, deudores=["MARCOS R"])],
+        deudores=[Deudor(contraparte="MARCOS R", cuota=Decimal("24.00"))],
+    )
+    de_vuelta, crudo = ida_y_vuelta(caso)
+    assert crudo["deudores"][0]["cuota"] == "24.00"
+    assert de_vuelta == caso
+    assert de_vuelta.escenario is None and de_vuelta.deudores[0].estado == "detectada"
+
+
+def test_caso_rechaza_estado_fuera_de_lista():
+    from backend.plataforma.tipos import Caso
+
+    with pytest.raises(ValidationError):
+        Caso(id="c", usuario_id="u", creado=date(2026, 11, 9), estado="inventado")
