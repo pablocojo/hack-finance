@@ -285,6 +285,57 @@ def caducar(caso: Caso, hoy: date, ahora: datetime | None = None) -> Caso:
     return nuevo if nuevo != caso else caso
 
 
+def aplicar_resolucion(caso: Caso, resolucion: Any, hoy: date, ahora: datetime | None = None) -> Caso:
+    """Aplica lo que decidió la fase 2 del detector (`motor.dudas.ResolucionDuda`, ya validada y con la política
+    aplicada) a un caso `dudoso`. Deja rastro en `historial` con origen `ia_dudas` y el motivo. Nunca toca cifras:
+    las cuotas son las del caso (o la cuota del código para un candidato que no era deudor).
+
+    - `avisar`: el caso pasa a `abierto` con escenario y con los deudores reducidos a los candidatos (se quita a
+      quien la IA ve cubierto, p. ej. el acompañante de quien pagó por dos). Quita `propuesta_id` para que el
+      portero prepare una propuesta nueva solo con esos deudores.
+    - `preguntar`: sigue dudoso y guarda la pregunta en `hechos["pregunta"]` (la hace la llamada, una sola vez).
+    - `no_avisar`: sigue dudoso y en silencio; solo queda anotado.
+    """
+    if caso.estado != "dudoso":
+        return caso
+    cuando = ahora or ahora_por_defecto(hoy)
+    nuevo = _copia(caso)
+    nuevo.hechos["dudas_hash"] = resolucion.hash
+    nuevo.hechos.pop("dudas_fallo", None)
+    motivo = (resolucion.motivo or "").strip()
+    if resolucion.decision == "avisar":
+        cuota = a_decimal(nuevo.hechos.get("cuota"))
+        previos = {d.contraparte: d for d in nuevo.deudores}
+        elegidos: list[Deudor] = []
+        for clave in resolucion.candidatos:
+            if clave in previos:
+                elegidos.append(previos[clave])
+            elif cuota is not None:
+                elegidos.append(Deudor(contraparte=clave, cuota=cuota))
+        if not elegidos:
+            return caso
+        quitados = [nombre_visible(c) for c in previos if c not in resolucion.candidatos]
+        nuevo.deudores = elegidos
+        nuevo.escenario = resolucion.escenario
+        nuevo.estado = "abierto"
+        nuevo.propuesta_id = None
+        nuevo.hechos["resuelto_por"] = "ia_dudas"
+        nuevo.hechos["motivo_ia"] = motivo
+        nuevo.hechos["confianza_ia"] = resolucion.confianza
+        nuevo.hechos["faltan"] = len(elegidos)
+        nuevo.hechos["importe_pendiente"] = eur_texto(sum((d.cuota for d in elegidos), Decimal("0")))
+        quitado = f" Se quita a {', '.join(quitados)}." if quitados else ""
+        _anotar(nuevo, "ia_dudas", f"Duda resuelta como {resolucion.escenario}: {motivo}{quitado}", cuando)
+    elif resolucion.decision == "preguntar" and resolucion.pregunta:
+        nuevo.hechos["pregunta"] = {"texto": resolucion.pregunta, "candidatos": list(resolucion.candidatos),
+                                    "preguntada": hoy.isoformat(), "estado": "pendiente"}
+        _anotar(nuevo, "ia_dudas", f"Duda pendiente de preguntar al usuario: {resolucion.pregunta}", cuando)
+    else:
+        _anotar(nuevo, "ia_dudas", f"Sigue dudoso y sin avisar: {motivo}" if motivo else "Sigue dudoso y sin avisar.",
+                cuando)
+    return nuevo
+
+
 def aplicar_feedback(caso: Caso, resultado: str, hoy: date, ahora: datetime | None = None) -> Caso:
     """Respuesta al aviso -> caso. «No me lo debe» (`falso_positivo`, `no_avisar_contacto`) lo descarta;
     «ahora no» (`rechazada`) lo pospone; `ignorada` olvida a quien no se había pedido. El resto no lo toca."""
