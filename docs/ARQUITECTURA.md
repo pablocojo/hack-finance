@@ -191,7 +191,7 @@ Lo comparten `backend/api/rutas_*.py` y `frontend/lib/api.ts`. Convenciones: JSO
 **E8 (esqueleto)** crea los cuatro routers con **todas** las rutas de la tabla y los incluye en `main.py`; las que aún no tienen tarea hecha responden 501. Así el 10 nov nadie toca `main.py`.
 
 ## 5. Herramientas nuevas del agente (modo texto)
-En `backend/voz/herramientas_llamada.py`, con el `@herramienta` del kit y el grupo `llamada`: `registro.disponibles()` sin nombres las excluye, así el chat de `/kit` no las ve. `ctx` es una `SesionLlamada` (la `Sesion` del kit con `usuario_id`, `propuesta_id`, movimientos hasta hoy enmascarados y `emitir(tipo, datos)`).
+En `backend/voz/herramientas_llamada.py`, con el `@herramienta` del kit y el grupo `llamada`: `registro.disponibles()` sin nombres las excluye, así el chat de `/kit` no las ve. `ctx` es una `SesionLlamada` (la `Sesion` del kit con `usuario_id`, `propuesta_id`, movimientos hasta hoy enmascarados y `emitir(tipo, datos)`). Desde el 11 nov hay además tres de lectura (`consultar_cuentas`, `buscar_movimientos`, que en el plan B se llama `buscar_movimientos_llamada` porque el kit ya tiene otra con ese nombre, y `lo_que_sabes_de_mi`, en `voz/consultas.py`) y una de escritura (`actualizar_caso`, reglas en `casos/llamada.py`, escritura en `orquestador.actualizar_caso_llamada`), con «Deshacer»: ver `experiencia.md` §6.7.
 ```python
 def preparar_accion(accion_id: Literal["pedir_bizum", "cancelar_suscripcion", "bloquear_comercio", "reclamar_cargo",
                     "mover_dinero", "recordar"], contraparte: str | None = None, importe: float | None = None,
