@@ -240,6 +240,7 @@ La fase 2 del detector es la que más suma en «uso de IA frontera» (15 %): ens
 - [x] **Alguien paga por dos (48 € = 2 cuotas):** el código lo marca como dudoso (no sabe quién es el acompañante) y la fase 2 decide con grupos e historial. Si la IA es segura, quita al acompañante sin preguntar al usuario: eso solo cambia a quién propone pedir dinero, y el usuario sigue confirmando con el botón. El aviso enseña la hipótesis y sus motivos («Daniel pagó 48 €: parece que incluye a Marcos») y se puede corregir. Si la IA no es segura, lo pregunta la llamada («¿Daniel pagó también lo de Marcos?»).
 - [x] **Cuotas desiguales:** también a la fase 2. La IA valora la probabilidad con el contexto (p. ej. un restaurante suele ser «cada uno lo suyo») y decide entre avisar, preguntar o no avisar.
 - [x] **Sin red o sin IA, los casos dudosos no avisan** (van al resumen o esperan). Es mejor no pedir dinero a quien quizá ya pagó y, sobre todo, **el usuario nunca debe recibir avisos absurdos ni spam de Meisam**: ante la duda, silencio. Esto manda sobre cualquier umbral de confianza (el 0,7 del módulo no basta para un caso dudoso).
+- [x] **Aviso sin respuesta en 48 h:** el deudor sin solicitud pasa a «olvidada»; el caso sigue abierto, no se insiste y se salda solo si pagan después (Pablo, 10 nov).
 - [x] **Foco del producto:** un Meisam que quita al usuario la carga de estar pendiente de quién le debe dinero y de acordarse. Recortados el panel `/jurado` y la creación de módulos en directo.
 
 ## Fuentes
