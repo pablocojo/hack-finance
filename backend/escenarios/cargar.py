@@ -216,6 +216,8 @@ def encaja(etiqueta: dict, momento: Momento) -> bool:
     ids = etiqueta.get("ids") or []        # sin ids (una prueba que dijo el cliente): vale cualquiera del tipo
     if momento.tipo != etiqueta["tipo"] or (ids and not set(ids) & set(momento.movimientos)):
         return False
+    if bool(momento.datos.get("dudoso")) != bool(etiqueta.get("dudoso", False)):
+        return False
     desde = _fecha(etiqueta["fecha_detectable"])
     if not desde <= momento.fecha <= desde + timedelta(days=int(etiqueta.get("tolerancia_dias", 0))):
         return False
@@ -239,7 +241,7 @@ def evaluar(escenario: Escenario, momentos: list[Momento], con_perfil: bool = Fa
     por_tipo: dict[str, dict[str, int]] = {}
 
     def cuenta(tipo: str, campo: str) -> None:
-        por_tipo.setdefault(tipo, {"aciertos": 0, "omitidos": 0, "falsos": 0})[campo] += 1
+        por_tipo.setdefault(tipo, {"aciertos": 0, "omitidos": 0, "falsos": 0, "dudosos": 0})[campo] += 1
 
     for etiqueta in etiquetas:
         momento = next((m for m in momentos if m.id not in usados and encaja(etiqueta, m)), None)
@@ -250,18 +252,24 @@ def evaluar(escenario: Escenario, momentos: list[Momento], con_perfil: bool = Fa
         usados.add(momento.id)
         retrasos.append((momento.fecha - _fecha(etiqueta["fecha_detectable"])).days)
         cuenta(etiqueta["tipo"], "aciertos")
-    falsos = [m for m in momentos if m.id not in usados]
+    sobrantes = [m for m in momentos if m.id not in usados]
+    dudosos = [m for m in sobrantes if m.datos.get("dudoso")]
+    falsos = [m for m in sobrantes if not m.datos.get("dudoso")]
     for m in falsos:
         cuenta(m.tipo, "falsos")
+    for m in dudosos:
+        cuenta(m.tipo, "dudosos")
     violadas = [{"tipo": t["tipo"], "ids": list(t.get("ids", [])), "motivo": t.get("motivo", ""), "momento": m.id}
                 for t in escenario.trampas for m in momentos
-                if m.tipo == t["tipo"] and set(t.get("ids", [])) & set(m.movimientos)]
+                if m.tipo == t["tipo"] and set(t.get("ids", [])) & set(m.movimientos)
+                and (t.get("incluye_dudosos") or not m.datos.get("dudoso"))]
     return {
         "escenario": escenario.id,
         "con_perfil": con_perfil,
         "aciertos": len(etiquetas) - len(omitidos),
         "omitidos": len(omitidos),
         "falsos_positivos": [m.id for m in falsos],
+        "dudosos": [m.id for m in dudosos],
         "trampas_violadas": violadas,
         "retrasos": retrasos,
         "por_tipo": por_tipo,

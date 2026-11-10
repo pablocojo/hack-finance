@@ -64,8 +64,9 @@ def procesar(
         )
         hallazgos = [h for detector in REGISTRO.values() for h in detector.detectar(ctx)]
         fechas = {m.id: m.fecha for m in historial}
+        saldo_hoy = next((m.saldo for m in reversed(historial) if m.saldo is not None), None)
         momentos = razonador.razonar(usuario_id, hallazgos, estado.claves_emitidas, hoy, fechas,
-                                     params["razonador"], perfil)
+                                     params["razonador"], perfil, saldo_hoy)
         estado.ultimo_hoy = max(estado.ultimo_hoy or hoy, hoy)
         return momentos
 

@@ -1,0 +1,22 @@
+# gasto_compartido con perfil (motor.md §2.3 y §5): una cena pequeña de 28 € entre cuatro.
+# Datos sintéticos. 28 € < 30 € (IMPORTE_MIN_PAGO) no es un pago compartido sin perfil. Con el perfil de Eva
+# (ticket_tipico 12 € -> IMPORTE_MIN_PAGO = clamp(2 x 12, 20, 60) = 24 €) sí: 2 Bizums de 7 € y falta Sara
+# (miembro del grupo del perfil, retraso p75 = 2 días -> espera 3). El pago y los Bizums son del 6/11 y sale el 9/11 (3 días de espera).
+id: cena-pequena-perfil
+usuario_id: eva
+descripcion: "Eva paga 28 € en una cena de cuatro y falta Sara: solo se detecta con el perfil"
+fondo: {perfil: estudiante, meses: 4, semilla: 13, hasta: 2026-11-16, anomalias: false}
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: {calculado: 2026-10-01, dias_historial: 120, ticket_tipico: "12", umbral_relevante_eur: "40",
+         grupos: [{miembros: ["LAURA M", "DANIEL P", "SARA L"], veces: 3, retraso_p75_dias: 2}]}
+movimientos:
+  - {id: eva-c1, fecha: 2026-11-06, concepto: "COMPRA TARJETA PIZZERIA NAPOLI", comercio: "PIZZERIA NAPOLI", importe: -28.00, canal: tarjeta, categoria: restaurantes}
+  - {id: eva-b1, fecha: 2026-11-06, concepto: "BIZUM RECIBIDO", contraparte: "Laura Martinez Garcia", nota: "pizza", importe: 7.00, canal: bizum}
+  - {id: eva-b2, fecha: 2026-11-06, concepto: "BIZUM RECIBIDO", contraparte: "Daniel Perez Ruiz", nota: "pizza", importe: 7.00, canal: bizum}
+eventos: []
+esperado:
+  - {tipo: gasto_compartido, fecha_detectable: 2026-11-09, ids: [eva-c1], tolerancia_dias: 0, solo_con_perfil: true,
+     datos: {pago_id: eva-c1, importe_total: "28.00", personas_estimadas: 4, faltan: 1, importe_pendiente: "7.00", cuota: "7.00"},
+     candidatos: ["SARA L"]}
+trampas: []

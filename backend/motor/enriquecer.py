@@ -238,7 +238,8 @@ def lineas_base(historial: list[MovimientoEnriquecido], hoy: date,
 
     p = p or parametros.DEFECTO["gasto_compartido"]
     cerrados = [r for r in repartos(historial, p).values()
-                if r.valido and hoy - r.pago.fecha > timedelta(days=p.VENTANA_REEMBOLSO)]
+                if r.valido and not r.multiples and not r.empate
+                and hoy - r.pago.fecha > timedelta(days=p.VENTANA_REEMBOLSO)]
     retrasos = [(b.fecha - r.pago.fecha).days for r in cerrados for b in r.reembolsos]
     return {
         "retraso_reembolso_p75": percentil_75(retrasos) if len(retrasos) >= p.MIN_RETRASOS_P75 else None,

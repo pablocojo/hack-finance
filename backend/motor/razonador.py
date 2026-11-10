@@ -7,19 +7,20 @@ Razonador (motor.md §2.5): de hallazgos a `Momento`s. Sin Claude: todo por cód
    queda marcado como emitido (no reaparece al día siguiente).
 4. Orden: prioridad y luego `impacto_eur`.
 5. `explicacion`: una frase por plantilla, en formato español. Nunca lleva notas de Bizum.
-M9 añadirá `impacto_relativo` y `contexto_personal` con el perfil.
+6. Con perfil (M9): `impacto_relativo` y `contexto_personal` (motor.md §2.5.6), por código y plantillas.
 """
 
 from __future__ import annotations
 
 import hashlib
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Callable
 
 from ..plataforma.tipos import Momento, PerfilUsuario
 from . import detectores
 from .detectores.base import Hallazgo
+from .formato import decimal, eur  # noqa: F401  (`eur` es API pública del razonador)
 from .parametros import Razonador
 
 VERSION_MOTOR = "motor-0.2"
@@ -32,14 +33,7 @@ _MINUSCULAS = {"DE", "DEL", "LA", "LAS", "EL", "LOS", "Y", "EN", "A"}
 
 # --- Formato ---------------------------------------------------------------------------------
 
-def _decimal(valor: Any) -> Decimal:
-    return valor if isinstance(valor, Decimal) else Decimal(str(valor))
-
-
-def eur(valor: Any) -> str:
-    """`Decimal("1234.5")` -> «1.234,50 €»."""
-    texto = f"{_decimal(valor):,.2f}"
-    return texto.replace(",", "X").replace(".", ",").replace("X", ".") + " €"
+_decimal = decimal
 
 
 def nombre_visible(comercio: str | None) -> str:
@@ -60,6 +54,13 @@ def _explicar_gasto_compartido(d: dict) -> str:
     reembolsos = d.get("reembolsos", [])
     devuelto = sum((_decimal(r["importe"]) for r in reembolsos), Decimal("0"))
     n, faltan = len(reembolsos), int(d["faltan"])
+    if d.get("dudoso"):
+        motivo = str(((d.get("hipotesis") or [{}])[0]).get("motivo", "no encaja del todo")).rstrip(".")
+        if motivo.split(" ")[0] in ("Los", "El", "La", "Cada"):     # no es un nombre propio
+            motivo = motivo[0].lower() + motivo[1:]
+        return (f"Pagaste {eur(d['importe_total'])} en {nombre_visible(d.get('comercio'))} y te han devuelto "
+                f"{eur(devuelto)} de {n} {_plural(n, 'persona', 'personas')}, pero no está claro si falta alguien: "
+                f"{motivo}.")
     return (f"Pagaste {eur(d['importe_total'])} en {nombre_visible(d.get('comercio'))} y te han devuelto "
             f"{eur(devuelto)} de {n} {_plural(n, 'persona', 'personas')}; "
             f"{_plural(faltan, 'falta', 'faltan')} {faltan} ({eur(d['importe_pendiente'])}).")
@@ -155,6 +156,82 @@ def _prioridad(tipo: str) -> int:
     return PRIORIDAD.index(tipo) if tipo in PRIORIDAD else len(PRIORIDAD)
 
 
+# --- Contexto personal (con perfil) ----------------------------------------------------------
+
+DIAS_ANTES_NOMINA = 5          # un cobro en los 5 días previos a la nómina se avisa como tal
+TIPOS_CON_COBRO = ("prueba_gratuita", "renovacion_proxima")
+CAMPOS_FECHA_COBRO = ("fecha_primer_cobro", "fecha_prevista")
+
+
+def _dias_hasta_dia_del_mes(dia: int, desde: date) -> int:
+    """Días desde `desde` hasta el próximo día `dia` del mes (0 si es ese día)."""
+    def ultimo(anio: int, mes: int) -> int:
+        return (date(anio + (mes == 12), mes % 12 + 1, 1) - date(anio, mes, 1)).days
+
+    d = min(dia, ultimo(desde.year, desde.month))
+    if desde.day <= d:
+        return d - desde.day
+    anio, mes = desde.year + (desde.month == 12), desde.month % 12 + 1
+    return (date(anio, mes, min(dia, ultimo(anio, mes))) - desde).days
+
+
+def _campo_perfil(perfil: PerfilUsuario, nombre: str) -> Any:
+    return None if nombre in perfil.campos_borrados else getattr(perfil, nombre, None)
+
+
+def _dias(n: int) -> str:
+    return f"{n} {_plural(n, 'día', 'días')}"
+
+
+def _frase_base(impacto: Decimal, perfil: PerfilUsuario, hoy: date,
+                saldo_hoy: Decimal | None) -> tuple[Decimal | None, str | None]:
+    """Primera regla con datos (a: saldo y nómina; b: ingreso típico; c: umbral relevante)."""
+    nomina = _campo_perfil(perfil, "dia_cobro_nomina")
+    dias = _dias_hasta_dia_del_mes(int(nomina), hoy) if nomina else 0
+    if saldo_hoy is not None and saldo_hoy > 0 and dias >= 1:
+        relativo = impacto / saldo_hoy
+        if relativo >= 1:
+            return _relativo(relativo), f"Es más de lo que te queda hasta la nómina ({_dias(dias)})"
+        frase = (f"Te {_plural(dias, 'queda', 'quedan')} {_dias(dias)} hasta la nómina y son el "
+                 f"{_pct(relativo * 100)} % de lo que te queda")
+        return _relativo(relativo), frase if relativo >= Decimal("0.01") else None
+    ingreso = _campo_perfil(perfil, "ingreso_mensual_tipico")
+    if ingreso is not None and ingreso > 0:
+        relativo = impacto / ingreso
+        frase = f"Es el {_pct(relativo * 100)} % de lo que sueles ingresar al mes"
+        return _relativo(relativo), frase if relativo >= Decimal("0.01") else None
+    umbral = _campo_perfil(perfil, "umbral_relevante_eur")
+    if umbral is not None and umbral > 0 and impacto >= umbral:
+        return _relativo(impacto / umbral), (f"Está por encima de lo que para ti es un gasto importante "
+                                             f"({eur(umbral).replace(',00', '')})")
+    return None, None
+
+
+def _relativo(valor: Decimal) -> Decimal:
+    return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def contexto_personal(h: Hallazgo, perfil: PerfilUsuario | None, hoy: date,
+                      saldo_hoy: Decimal | None) -> tuple[Decimal | None, str | None]:
+    """`(impacto_relativo, frase)` solo con perfil. Cifras del código, frases por plantilla, nada de Claude.
+    Un caso dudoso no lleva contexto: sus importes son una estimación."""
+    if perfil is None or h.datos.get("dudoso"):
+        return None, None
+    relativo, frase = (None, None)
+    if h.impacto_eur is not None and h.impacto_eur > 0:
+        relativo, frase = _frase_base(h.impacto_eur, perfil, hoy, saldo_hoy)
+    nomina = _campo_perfil(perfil, "dia_cobro_nomina")
+    if nomina and h.tipo in TIPOS_CON_COBRO:
+        cobro = next((h.datos[c] for c in CAMPOS_FECHA_COBRO if h.datos.get(c)), None)
+        if cobro:
+            fecha = date.fromisoformat(str(cobro))
+            antes = _dias_hasta_dia_del_mes(int(nomina), fecha)
+            if 1 <= antes <= DIAS_ANTES_NOMINA:
+                inicio = f"El cobro llega {_dias(antes)} antes de tu nómina"
+                frase = f"{inicio}. {frase}" if frase else inicio
+    return relativo, (frase + "." if frase else None)
+
+
 def razonar(
     usuario_id: str,
     hallazgos: list[Hallazgo],
@@ -163,8 +240,10 @@ def razonar(
     fechas: dict[str, date],
     params: Razonador,
     perfil: PerfilUsuario | None = None,
+    saldo_hoy: Decimal | None = None,
 ) -> list[Momento]:
-    """Convierte hallazgos en momentos nuevos y anota sus claves en `emitidas` (lo muta)."""
+    """Convierte hallazgos en momentos nuevos y anota sus claves en `emitidas` (lo muta).
+    `saldo_hoy`: último saldo conocido (<= hoy), para el contexto personal con perfil."""
     vivos = [h for h in hallazgos if h.confianza >= params.CONFIANZA_MIN and clave_completa(h) not in emitidas]
     vivos.sort(key=lambda h: (_prioridad(h.tipo), -(h.impacto_eur or Decimal("0"))))
     usados: dict[str, str] = {}
@@ -176,6 +255,7 @@ def razonar(
             emitidas[clave_completa(h)] = f"solapado:{solape}"
             continue
         ids = sorted(dict.fromkeys(h.movimientos), key=lambda i: (fechas.get(i, hoy), h.movimientos.index(i)))
+        relativo, contexto = contexto_personal(h, perfil, hoy, saldo_hoy)
         momentos.append(Momento(
             id=ident,
             tipo=h.tipo,
@@ -188,6 +268,8 @@ def razonar(
             explicacion=explicar(h.tipo, h.datos),
             detector=h.tipo,
             version=f"{VERSION_MOTOR}/{h.tipo}-{detectores.version(h.tipo)}",
+            impacto_relativo=relativo,
+            contexto_personal=contexto,
         ))
         emitidas[clave_completa(h)] = ident
         usados.update({i: ident for i in ids})

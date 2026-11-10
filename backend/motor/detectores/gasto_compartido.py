@@ -4,17 +4,28 @@ con un Bizum y falta alguien.
 
 Cuándo: el primer `hoy` con `hoy - pago >= DIAS_ESPERA` (p75 propio + 1, entre 2 y 5; 3 sin línea base)
 y al menos un día desde el último reembolso, mientras `faltan >= 1` y `hoy - pago <= VENTANA_REEMBOLSO`.
-Candidatos: quienes devolvieron junto a alguno de los que ya han pagado en repartos anteriores.
+Candidatos: quienes devolvieron junto a alguno de los que ya han pagado en repartos anteriores o, con
+perfil, los miembros que faltan del grupo del perfil que más coincide (y su retraso p75 fija la espera).
 Las notas de los Bizums solo suben la confianza: nunca salen en `datos` ni en la explicación.
+
+Casos dudosos (deudas-casos.md, fase 1): si la señal no es inequívoca, el momento sale con
+`datos["dudoso"] = True`, `datos["hipotesis"] = [{candidatos, faltan, motivo}]` y confianza `CONFIANZA_DUDOSO`
+(0,60, bajo el 0,7 del módulo): sin IA no avisa; la fase 2 elige. Son dudosos: alguien que paga k cuotas (no se
+sabe a quién cubre) mientras aún falta gente, dos cuotas posibles, un envío de un candidato que no encaja
+con la cuota y las cuotas desiguales. Un redondeo (<= 1 €) o un múltiplo que deja el reparto cubierto no
+dudan (este último ni siquiera avisa: no falta nadie). Con la clave `dudoso` ausente, el aviso es firme.
 """
 
 from __future__ import annotations
 
 import re
 from collections import Counter
+from decimal import Decimal
 
 from ...datos.categorias import normalizar as normalizar_texto
+from ...plataforma.tipos import MovimientoEnriquecido, PerfilUsuario
 from ..enriquecer import centimos
+from ..formato import eur, nombre_persona
 from ..parametros import GastoCompartido
 from ..reparto import Reparto, repartos
 from . import registrar
@@ -44,6 +55,28 @@ def candidatos(pagadores: set[str], repartos_previos: list[list[str]], p: GastoC
     return sorted(elegidos, key=lambda par: (-par[1], par[0]))
 
 
+def grupo_del_perfil(perfil: PerfilUsuario | None, pagadores: set[str]):
+    """El grupo del perfil con más miembros entre los que ya pagaron (>= 2, o >= 1 si el grupo tiene <= 4)."""
+    if perfil is None or "grupos" in perfil.campos_borrados:
+        return None
+    posibles = [(len(set(g.miembros) & pagadores), g.veces, g) for g in perfil.grupos
+                if len(set(g.miembros) & pagadores) >= (1 if len(g.miembros) <= 4 else 2)]
+    return max(posibles, key=lambda t: (t[0], t[1]), default=(0, 0, None))[2]
+
+
+def _candidatos(ctx: Contexto, pagadores: set[str], personas: int | None,
+                p: GastoCompartido) -> tuple[list[tuple[str, int]], bool]:
+    """`([(contraparte, peso)], fuertes)`: los miembros del grupo del perfil que faltan (por `veces`) o, sin
+    perfil, los de las líneas base propias. `fuertes`: encaja el grupo con las personas o hay >= 3 coincidencias."""
+    grupo = grupo_del_perfil(ctx.perfil, pagadores)
+    if grupo is not None:
+        faltan = [(m, grupo.veces) for m in sorted(set(grupo.miembros) - pagadores)]
+        if faltan:
+            return faltan, personas is not None and len(grupo.miembros) == personas - 1
+    propios = candidatos(pagadores, ctx.lineas_base.get("repartos", []), p)
+    return propios, bool(propios) and propios[0][1] >= p.COINCIDENCIAS_FUERTES
+
+
 def _confianza(reparto: Reparto, fuertes: bool, p: GastoCompartido) -> float:
     confianza = p.CONFIANZA_BASE
     confianza += 0.15 if reparto.cuadra else 0
@@ -54,42 +87,143 @@ def _confianza(reparto: Reparto, fuertes: bool, p: GastoCompartido) -> float:
     return round(min(confianza, p.CONFIANZA_MAX), 2)
 
 
-@registrar("gasto_compartido", version=1)
+def _entrada(r: MovimientoEnriquecido) -> dict:
+    return {"contraparte": r.contraparte_normalizada, "importe": centimos(r.importe), "id": r.id}
+
+
+def _hipotesis(reparto: Reparto, todos: list[str], extras: list[MovimientoEnriquecido]) -> list[dict]:
+    """Hipótesis de un reparto con cuota común y alguna duda. Frases legibles, sin notas de Bizum."""
+    faltan, cuota = reparto.faltan, reparto.cuota
+    hipotesis = []
+    for r in reparto.multiples:
+        k = reparto.pesos[r.id]
+        hipotesis.append({
+            "candidatos": todos[: (faltan + k - 1) * 2],
+            "faltan": faltan,
+            "motivo": (f"{nombre_persona(r.contraparte_normalizada)} envió {eur(r.importe)}, {k} cuotas de "
+                       f"{eur(cuota)}: no se sabe a quién más cubre"),
+        })
+    if reparto.empate:
+        hipotesis.append({"candidatos": todos[: faltan * 2], "faltan": faltan,
+                          "motivo": f"El reparto encaja con más de una cuota; he tomado {eur(cuota)}"})
+    for e in extras:
+        quien = e.contraparte_normalizada
+        motivo = f"{nombre_persona(quien)} envió {eur(e.importe)}, que no encaja con la cuota de {eur(cuota)}"
+        hipotesis.append({"candidatos": [c for c in todos if c != quien][: max(faltan - 1, 0) * 2],
+                          "faltan": max(faltan - 1, 0), "motivo": motivo + ": puede ser su parte"})
+        hipotesis.append({"candidatos": todos[: faltan * 2], "faltan": faltan,
+                          "motivo": motivo + ": puede ser otra cosa y que aún deba su parte"})
+    return hipotesis
+
+
+def _hallazgo_cuota_comun(ctx: Contexto, reparto: Reparto, p: GastoCompartido) -> Hallazgo:
+    pago = reparto.pago
+    reembolsos = reparto.reembolsos
+    pagadores = {r.contraparte_normalizada for r in reembolsos}
+    todos, fuertes = _candidatos(ctx, pagadores, reparto.personas, p)
+    elegidos = todos[: reparto.faltan * 2]
+    posibles = {c for c, _ in todos}
+    extras = [e for e in reparto.extras if e.contraparte_normalizada in posibles]
+    hipotesis = []
+    if reparto.multiples or reparto.empate or extras:
+        hipotesis = _hipotesis(reparto, [c for c, _ in todos], extras)
+    cuota = reparto.cuota
+    pendiente = centimos(reparto.faltan * cuota)
+    datos = {
+        "pago_id": pago.id,
+        "comercio": pago.comercio_normalizado,
+        "importe_total": centimos(reparto.total),
+        "fecha": pago.fecha.isoformat(),
+        "reembolsos": [{**_entrada(r), **({"personas": reparto.pesos[r.id]} if reparto.pesos.get(r.id, 1) > 1 else {})}
+                       for r in reembolsos],
+        "personas_estimadas": reparto.personas,
+        "faltan": reparto.faltan,
+        "importe_pendiente": pendiente,
+        "candidatos": [{"contraparte": c, "importe": cuota} for c, _ in elegidos],
+        "cuota": cuota,
+    }
+    confianza = _confianza(reparto, fuertes, p)
+    if hipotesis:
+        datos["dudoso"] = True
+        datos["hipotesis"] = hipotesis
+        if extras:
+            datos["sin_encajar"] = [_entrada(e) for e in extras]
+        confianza = min(confianza, p.CONFIANZA_DUDOSO)
+    return Hallazgo(
+        tipo="gasto_compartido", clave=pago.id,
+        movimientos=[pago.id, *(r.id for r in reembolsos), *(e.id for e in extras)],
+        confianza=confianza, impacto_eur=pendiente, datos=datos,
+    )
+
+
+def _hallazgo_desigual(ctx: Contexto, reparto: Reparto, p: GastoCompartido) -> Hallazgo | None:
+    """Cada uno pagó una cantidad distinta: siempre dudoso (lo valora la fase 2 con el contexto)."""
+    pago = reparto.pago
+    recibidos = sorted([*reparto.reembolsos, *reparto.extras], key=lambda m: m.fecha)
+    pagadores = {r.contraparte_normalizada for r in recibidos}
+    previos = ctx.lineas_base.get("repartos", [])
+    conocidos = {m for grupo in previos for m in grupo}
+    if ctx.perfil is not None and "grupos" not in ctx.perfil.campos_borrados:
+        conocidos |= {m for g in ctx.perfil.grupos for m in g.miembros}
+    cubierto = sum((r.importe for r in recibidos), Decimal("0"))
+    if len(pagadores & conocidos) < p.MIN_CONOCIDOS_DESIGUAL or cubierto >= reparto.total * p.CUBIERTO_MAX_PCT:
+        return None
+    todos, _ = _candidatos(ctx, pagadores, None, p)
+    elegidos = [c for c, _ in todos][: max(p.PERSONAS_MAX - 1 - len(pagadores), 0)]
+    if not elegidos:
+        return None
+    faltan = len(elegidos)
+    cuota = centimos((reparto.total - cubierto) / (faltan + 1))
+    if cuota <= 0:
+        return None
+    pendiente = centimos(faltan * cuota)
+    importes = [r.importe for r in recibidos]
+    motivo = (f"Los envíos son distintos (de {eur(min(importes))} a {eur(max(importes))}): puede que cada uno "
+              f"pague lo suyo y no se sabe cuánto falta")
+    datos = {
+        "pago_id": pago.id,
+        "comercio": pago.comercio_normalizado,
+        "importe_total": centimos(reparto.total),
+        "fecha": pago.fecha.isoformat(),
+        "reembolsos": [_entrada(r) for r in recibidos],
+        "personas_estimadas": len(pagadores) + 1 + faltan,
+        "faltan": faltan,
+        "importe_pendiente": pendiente,
+        "candidatos": [{"contraparte": c, "importe": cuota} for c in elegidos],
+        "cuota": cuota,
+        "cuota_estimada": True,
+        "dudoso": True,
+        "hipotesis": [
+            {"candidatos": elegidos, "faltan": faltan, "motivo": motivo},
+            {"candidatos": [], "faltan": 0, "motivo": "Cada uno pudo pagar su parte y la cuenta estar cerrada"},
+        ],
+    }
+    return Hallazgo(tipo="gasto_compartido", clave=pago.id, movimientos=[pago.id, *(r.id for r in recibidos)],
+                    confianza=p.CONFIANZA_DUDOSO, impacto_eur=pendiente, datos=datos)
+
+
+@registrar("gasto_compartido", version=2)
 def detectar(ctx: Contexto) -> list[Hallazgo]:
     p: GastoCompartido = ctx.params["gasto_compartido"]
-    espera = dias_espera(p, ctx.lineas_base.get("retraso_reembolso_p75"))
+    propio = ctx.lineas_base.get("retraso_reembolso_p75")
     hallazgos = []
     for reparto in repartos(ctx.historial, p).values():
-        pago = reparto.pago
-        dias = (ctx.hoy - pago.fecha).days
-        if not reparto.valido or reparto.faltan < 1 or not espera <= dias <= p.VENTANA_REEMBOLSO:
+        dias = (ctx.hoy - reparto.pago.fecha).days
+        grupo = grupo_del_perfil(ctx.perfil, {r.contraparte_normalizada for r in [*reparto.reembolsos, *reparto.extras]})
+        espera = dias_espera(p, grupo.retraso_p75_dias if grupo is not None and grupo.retraso_p75_dias is not None
+                             else propio)
+        if not espera <= dias <= p.VENTANA_REEMBOLSO:
             continue
-        reembolsos = sorted(reparto.reembolsos, key=lambda r: r.fecha)
-        if (ctx.hoy - reembolsos[-1].fecha).days < p.MIN_DIAS_DESDE_ULTIMO:
+        if reparto.valido and reparto.faltan >= 1:
+            ultimo, construir = max(r.fecha for r in reparto.reembolsos), _hallazgo_cuota_comun
+        elif reparto.desigual:
+            ultimo = max(r.fecha for r in [*reparto.reembolsos, *reparto.extras])
+            construir = _hallazgo_desigual
+        else:
             continue
-        pagadores = {r.contraparte_normalizada for r in reembolsos}
-        elegidos = candidatos(pagadores, ctx.lineas_base.get("repartos", []), p)[: reparto.faltan * 2]
-        fuertes = bool(elegidos) and elegidos[0][1] >= p.COINCIDENCIAS_FUERTES
-        cuota = reparto.cuota
-        pendiente = centimos(reparto.faltan * cuota)
-        hallazgos.append(Hallazgo(
-            tipo="gasto_compartido",
-            clave=pago.id,
-            movimientos=[pago.id, *(r.id for r in reembolsos)],
-            confianza=_confianza(reparto, fuertes, p),
-            impacto_eur=pendiente,
-            datos={
-                "pago_id": pago.id,
-                "comercio": pago.comercio_normalizado,
-                "importe_total": centimos(reparto.total),
-                "fecha": pago.fecha.isoformat(),
-                "reembolsos": [{"contraparte": r.contraparte_normalizada, "importe": centimos(r.importe), "id": r.id}
-                               for r in reembolsos],
-                "personas_estimadas": reparto.personas,
-                "faltan": reparto.faltan,
-                "importe_pendiente": pendiente,
-                "candidatos": [{"contraparte": c, "importe": cuota} for c, _ in elegidos],
-                "cuota": cuota,
-            },
-        ))
+        if (ctx.hoy - ultimo).days < p.MIN_DIAS_DESDE_ULTIMO:
+            continue
+        hallazgo = construir(ctx, reparto, p)
+        if hallazgo:
+            hallazgos.append(hallazgo)
     return hallazgos

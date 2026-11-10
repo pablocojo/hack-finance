@@ -3,13 +3,13 @@ Parámetros del motor con nombre (motor.md §2.3). Un dataclass por pieza, con s
 y una única función de umbrales personales: `ajustar(params, perfil)`.
 
 Sin perfil, `ajustar` devuelve el mismo objeto (arranque en frío idéntico; hay test de regresión).
-La tabla de ajustes con perfil (ticket_tipico, umbral_relevante_eur...) llega en M9.
+Los ajustes con perfil (ticket_tipico, umbral_relevante_eur) están en `ajustar` (M9).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from decimal import Decimal
+from dataclasses import dataclass, replace
+from decimal import ROUND_HALF_UP, Decimal
 from typing import TypeVar
 
 from ..plataforma.tipos import PerfilUsuario
@@ -52,6 +52,13 @@ class GastoCompartido:
     COINCIDENCIAS_FUERTES: int = 3
     CONFIANZA_BASE: float = 0.50
     CONFIANZA_MAX: float = 0.95
+    # Deudas por casos (deudas-casos.md): lo que no encaja con una cuota exacta
+    MAX_MULTIPLO: int = 3               # un Bizum de k x cuota (k <= 3) cuenta como k personas
+    TOL_REDONDEO_EUR: Decimal = Decimal("1")  # redondeo: a <= 1 € de la cuota (en un múltiplo, 1 € por cuota)
+    PARTE_MAX_PCT: Decimal = Decimal("0.6")   # un envío mayor que el 60 % del total no es la parte de nadie
+    MIN_CONOCIDOS_DESIGUAL: int = 2     # cuotas desiguales: al menos 2 pagadores de repartos anteriores
+    CUBIERTO_MAX_PCT: Decimal = Decimal("0.95")  # desiguales: si ya se ha recibido el 95 % del total, no falta nada
+    CONFIANZA_DUDOSO: float = 0.60      # un caso dudoso nunca llega al 0,7 del módulo: lo resuelve la fase 2
 
 
 @dataclass(frozen=True)
@@ -119,11 +126,41 @@ DEFECTO: dict[str, object] = {
 }
 
 
+def _acotar(valor: Decimal, minimo: Decimal, maximo: Decimal) -> Decimal:
+    return min(max(valor, minimo), maximo)
+
+
+def _campo(perfil: PerfilUsuario, nombre: str):
+    """El valor del campo del perfil, o None si falta o el usuario lo borró (entonces no cambia nada)."""
+    if nombre in perfil.campos_borrados:
+        return None
+    return getattr(perfil, nombre, None)
+
+
+def _eur(valor: Decimal) -> Decimal:
+    return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
 def ajustar(params: Parametros, perfil: PerfilUsuario | None) -> Parametros:
-    """Única función de umbrales personales. Sin perfil, los mismos valores (el mismo objeto)."""
+    """Única función de umbrales personales (motor.md §2.3). Sin perfil, los mismos valores (el mismo objeto).
+    Con perfil, solo cambia lo de la tabla; un campo que falte o esté borrado no cambia nada.
+
+    - `GastoCompartido.IMPORTE_MIN_PAGO` = clamp(2 x `ticket_tipico`, 20, 60).
+    - `CargoDuplicado.IMPORTE_MIN_TARJETA` = clamp(0,5 x `ticket_tipico`, 5, 30).
+    - `SubidaRecibo.SUBIDA_MIN_ANUAL` = max(12, 0,10 x `umbral_relevante_eur`).
+    - `PruebaGratuita`: nada numérico; `suscripciones_activas` se lee en `pruebas.py` (ignora `en_prueba`).
+    - Los grupos (candidatos de la cena y su retraso p75) los lee el detector `gasto_compartido`.
+    """
     if perfil is None:
         return params
-    return params  # M9: tabla de motor.md §2.3 (ticket_tipico, umbral_relevante_eur, grupos...)
+    ticket, umbral = _campo(perfil, "ticket_tipico"), _campo(perfil, "umbral_relevante_eur")
+    if isinstance(params, GastoCompartido) and ticket is not None:
+        return replace(params, IMPORTE_MIN_PAGO=_eur(_acotar(2 * ticket, Decimal("20"), Decimal("60"))))
+    if isinstance(params, CargoDuplicado) and ticket is not None:
+        return replace(params, IMPORTE_MIN_TARJETA=_eur(_acotar(ticket / 2, Decimal("5"), Decimal("30"))))
+    if isinstance(params, SubidaRecibo) and umbral is not None:
+        return replace(params, SUBIDA_MIN_ANUAL=_eur(max(params.SUBIDA_MIN_ANUAL, umbral / 10)))
+    return params
 
 
 def ajustados(perfil: PerfilUsuario | None) -> dict[str, object]:

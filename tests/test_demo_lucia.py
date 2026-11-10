@@ -88,8 +88,6 @@ def test_demo_lucia_el_duplicado_de_la_libreria_no_sale_sin_perfil(sin_perfil):
     assert de_tipo(sin_perfil, "cargo_duplicado") == []
 
 
-@pytest.mark.xfail(reason="Espera a M9 (`parametros.ajustar` baja el umbral del duplicado a 6 € con el perfil).",
-                   strict=False)
 def test_demo_lucia_el_duplicado_de_la_libreria_sale_con_perfil_el_15_de_octubre(demo, con_perfil):
     [m] = de_tipo(con_perfil, "cargo_duplicado")
     assert m.fecha == etiqueta(demo, "cargo_duplicado")["fecha_detectable"] == date(2026, 10, 15)
@@ -100,9 +98,8 @@ def test_demo_lucia_el_duplicado_de_la_libreria_sale_con_perfil_el_15_de_octubre
 def test_demo_lucia_no_dispara_ninguna_trampa_ni_falsos_positivos(demo, sin_perfil, con_perfil, con):
     r = cargar.evaluar(demo, con_perfil if con else sin_perfil, con_perfil=con)
     assert r["trampas_violadas"] == [] and r["falsos_positivos"] == []
-    assert r["omitidos"] == (1 if con else 0)              # con perfil: el duplicado, hasta M9
-    if con:
-        assert [e["tipo"] for e in r["detalle_omitidos"]] == ["cargo_duplicado"]
+    assert r["omitidos"] == 0 and r["detalle_omitidos"] == []        # con perfil, además, el duplicado (M9)
+    assert r["aciertos"] == (4 if con else 3)
 
 
 def test_demo_lucia_cada_momento_lleva_evidencias_confianza_y_explicacion(sin_perfil):

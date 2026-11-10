@@ -1,0 +1,22 @@
+# cargo_duplicado con perfil (motor.md §2.3 y §5): la librería cobra dos veces 9,90 € el mismo día.
+# Datos sintéticos. Sin perfil, 9,90 € < 15 € (IMPORTE_MIN_TARJETA) y no avisa; con el perfil de Eva
+# (ticket_tipico 12 € -> umbral clamp(0,5 x 12, 5, 30) = 6 €) sale ese mismo día con confianza de tarjeta (0,70).
+id: libreria-doble-perfil
+usuario_id: eva
+descripcion: "La librería cobra dos veces 9,90 €: solo se detecta con el perfil (umbral personal de 6 €)"
+fondo: {perfil: estudiante, meses: 4, semilla: 13, hasta: 2026-11-16, anomalias: false}
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: {calculado: 2026-10-01, dias_historial: 120, ticket_tipico: "12", umbral_relevante_eur: "40", dia_cobro_nomina: 28}
+movimientos:
+  - {id: lib-d1, fecha: 2026-10-15, concepto: "COMPRA TARJETA LIBRERIA LUNA", comercio: "LIBRERIA LUNA", importe: -9.90, canal: tarjeta, categoria: compras}
+  - {id: lib-d2, fecha: 2026-10-15, concepto: "COMPRA TARJETA LIBRERIA LUNA", comercio: "LIBRERIA LUNA", importe: -9.90, canal: tarjeta, categoria: compras}
+  # Trampa: dos libros distintos el mismo día (importes diferentes)
+  - {id: lib-t1, fecha: 2026-10-22, concepto: "COMPRA TARJETA LIBRERIA LUNA", comercio: "LIBRERIA LUNA", importe: -9.90, canal: tarjeta, categoria: compras}
+  - {id: lib-t2, fecha: 2026-10-22, concepto: "COMPRA TARJETA LIBRERIA LUNA", comercio: "LIBRERIA LUNA", importe: -12.50, canal: tarjeta, categoria: compras}
+eventos: []
+esperado:
+  - {tipo: cargo_duplicado, fecha_detectable: 2026-10-15, ids: [lib-d1, lib-d2], tolerancia_dias: 0, solo_con_perfil: true,
+     datos: {comercio: "LIBRERIA LUNA", importe: "9.90", id_segundo: lib-d2, dias_entre: 0, canal: tarjeta}}
+trampas:
+  - {tipo: cargo_duplicado, ids: [lib-t2], motivo: "importes distintos"}

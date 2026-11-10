@@ -104,6 +104,8 @@ def medir_escenario(escenario: cargar.Escenario, con_perfil: bool) -> dict:
                               "ids": list(e.get("ids", []))} for e in resultado["detalle_omitidos"]],
         "falsos_positivos": [{"id": i, "tipo": por_id[i].tipo, "fecha": por_id[i].fecha.isoformat(),
                               "movimientos": list(por_id[i].movimientos)} for i in resultado["falsos_positivos"]],
+        "dudosos": [{"id": i, "tipo": por_id[i].tipo, "fecha": por_id[i].fecha.isoformat()}
+                    for i in resultado["dudosos"]],
         "trampas_comprobadas": [{"tipo": t["tipo"], "motivo": t.get("motivo", "")} for t in esc.trampas],
         "trampas_violadas": resultado["trampas_violadas"],
         "retrasos": _retrasos_por_tipo(esc, resultado, con_perfil),
@@ -141,6 +143,7 @@ def por_detector(filas: list[dict]) -> dict[str, dict]:
         aciertos = sum(f["por_tipo"].get(tipo, {}).get("aciertos", 0) for f in filas)
         omitidos = sum(f["por_tipo"].get(tipo, {}).get("omitidos", 0) for f in filas)
         falsos = sum(f["por_tipo"].get(tipo, {}).get("falsos", 0) for f in filas)
+        dudosos = sum(f["por_tipo"].get(tipo, {}).get("dudosos", 0) for f in filas)
         retrasos = [r for f in filas for r in f["retrasos"].get(tipo, [])]
         fila = {
             "implementado": tipo in REGISTRO,
@@ -148,6 +151,7 @@ def por_detector(filas: list[dict]) -> dict[str, dict]:
             "aciertos": aciertos,
             "omitidos": omitidos,
             "falsos_positivos": falsos,
+            "dudosos": dudosos,                       # casos para la fase 2: sin IA no avisan, no cuentan como falsos
             "precision": _cociente(aciertos, aciertos + falsos),
             "exhaustividad": _cociente(aciertos, aciertos + omitidos),
             "retraso_medio": round(statistics.fmean(retrasos), 2) if retrasos else None,
