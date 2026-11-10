@@ -9,7 +9,7 @@ Plataforma para bancos que vive dentro de su app. Un **motor** convierte los mov
 
 ## Dónde está cada cosa
 - `reto/RETO.md`: rúbrica, entrega y dudas. Es la fuente de verdad del reto.
-- `docs/diseno/`: `CONTRATO.md` (tipos e interfaces que comparten todas las partes) y los diseños de cada parte: `motor.md`, `personalizacion.md`, `modulos.md`, `experiencia.md`.
+- `docs/diseno/`: `CONTRATO.md` (tipos e interfaces que comparten todas las partes) y los diseños de cada parte: `motor.md`, `personalizacion.md`, `modulos.md`, `experiencia.md`. **`deudas-casos.md`** es el diseño vigente de todo lo que toca deudas y Bizum (escenarios, casos, detector en dos fases, portero, agente post-llamada) y su plan hasta la congelación; manda sobre `motor.md` §3.1 donde choquen.
 - `docs/`: `ANALISIS.md` (la idea), `PLAN.md` (fases, puertas, tareas y estado), `ARQUITECTURA.md`, `DECISIONES.md`, `DIARIO.md` (memoria entre días), `IDEAS.md` (compañeros), `INVESTIGACION.md`, `PITCH.md`, `DEMO.md`.
 - `backend/`: el kit (`agente/`, `herramientas/`, `datos/`, `api/`, `claude_client.py`) y los paquetes nuevos que crea `/esqueleto`: `plataforma/`, `motor/`, `escenarios/`, `personalizacion/`, `modulos/`, `acciones/`, `voz/`. El mapa completo está en la skill `copiloto`.
 - `frontend/`: Next.js. Pantallas nuevas `/app` (cliente), `/banco` (consola) y `/jurado` (métricas); el chat del kit pasa a `/kit`.
