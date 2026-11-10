@@ -25,6 +25,7 @@ from typing import Any, Iterator
 
 from .. import acciones, casos, config, modulos, motor, personalizacion
 from ..acciones import banco_sim as _banco_sim   # directo: los tests sustituyen `acciones` por un stub
+from ..motor import dudas as _dudas              # directo: los tests sustituyen `motor` por un stub
 from . import almacenamiento as alm
 from ..modulos.plantillas import CABECERA_DATOS, sanear_dato
 from ..personalizacion import edicion
@@ -299,6 +300,10 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
                 _auditar(uid, "decision", propuesta_id=propuesta.id, tipo=propuesta.tipo_momento,
                          accion=decision.accion, politica=decision.politica)
 
+        # 2b. detector fase 2 (DUDAS_IA=on): la IA resuelve los casos dudosos, fuera del camino caliente del motor
+        modelo, lista_casos = _resolver_dudas(uid, hoy, ahora, modelo, perfil, lista_casos, momentos, historial,
+                                              propuestas, decisiones, notificaciones, items)
+
         # 3. portero diario de los casos que llegan a su fecha (agrupa por contacto, respeta silencios,
         #    franja y tope; lo que va al resumen vuelve a la cola)
         modelo, lista_casos = _portero_casos(uid, hoy, ahora, modelo, lista_casos, momentos, propuestas, decisiones,
@@ -381,11 +386,13 @@ def _portero_casos(uid, hoy, ahora, modelo, lista, momentos, propuestas, decisio
         momento = por_momento.get(rep.momento_id or "")
         if momento is None:
             continue
+        momento = _dudas.momento_resuelto(momento, rep)   # duda resuelta por la IA: candidatos y confianza del caso
         existente = por_propuesta.get(rep.propuesta_id) if rep.propuesta_id else None
         if existente is not None:
             candidatas = [existente.model_copy(update={"creada": ahora})]
         else:
-            candidatas = [personalizacion.ordenar_acciones(p, modelo) for p in modulos.proponer(momento, modelo)]
+            candidatas = [_dudas.anotar_propuesta(personalizacion.ordenar_acciones(p, modelo), rep)
+                          for p in modulos.proponer(momento, modelo)]
         avisa = False
         for k, propuesta in enumerate(candidatas):
             if casos.es_dudoso(rep) or momento.datos.get("dudoso"):
@@ -423,6 +430,58 @@ def _portero_casos(uid, hoy, ahora, modelo, lista, momentos, propuestas, decisio
                     ahora, hoy)
                 lista[posicion[otro.id]] = casos.marcar_avisado(otro, hoy, ahora, "Incluido en el aviso agrupado.")
         lista[posicion[rep.id]] = rep
+    return modelo, lista
+
+
+def _resolver_dudas(uid, hoy, ahora, modelo, perfil, lista, momentos, historial, propuestas, decisiones,
+                    notificaciones, items):
+    """Detector fase 2 (solo con `DUDAS_IA=on`): para cada caso dudoso con hechos nuevos, una consulta a la IA
+    (máx. `MAX_CONSULTAS_DIA` al día, caché por hash de los hechos). Va después de `procesar`, fuera de su camino
+    caliente; si falla o no hay red, el caso sigue dudoso y sin avisar. `preguntar` genera una propuesta de solo
+    preguntar que pasa por `decidir` y el tope de avisos; `avisar` deja el caso abierto para el portero."""
+    if not _dudas.activadas():
+        return modelo, lista
+    lista = list(lista)
+    por_momento = {m.id: m for m in momentos}
+    consultas = 0
+    for i, caso in enumerate(lista):
+        if caso.estado != "dudoso" or consultas >= _dudas.MAX_CONSULTAS_DIA:
+            continue
+        try:
+            momento = por_momento.get(caso.momento_id or "")
+            categoria = next((m.categoria for m in historial if m.id == caso.hechos.get("pago_id")), None)
+            contexto = _dudas.construir_contexto(caso, perfil, lista, momento, categoria)
+            if not _dudas.pendiente_de_resolver(caso, contexto):
+                continue
+            consultas += 1
+            resolucion = _dudas.resolver(caso, contexto)
+            if resolucion is None:
+                lista[i] = _dudas.registrar_fallo(caso, _dudas.hash_hechos(caso, contexto))
+                _auditar(uid, "dudas_ia_sin_resolver", caso_id=caso.id)
+                continue
+            antes = caso.propuesta_id
+            nuevo = casos.ciclo.aplicar_resolucion(caso, resolucion, hoy, ahora)
+            _auditar(uid, "dudas_ia", caso_id=caso.id, decision=resolucion.decision, decision_ia=resolucion.decision_ia,
+                     confianza=resolucion.confianza, coste_usd=round(resolucion.coste_usd, 6))
+            if resolucion.decision == "avisar" and antes:   # la propuesta silenciada llevaba a los deudores viejos
+                propuestas[:] = [p for p in propuestas if p.id != antes]
+                decisiones[:] = [d for d in decisiones if d.propuesta_id != antes]
+                notificaciones[:] = [n for n in notificaciones if n["propuesta_id"] != antes]
+            elif resolucion.decision == "preguntar" and nuevo is not caso:
+                propuesta = _dudas.propuesta_pregunta(nuevo, momento, resolucion, ahora)
+                decision = personalizacion.decidir(propuesta, modelo, ahora)
+                modelo = personalizacion.registrar_decision(modelo, propuesta, decision)
+                propuestas.append(propuesta)
+                decisiones.append(decision)
+                notificaciones.append({"propuesta_id": propuesta.id, "estado": "nueva",
+                                       "actualizado": ahora.isoformat(timespec="seconds")})
+                items.append((momento, propuesta, decision))
+                nuevo.hechos["pregunta"]["propuesta_id"] = propuesta.id
+                _auditar(uid, "decision", propuesta_id=propuesta.id, tipo=propuesta.tipo_momento,
+                         accion=decision.accion, politica=decision.politica, caso_id=caso.id)
+            lista[i] = nuevo
+        except Exception as error:   # la fase 2 nunca rompe el día
+            _auditar(uid, "dudas_ia_fallida", caso_id=caso.id, error=type(error).__name__)
     return modelo, lista
 
 
@@ -845,3 +904,62 @@ def borrar_amigo_usuario(usuario_id: str, contraparte: str) -> list[dict]:
             alm.guardar(usuario_id, "modelo", casos.sincronizar_amigos(modelo, nueva, _hoy(estado)))
         _auditar(usuario_id, "amigo_borrado")
     return amigos_usuario(usuario_id)
+
+
+# --- Agente post-llamada: la transcripción al colgar (voz y chat) -------------------------------
+
+def registrar_conversacion(usuario_id: str, propuesta_id: str, mensajes: list[dict], canal: str = "voz") -> dict:
+    """Al colgar: Haiku propone cambios de una lista cerrada (`casos/resumir.py`) y el código los valida y aplica al
+    caso de esa propuesta (posponer, nota, silenciar contacto, olvidar a un deudor y resumen). Nunca mueve dinero ni
+    toca importes. Sin caso para la propuesta, no hace nada. Sin consentimiento `memoria`, no guarda notas ni resumen.
+    Haiku corre fuera del candado (tarda segundos): se lee el caso, se razona y se vuelve a leer para aplicar."""
+    from ..casos import resumir
+
+    with alm.candado(usuario_id):
+        estado = _estado(usuario_id)
+        hoy = _hoy(estado)
+        propios = casos.de_propuesta(casos.cargar(usuario_id), propuesta_id)
+        caso = next((c for c in propios if c.estado not in casos.CERRADOS), propios[0] if propios else None)
+    if caso is None:
+        return {"ok": True, "cambios": []}
+    plan = resumir.validar(resumir.extraer(mensajes, caso, hoy), caso, hoy)
+    if plan.vacio:
+        _auditar(usuario_id, "conversacion", propuesta_id=propuesta_id, acciones=[], descartadas=len(plan.descartadas))
+        return {"ok": True, "cambios": []}
+    with alm.candado(usuario_id):
+        lista = casos.cargar(usuario_id)
+        actual = next((c for c in lista if c.id == caso.id), None)
+        modelo = _leer(usuario_id, "modelo")
+        if actual is None or modelo is None:
+            return {"ok": True, "cambios": []}
+        hecho = resumir.aplicar(actual, modelo, plan, hoy, ahora_por_defecto(hoy), canal)
+        lista = [hecho.caso if c.id == actual.id else c for c in lista]
+        casos.guardar(usuario_id, lista)
+        alm.guardar(usuario_id, "modelo", casos.sincronizar_amigos(hecho.modelo, lista, hoy))
+        _auditar(usuario_id, "conversacion", propuesta_id=propuesta_id, acciones=[a["tipo"] for a in plan.acciones],
+                 descartadas=len(plan.descartadas), resumen=bool(plan.resumen))
+        return {"ok": True, "cambios": hecho.cambios}
+
+
+def casos_usuario(usuario_id: str) -> list[dict]:
+    """Casos con lo que guardó el agente post-llamada (resúmenes y notas, enmascarados) para «Lo que he aprendido»."""
+    with alm.candado(usuario_id):
+        _estado(usuario_id)
+        lista = casos.cargar(usuario_id)
+    return [{"id": c.id, "estado": c.estado, "creado": c.creado.isoformat(),
+             "deudores": [{"contraparte": d.contraparte, "estado": d.estado} for d in c.deudores],
+             "conversaciones": list(c.conversaciones), "acuerdos": [a.texto for a in c.acuerdos]} for c in lista]
+
+
+def borrar_conversaciones_caso(usuario_id: str, caso_id: str) -> dict:
+    """Borra los resúmenes y las notas de las llamadas de un caso. El caso y su historial de cambios se quedan."""
+    with alm.candado(usuario_id):
+        _estado(usuario_id)
+        lista = casos.cargar(usuario_id)
+        caso = next((c for c in lista if c.id == caso_id), None)
+        if caso is None:
+            raise NoEncontrado(f"El caso {caso_id!r} no existe.")
+        casos.guardar(usuario_id, [c.model_copy(update={"conversaciones": [], "acuerdos": []}) if c.id == caso_id else c
+                                   for c in lista])
+        _auditar(usuario_id, "conversaciones_borradas", caso_id=caso_id)
+    return {"ok": True}
