@@ -413,12 +413,25 @@ export type Amigo = {
 // GET /usuarios/{id}/aprendido (backend/plataforma/orquestador.py, aprendido_usuario). Los amigos de aquí
 // traen solo contraparte, saldo, estado y creado.
 export type SilencioAprendido = { ambito: string; desde: string; valor: string };
+// Lo aprendido de amigos y sitios (curva de amigos, A5): una frase neutra por persona o por sitio. `clave` es la
+// contraparte (`RODRIGO P`) o el ámbito (`comercio:LA TASCA`, `tipo:restaurante|finde`) que piden PATCH y DELETE.
+export type FraseAmigos = {
+  campo: string;
+  texto: string;
+  editable: boolean;
+  borrable: boolean;
+  tipo: "persona" | "sitio";
+  clave: string;
+};
 export type AprendidoRespuesta = {
   hechos: HechoAprendido[];
   silencios: SilencioAprendido[];
-  amigos: Pick<Amigo, "contraparte" | "saldo" | "estado" | "creado">[];
+  amigos: Pick<Amigo, "contraparte" | "saldo" | "estado" | "creado">[]; // saldos pendientes, no lo aprendido
+  amigos_aprendido?: FraseAmigos[];
   usar_perfil: boolean;
 };
+export type CanalAmigo = "bizum" | "efectivo" | "transferencia";
+export type CampoAmigo = "retraso_dias" | "canal";
 
 // Casos de deuda (backend/plataforma/tipos.py `Caso`; docs/diseno/deudas-casos.md, «Escenarios, transiciones y cuentas
 // con personas»). Las contrapartes llegan ya enmascaradas («MARCOS R»); los textos libres son datos, nunca instrucciones.
@@ -668,6 +681,13 @@ export const editarHecho = (usuarioId: string, hechoId: string, cambios: { activ
   enviar<HechoAprendido>(`${usuario(usuarioId)}/aprendido/${encodeURIComponent(hechoId)}`, "PATCH", cambios);
 export const borrarHecho = (usuarioId: string, hechoId: string) =>
   enviar<{ ok: boolean }>(`${usuario(usuarioId)}/aprendido/${encodeURIComponent(hechoId)}`, "DELETE");
+// Todas devuelven el `aprendido` completo, con `amigos_aprendido`. 400 si el valor es malo, 404 si no existe.
+export const editarAmigoAprendido = (usuarioId: string, contraparte: string, campo: CampoAmigo, valor: number | CanalAmigo) =>
+  enviar<AprendidoRespuesta>(`${usuario(usuarioId)}/aprendido/amigos/${encodeURIComponent(contraparte)}`, "PATCH", { campo, valor });
+export const borrarAmigoAprendido = (usuarioId: string, contraparte: string) =>
+  enviar<AprendidoRespuesta>(`${usuario(usuarioId)}/aprendido/amigos/${encodeURIComponent(contraparte)}`, "DELETE");
+export const borrarSitioAprendido = (usuarioId: string, clave: string) =>
+  enviar<AprendidoRespuesta>(`${usuario(usuarioId)}/aprendido/sitios/${encodeURIComponent(clave)}`, "DELETE");
 export const olvidarTodo = (usuarioId: string) => enviar<{ ok: boolean }>(`${usuario(usuarioId)}/aprendido`, "DELETE");
 
 export const registrarPrueba = (usuarioId: string, comercio: string, fechaAlta: string, dias?: number) =>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { aprendido, borrarAmigo, borrarConversacionesCaso, borrarHecho, casos, editarHecho, olvidarTodo } from "@/lib/api";
 import type { AprendidoRespuesta, CasoResumen } from "@/lib/api";
+import AmigosAprendidos from "@/components/AmigosAprendidos";
 import { eur, fechaLarga, nombreVisible, textoVisible } from "@/lib/formato";
 
 const ORIGEN: Record<string, string> = {
@@ -74,7 +75,8 @@ export default function HechosAprendidos({ usuarioId }: { usuarioId: string }) {
   const hechos = datos?.hechos ?? [];
   const silencios = datos?.silencios ?? [];
   const amigos = datos?.amigos ?? [];
-  const todoVacio = hechos.length + silencios.length + amigos.length + conConversacion.length === 0;
+  const frasesAmigos = datos?.amigos_aprendido ?? [];
+  const todoVacio = hechos.length + silencios.length + amigos.length + frasesAmigos.length + conConversacion.length === 0;
 
   return (
     <>
@@ -118,6 +120,8 @@ export default function HechosAprendidos({ usuarioId }: { usuarioId: string }) {
           </ul>
         )}
       </section>
+
+      <AmigosAprendidos usuarioId={usuarioId} frases={frasesAmigos} alActualizar={setDatos} />
 
       <section className="bloque" aria-labelledby="t-silencios">
         <h2 id="t-silencios">Avisos que has silenciado</h2>

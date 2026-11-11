@@ -288,6 +288,7 @@ html:has(.llamada) { scroll-padding-bottom: 320px; }
 .frase { padding: 10px 0; border-top: 1px solid var(--borde); display: flex; flex-direction: column; gap: 4px; line-height: 1.4; }
 .frase:first-child { border-top: 0; padding-top: 0; }
 .frase.apagado > p:first-child { color: var(--tenue); text-decoration: line-through; }
+.bloque h3.subtitulo-grupo, .bloque #t-planes-personas, .bloque #t-planes-sitios { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--aurora); margin: 14px 0 4px; }
 .etiqueta-fijado { margin-left: 8px; font-size: 0.72rem; font-weight: 700; color: #115e59; background: var(--acento-suave); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
 .resumenes { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 0.92rem; }
 .zona-peligro { display: flex; flex-direction: column; gap: 8px; }
