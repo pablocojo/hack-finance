@@ -19,7 +19,7 @@ import asyncio
 import queue
 import threading
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -32,6 +32,7 @@ from ..datos.importar_csv import importar_csv
 from ..datos.sinteticos import PERFILES
 from ..herramientas.gastos import resumen_gastos
 from . import rutas_banco, rutas_copiloto, rutas_metricas, rutas_voz
+from .rutas_copiloto import exigir_demo_key
 from .sse import estado_http, evento_sse, mensaje_error
 
 AJUSTES = config.ajustes()
@@ -100,7 +101,7 @@ def salud() -> dict:
     }
 
 
-@app.post("/datos/ejemplo")
+@app.post("/datos/ejemplo", dependencies=[Depends(exigir_demo_key)])  # gasta o cambia estado
 def datos_ejemplo(peticion: PeticionEjemplo) -> dict:
     sesion = ALMACEN.obtener(peticion.sesion_id)
     try:
@@ -123,7 +124,7 @@ def listar_movimientos(sesion_id: str, limite: int = Query(200, ge=1, le=5000),
             "movimientos": list(reversed(movimientos))[:limite]}
 
 
-@app.post("/movimientos")
+@app.post("/movimientos", dependencies=[Depends(exigir_demo_key)])  # gasta o cambia estado
 async def subir_movimientos(archivo: UploadFile = File(...), sesion_id: str | None = Query(None)) -> dict:
     contenido = await archivo.read()
     if len(contenido) > MAX_ARCHIVO:
@@ -147,7 +148,7 @@ def resumen_movimientos(sesion_id: str, meses: int = Query(3, ge=1, le=24)) -> d
     return {"sesion_id": sesion.id, "vacio": False, **resumen_gastos(meses=meses, ctx=sesion)}
 
 
-@app.post("/chat")
+@app.post("/chat", dependencies=[Depends(exigir_demo_key)])  # gasta o cambia estado
 def chat(peticion: PeticionChat) -> dict:
     sesion = ALMACEN.obtener(peticion.sesion_id, perfil_demo=config.ajustes().perfil_demo)
     try:
@@ -158,7 +159,7 @@ def chat(peticion: PeticionChat) -> dict:
     return {"sesion_id": sesion.id, **resultado}
 
 
-@app.post("/chat/stream")
+@app.post("/chat/stream", dependencies=[Depends(exigir_demo_key)])  # gasta o cambia estado
 async def chat_stream(peticion: PeticionChat) -> StreamingResponse:
     sesion = ALMACEN.obtener(peticion.sesion_id, perfil_demo=config.ajustes().perfil_demo)
     cola: queue.Queue = queue.Queue()

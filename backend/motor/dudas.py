@@ -257,9 +257,20 @@ def _numeros(texto: str) -> set[Decimal]:
     return {a_decimal(m.group(1).replace(",", ".")) for m in _NUMERO.finditer(texto)} - {None}
 
 
+# Valoraciones de una persona (no de un sitio o una costumbre general: «en un restaurante cada uno suele pagar lo suyo»
+# es válido; «Marcos suele tardar en pagar» no).
+_VALORA_PERSONA = re.compile(
+    r"\b(moros\w*|taca[ñn]\w*|informal\w*|poco fiable|de fiar|cara dura|aprovechad\w*|impuntual\w*|lent[oa] pagando|"
+    r"suele (?:tardar|retrasarse|olvidar\w*|no pagar|deber)|tarda\w* (?:mucho )?en pagar|nunca paga\w*|"
+    r"siempre (?:tarda|se retrasa|se olvida|debe))\b", re.IGNORECASE)
+
+
 def _motivo_valido(motivo: str, prompt_datos: str) -> bool:
     """Las cifras del motivo tienen que ser las del código. Con € o «euros» pegado, exactas; sin moneda, también
-    se admiten recuentos pequeños (dos cuotas, tres amigos)."""
+    se admiten recuentos pequeños (dos cuotas, tres amigos). Nunca valora a una persona («suele tardar», «moroso»):
+    el motivo sale en la notificación (revisión de seguridad, I-4)."""
+    if _VALORA_PERSONA.search(motivo):
+        return False
     permitidos = _numeros(prompt_datos)
     for m in _NUMERO.finditer(motivo):
         valor = a_decimal(m.group(1).replace(",", "."))

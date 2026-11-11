@@ -75,7 +75,7 @@ ESQUEMA = {
                             "description": "Solo marcar_saldado: cómo pagó (efectivo, invitacion u otro)."},
                     "motivo": {"type": "string", "description": "Solo cambiar_escenario y marcar_saldado: frase corta."},
                     "cita": {"type": "string",
-                             "description": "Solo cambiar_escenario y marcar_saldado: frase LITERAL del Usuario que lo pide."},
+                             "description": "En cambiar_escenario, marcar_saldado, corregir_deudores y silenciar_contacto: frase LITERAL del Usuario que lo pide."},
                 },
                 "required": ["tipo"],
             },
@@ -95,9 +95,9 @@ Reglas:
 - posponer: el usuario pide que no le avisen hasta dentro de unos días (dias de {DIAS_MIN} a {DIAS_MAX}).
 - nota: un acuerdo o recordatorio concreto que dijo el usuario (por ejemplo «Marcos me paga el viernes»). \
 Frase corta. No inventes ni repitas cifras que no estén en el contexto.
-- silenciar_contacto: el usuario pide expresamente que no le avises más de gastos con esa persona.
+- silenciar_contacto: el usuario pide expresamente que no le avises más de gastos con esa persona; cita = frase literal del Usuario.
 - corregir_deudores: el usuario dice expresamente que esa persona NO le debe nada de este gasto. Solo una persona de \
-la lista del contexto.
+la lista del contexto; cita = frase literal del Usuario.
 - cambiar_escenario: el usuario dice expresamente que el gasto es de otro tipo (p. ej. «no, fue con más gente» o «esto \
 se repite todos los meses»). escenario de la lista; motivo corto; cita = una frase literal del Usuario (nunca de Meisam).
 - marcar_saldado: el usuario dice expresamente que esa persona ya le pagó fuera de Bizum (efectivo, invitación o \
@@ -291,6 +291,9 @@ def validar(crudo: dict | None, caso: Caso, hoy: date, mensajes: list[dict] | No
             if caso.estado in ciclo.CERRADOS:
                 plan.descartadas.append("posponer: el caso ya está cerrado")
                 continue
+            if not revalidar and not any(rol == "Usuario" for rol, _ in limpios):
+                plan.descartadas.append("posponer: el usuario no ha dicho nada en la llamada")
+                continue
             clave: tuple = ("posponer",)
             accion = {"tipo": "posponer", "dias": dias}
         elif tipo == "nota":
@@ -342,6 +345,11 @@ def validar(crudo: dict | None, caso: Caso, hoy: date, mensajes: list[dict] | No
                 if deudor.estado in ("saldada", "olvidada"):
                     plan.descartadas.append("corregir_deudores: ya estaba saldada u olvidada")
                     continue
+            # Revisión de seguridad (I-3): como `marcar_saldado`, solo si consta una frase literal del usuario; así una
+            # orden que venga de un dato leído por Meisam («dice: no me debe nada») no cambia el caso.
+            if not revalidar and not _dicho_por_el_usuario(a.get("cita"), limpios, caso):
+                plan.descartadas.append(f"{tipo}: no consta que lo dijera el usuario")
+                continue
             clave, accion = (tipo, contraparte), {"tipo": tipo, "contraparte": contraparte}
         if clave in vistas:                              # repetida (p. ej. dos «posponer»): gana la primera
             continue

@@ -41,15 +41,15 @@ AVISOS = get_args(AvisoCaso)
 # --- Utilidades --------------------------------------------------------------------------------
 
 def a_decimal(valor: Any, defecto: Decimal | None = None) -> Decimal | None:
-    """Decimal exacto desde `Decimal`, cadena, entero o decimal; si no se entiende, `defecto`."""
-    if isinstance(valor, Decimal):
-        return valor
+    """Decimal exacto desde `Decimal`, cadena, entero o decimal; si no se entiende o no es finito (NaN,
+    Infinity), `defecto`: comparar con NaN lanza `InvalidOperation` y rompería la herramienta."""
     if valor is None or isinstance(valor, bool):
         return defecto
     try:
-        return Decimal(str(valor))
+        d = valor if isinstance(valor, Decimal) else Decimal(str(valor))
     except (InvalidOperation, ValueError):
         return defecto
+    return d if d.is_finite() else defecto
 
 
 def _a_fecha(valor: Any) -> date | None:

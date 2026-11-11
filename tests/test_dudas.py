@@ -288,3 +288,19 @@ def test_orquestador_tope_de_consultas_por_dia(mundo, falso, con_ia, monkeypatch
     mundo.preparar(momento=mom_doble())
     _avanzar_hasta(date(2026, 11, 10))
     assert cliente.peticiones == [] and _caso("caso-mom-c1").estado == "dudoso"
+
+
+def test_un_motivo_que_valora_a_una_persona_se_rechaza():
+    """Revisión de seguridad (I-4): el motivo de la IA sale en la notificación; no puede valorar a nadie."""
+    from backend.motor import dudas
+    assert dudas._motivo_valido("Daniel P. pagó dos cuotas", "")
+    assert not dudas._motivo_valido("Marcos R. suele tardar en pagar", "")
+    assert not dudas._motivo_valido("Marcos es un moroso", "")
+
+
+def test_a_decimal_descarta_importes_no_finitos():
+    """Revisión de seguridad (I-5): NaN o Infinity no rompen las herramientas (comparar con NaN lanza error)."""
+    from decimal import Decimal
+    from backend.casos.ciclo import a_decimal
+    assert a_decimal("NaN") is None and a_decimal("Infinity") is None and a_decimal(Decimal("NaN")) is None
+    assert a_decimal("24.00") == Decimal("24.00")
