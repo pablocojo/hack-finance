@@ -41,10 +41,16 @@ def _estado(usuario_id: str) -> EstadoMotor:
 
 
 def procesar(
-    usuario_id: str, nuevos: list[Movimiento], hoy: date, perfil: PerfilUsuario | None = None
+    usuario_id: str,
+    nuevos: list[Movimiento],
+    hoy: date,
+    perfil: PerfilUsuario | None = None,
+    compania: dict[str, float] | None = None,
 ) -> list[Momento]:
     """Detecta los momentos nuevos de `hoy`. Error si algún movimiento tiene fecha > hoy.
-    Idempotente: reprocesar el mismo día no repite momentos ni duplica movimientos."""
+    Idempotente: reprocesar el mismo día no repite momentos ni duplica movimientos.
+    `compania` ("c:<COMERCIO>" o "t:<tipo>|<franja>" -> p de ir acompañado) lo aprendido del usuario, calculado fuera
+    del motor: `pago_individual` abre con `senal = "aprendida"` donde p es alta. Con None (o vacío), lo de siempre."""
     _comprobar_pasado(nuevos, hoy)
     with _CANDADO:
         estado = _estado(usuario_id)
@@ -63,6 +69,7 @@ def procesar(
             params=params,
             conocimiento=conocimiento.info_en_cache,
             pruebas=tuple(dict(p) for p in estado.pruebas),
+            compania=dict(compania) if compania else None,
         )
         hallazgos = [h for detector in REGISTRO.values() for h in detector.detectar(ctx)]
         estado.tipos_pendientes = tipos_por_buscar(ctx) if config.ajustes().busqueda_web else []

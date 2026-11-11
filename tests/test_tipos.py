@@ -261,7 +261,7 @@ def test_paquetes_importan(paquete):
 
 # Las firmas de ARQUITECTURA §3.2 son el contrato entre zonas: si un hilo las cambia, salta este test.
 FIRMAS = {
-    "motor.procesar": ["usuario_id", "nuevos", "hoy", "perfil"],
+    "motor.procesar": ["usuario_id", "nuevos", "hoy", "perfil", "compania"],
     "motor.enriquecer": ["movimientos"],
     "motor.exportar_estado": ["usuario_id"],
     "motor.importar_estado": ["usuario_id", "estado"],

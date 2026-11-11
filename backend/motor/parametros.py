@@ -78,6 +78,10 @@ class PagoIndividual:
     DIAS_NOCHE: tuple[int, ...] = (4,)                  # viernes: plausible, solo señal débil
     CONFIANZA: float = 0.50                             # baja y fija: el razonador descarta < 0,5 y aquí no avisa nadie
     MAX_CARACTERES_BUSQUEDA: int = 30                   # la búsqueda web del tipo solo acepta nombres cortos
+    # Lo aprendido (`compania`, curva de amigos A3): abre con `senal = "aprendida"` aunque las reglas fijas callen
+    P_ACOMPANADO_MIN: float = 0.60                      # p(acompañado) del ámbito desde la que abre (>=)
+    IMPORTE_MIN_APRENDIDA: Decimal = Decimal("10")      # mínimo propio, cualquier día; el perfil no lo sube
+    CONFIANZA_APRENDIDA: float = 0.60                   # < 0,7 del módulo: el aviso lo decide la escalera, no el motor
 
 
 @dataclass(frozen=True)

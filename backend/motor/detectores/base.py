@@ -23,6 +23,9 @@ class Contexto:
     params: dict[str, Any]                                   # ya ajustados al perfil
     conocimiento: Callable[[str], InfoComercio | None]        # solo lectura de la caché
     pruebas: tuple[dict, ...] = ()
+    # Lo aprendido del usuario (curva de amigos): "c:<COMERCIO>" o "t:<tipo>|<franja>" -> p(acompañado). Lo calcula
+    # la personalización fuera del motor; None = las reglas fijas de siempre.
+    compania: dict[str, float] | None = None
 
 
 @dataclass

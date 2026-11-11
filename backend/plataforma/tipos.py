@@ -256,6 +256,7 @@ class InfoComercio(Base):
     es_suscripcion: bool = False
     dias_prueba: int | None = None
     precio_tras_prueba: Euros | None = None
+    precio_persona: Euros | None = None      # K1 (d): precio típico por persona (entrada, menú); lo compara el código
     url_baja: str | None = None
     pasos_baja: list[str] | None = None
     fuentes: list[str] = Field(default_factory=list)
