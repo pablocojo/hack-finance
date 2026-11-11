@@ -322,7 +322,7 @@ Manda el encargo. Esquema de las vidas ocultas y del corpus: `backend/personaliz
 | `CuotaPersona` | `contraparte`, `nombre` (enmascarado), `cuota` |
 | `ApuntarGastoSalida` | `ok`, `resultado` (`ResultadoApuntar`), `mensaje`, `caso_id?`, `candidatos` (≤ 5), `deudores`, `personas_sin_resolver`, `cambio_id?` |
 | `ResultadoApuntar` | `creado \| convertido \| varios_candidatos \| sin_cargo \| persona_desconocida \| persona_ambigua \| importe_invalido \| sin_personas \| no_soportado` |
-| `HechoChatEntrada` | `tipo` (`TipoHechoChat`: `va_solo \| grupo_habitual \| paga_en_efectivo \| no_recordar \| plan_recurrente`), `persona?`, `personas`, `pista?`, `dia_semana?` (0-6), `texto` (dato, ≤ 160) |
+| `HechoChatEntrada` | `tipo` (`TipoHechoChat`: `va_solo \| grupo_habitual \| paga_en_efectivo \| no_recordar \| plan_recurrente \| paga_por_otro \| nadie_debe_aqui \| no_es_devolucion`), `persona?`, `personas`, `pista?`, `dia_semana?` (0-6), `texto` (dato, ≤ 160) |
 
 **Campos nuevos en tipos que ya existían** (todos opcionales): `ModeloUsuario.aprendizaje: AprendizajeAmigos` (vacío por defecto) · `Caso.origen` (`motor \| boton \| chat`) · `Caso.pregunta_nivel` (0-4) · `Caso.sugerencia: SugerenciaReparto` · `Deudor.avisar_desde` (por persona; None = el del caso) · `HechoAprendido.origen` admite `chat` · `HechoAprendido.tipo` (`TipoHechoChat`) · `HechoAprendido.contraparte` (se borra con el contacto) · `HechoAprendido.datos`. Claves nuevas de `Caso.hechos`: `canal_probable` (dict `{clave_deudor: CanalDevolucion}` más frecuente de cada deudor; la app ofrece primero «Ya me lo dio» si es `efectivo`) · `sin_deuda` (`True`, lo pone `nadie_me_debe`) · `personas_estimadas` (int), `precio_persona` (texto decimal) y `motivo_personas` (K1 d). Clave nueva de `Momento.datos` en `pago_individual`: `senal = "aprendida"` (el motor lo abrió por lo aprendido, no por las reglas fijas).
 
@@ -369,7 +369,12 @@ def cuotas_de(movimiento: Movimiento, entrada: ApuntarGastoEntrada, claves: list
 
 # backend/plataforma/chat_casos.py (H3). Con candado y auditoría; lo llaman la herramienta y el simulador.
 def apuntar_gasto_usuario(usuario_id: str, entrada: ApuntarGastoEntrada) -> ApuntarGastoSalida: ...
-def recordar_sobre_mi_usuario(usuario_id: str, entrada: HechoChatEntrada) -> dict: ...   # {ok, hecho} | {ok: False, error}
+def recordar_sobre_mi_usuario(usuario_id: str, entrada: HechoChatEntrada,
+                              confirmar_personas_nuevas: bool = False) -> dict: ...
+#   {ok: True, resultado: "guardado"|"repetido", mensaje, hecho?, hecho_id?} | {ok: False, resultado, error, personas_sin_resolver?}
+#   rechazos: persona_desconocida | persona_ambigua | falta_persona | falta_sitio | texto_no_valido | aprendizaje_apagado | tipo_no_valido
+#   Lógica pura en `personalizacion/hechos_chat.py::aplicar_hecho`. El simulador la llama como `apuntar_gasto_usuario`;
+#   ante `persona_desconocida` repite con `confirmar_personas_nuevas=True` (lo que hace el usuario al confirmar).
 
 # backend/plataforma/orquestador.py (H2, tarea A0: ganchos que necesitan H1 y H3; se integra en main lo primero)
 def crear_caso_usuario(usuario_id, movimiento_id, deudores, escenario=None, origen: OrigenCaso = "boton") -> dict: ...
@@ -395,6 +400,6 @@ El sistema nunca sabe qué política es: no hay parámetros por nombre de vida n
 
 **API nueva** (demo key en las que cambian estado):
 - `POST /voz/herramientas/apuntar_gasto` `{token_sesion, ...ApuntarGastoEntrada}` → `ApuntarGastoSalida` (todo texto libre del resultado entre `<datos>`; `usuario_id` en el cuerpo → 422). Rastro `origen="chat"` y auditoría `caso_chat`. «Deshacer» con el `POST /voz/herramientas/deshacer` de siempre.
-- `POST /voz/herramientas/recordar_sobre_mi` `{token_sesion, ...HechoChatEntrada}` → `{ok, hecho}`.
+- `POST /voz/herramientas/recordar_sobre_mi` `{token_sesion, ...HechoChatEntrada, confirmar_personas_nuevas?}` → `{ok, resultado, mensaje}` (texto libre entre `<datos>`; `usuario_id` en el cuerpo o un `tipo` fuera de la lista → 422). Si guarda algo, más `cambio_id` y `hecho` para el aviso con «Deshacer» del navegador. Rastro `origen="chat"` y auditoría `hecho_chat`.
 - `GET /usuarios/{id}/aprendido` añade `amigos_aprendido: [{campo, texto, editable, borrable, tipo: "persona"|"sitio", clave}]` (frases por persona y por sitio; `amigos` sigue siendo los saldos pendientes); `PATCH /usuarios/{id}/aprendido/amigos/{contraparte}` con `{campo: "retraso_dias"|"canal", valor}`; `DELETE /usuarios/{id}/aprendido/amigos/{contraparte}` borra lo aprendido de esa persona; `DELETE /usuarios/{id}/aprendido/sitios/{clave}` borra un ámbito de `Acompanamiento`.
 - El cliente de ElevenLabs registra `apuntar_gasto` y `recordar_sobre_mi` como herramientas de cliente (textos del panel en `experiencia.md` §6.7, los deja H3).

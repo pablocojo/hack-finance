@@ -17,7 +17,7 @@ from typing import Any
 
 from ..motor.normalizar import clave_contraparte
 from ..plataforma.tipos import FrasePerfil, HechoAprendido, ModeloUsuario, PerfilUsuario, Preferencias, Silencio
-from . import aprende_amigos
+from . import aprende_amigos, hechos_chat
 from .amigos import buscar_contacto
 from .memoria import texto_permitido
 from .motivos import euros
@@ -199,9 +199,12 @@ def _silencio_de(clave: str | None) -> tuple[str, str] | None:
     return None
 
 
-def _deshacer_efecto(modelo: ModeloUsuario, h: HechoAprendido) -> None:
-    """Quita el silencio o reinicia la celda de la que salió el hecho (en el modelo ya copiado)."""
+def _deshacer_efecto(modelo: ModeloUsuario, h: HechoAprendido, sitios: bool = True) -> None:
+    """Quita el silencio o reinicia la celda de la que salió el hecho (en el modelo ya copiado). Un hecho del chat
+    (`origen = "chat"`) deshace además lo que enseñó (`hechos_chat.deshacer_efecto`; `sitios=False` deja los sitios)."""
     silencio = _silencio_de(h.clave)
+    if h.origen == "chat":
+        hechos_chat.deshacer_efecto(modelo, h, sitios)
     if silencio:
         ambito, valor = silencio
         modelo.preferencias.silencios = [
@@ -239,6 +242,9 @@ def activar_hecho(modelo: ModeloUsuario, hecho_id: str) -> ModeloUsuario:
         nuevo.preferencias.silencios.append(Silencio(ambito=ambito, valor=valor, desde=h.creado, origen=h.id))
     elif h.origen == "feedback":
         raise ValueError("Esto lo aprendí de tus respuestas y al apagarlo lo olvidé; volverá a aparecer si lo repites.")
+    elif h.origen == "chat":
+        raise ValueError("Esto lo aprendí de lo que me contaste y al apagarlo lo olvidé; vuelve a contármelo si quieres "
+                         "que lo recuerde.")
     h.activo = True
     return nuevo
 
@@ -300,6 +306,7 @@ def _persona_conocida(modelo: ModeloUsuario, clave: str) -> bool:
     return (clave in apr.personas or clave in modelo.contactos
             or any(clave in g.miembros for a in (*apr.por_comercio.values(), *apr.por_tipo_franja.values())
                    for g in a.grupos)
+            or any(hechos_chat.menciona(h, clave) for h in modelo.hechos_aprendidos if h.origen == "chat")
             or any(h.contraparte == clave for h in modelo.hechos_aprendidos))
 
 
@@ -311,10 +318,15 @@ def olvidar_persona(modelo: ModeloUsuario, contraparte: str) -> ModeloUsuario:
         raise NoExiste("No he aprendido nada de esa persona.")
     nuevo = modelo.model_copy(deep=True)
     nuevo.aprendizaje = aprende_amigos.borrar_persona(nuevo.aprendizaje, clave)
-    for h in [h for h in nuevo.hechos_aprendidos if h.contraparte == clave and h.activo]:
-        _deshacer_efecto(nuevo, h)
-    nuevo.hechos_aprendidos = [h for h in nuevo.hechos_aprendidos if h.contraparte != clave]
+    propios = [h for h in nuevo.hechos_aprendidos if _habla_de(h, clave)]
+    for h in [h for h in propios if h.activo]:
+        _deshacer_efecto(nuevo, h, sitios=False)      # los sitios se quedan: solo se olvida a la persona
+    nuevo.hechos_aprendidos = [h for h in nuevo.hechos_aprendidos if h not in propios]
     return nuevo
+
+
+def _habla_de(h: HechoAprendido, clave: str) -> bool:
+    return h.contraparte == clave or (h.origen == "chat" and hechos_chat.menciona(h, clave))
 
 
 def olvidar_sitio(modelo: ModeloUsuario, clave: str) -> ModeloUsuario:

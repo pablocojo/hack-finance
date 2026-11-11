@@ -396,7 +396,7 @@ export type HechoAprendido = {
   texto: string;
   activo: boolean;
   creado: string;
-  origen: "feedback" | "preferencia" | "amigos" | "voz" | "ajustes" | "perfil";
+  origen: "feedback" | "preferencia" | "amigos" | "voz" | "ajustes" | "perfil" | "chat";
   clave?: string | null;
 };
 
@@ -757,9 +757,16 @@ export const vozPreparar = (tokenSesion: string, accionId: AccionId, parametros:
 export const vozFeedback = (tokenSesion: string, resultado: ResultadoFeedback) =>
   enviar<{ ok: boolean }>("/voz/herramientas/feedback", "POST", { token_sesion: tokenSesion, resultado });
 // Herramientas de consulta y cambio del agente (experiencia.md, «Herramientas de la llamada»): campos planos más el
-// token de sesión, que fija el usuario en el servidor. `actualizar_caso` y `apuntar_gasto` (crea un caso desde el chat,
-// curva-amigos.md §4.2) devuelven además `cambio_id` y `hecho` (para «Deshacer»), que el navegador no pasa al agente.
-export type NombreHerramientaVoz = "consultar_cuentas" | "buscar_movimientos" | "lo_que_sabes_de_mi" | "actualizar_caso" | "apuntar_gasto";
+// token de sesión, que fija el usuario en el servidor. `actualizar_caso`, `apuntar_gasto` (crea un caso desde el chat,
+// curva-amigos.md §4.2) y `recordar_sobre_mi` (guarda una frase de una lista cerrada, sin caso) devuelven además `cambio_id`
+// y `hecho` (para «Deshacer»), que el navegador no pasa al agente.
+export type NombreHerramientaVoz =
+  | "consultar_cuentas"
+  | "buscar_movimientos"
+  | "lo_que_sabes_de_mi"
+  | "actualizar_caso"
+  | "apuntar_gasto"
+  | "recordar_sobre_mi";
 export type ResultadoHerramienta = { ok: boolean; error?: string; hecho?: string; cambio_id?: string; [clave: string]: unknown };
 export const vozHerramienta = (nombre: NombreHerramientaVoz, tokenSesion: string, campos: Record<string, unknown> = {}) =>
   enviar<ResultadoHerramienta>(`/voz/herramientas/${nombre}`, "POST", { token_sesion: tokenSesion, ...campos });

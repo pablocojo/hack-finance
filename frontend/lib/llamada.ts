@@ -84,9 +84,19 @@ export function fallaPorMicrofono(fallo: unknown): boolean {
 // además, el servidor los rechaza y el usuario sale siempre del token de sesión).
 // `apuntar_gasto`: `personas` llega como texto con nombres separados por comas (o como lista, si el panel la admite) y los
 // booleanos pueden llegar como «true»/«false» (el panel puede crearlos como String).
+// `recordar_sobre_mi`: `personas` va como lista de nombres (`lista`) y cada texto se recorta al límite del servidor (`limites`),
+// para que una frase larga no acabe en un 422.
 const CAMPOS_HERRAMIENTAS: Record<
   NombreHerramientaVoz,
-  { texto?: readonly string[]; numero?: readonly string[]; entero?: readonly string[]; booleano?: readonly string[]; nombres?: readonly string[] }
+  {
+    texto?: readonly string[];
+    numero?: readonly string[];
+    entero?: readonly string[];
+    booleano?: readonly string[];
+    nombres?: readonly string[];
+    lista?: readonly string[];
+    limites?: Readonly<Record<string, number>>;
+  }
 > = {
   consultar_cuentas: { texto: ["persona", "estado"] },
   buscar_movimientos: { texto: ["texto", "desde", "hasta"], numero: ["importe_min", "importe_max"], entero: ["limite"] },
@@ -97,6 +107,13 @@ const CAMPOS_HERRAMIENTAS: Record<
     numero: ["importe_total"],
     booleano: ["incluye_usuario", "efectivo", "confirmar_personas_nuevas"],
     nombres: ["personas"],
+  },
+  recordar_sobre_mi: {
+    texto: ["tipo", "texto", "persona", "pista"],
+    entero: ["dia_semana"],
+    booleano: ["confirmar_personas_nuevas"],
+    lista: ["personas"],
+    limites: { tipo: 30, texto: 160, persona: 40, pista: 60 },
   },
 };
 
@@ -125,13 +142,25 @@ function comoPersonas(v: unknown): { nombre: string; importe?: number }[] {
   return personas;
 }
 
+// «Marcos, Rodrigo y Laura» o ["Marcos", "Rodrigo"] -> ["Marcos", ...] (máximo 15, 40 caracteres).
+function comoLista(v: unknown): string[] {
+  const bruto: unknown[] = Array.isArray(v) ? v : typeof v === "string" ? v.split(/\s*(?:,|;|\sy\s|\se\s)\s*/i) : [];
+  const nombres: string[] = [];
+  for (const e of bruto) {
+    const limpio = typeof e === "string" ? e.trim().slice(0, 40) : "";
+    if (limpio) nombres.push(limpio);
+    if (nombres.length >= 15) break;
+  }
+  return nombres;
+}
+
 export function camposDeHerramienta(nombre: NombreHerramientaVoz, p: Record<string, unknown> | null | undefined): Record<string, unknown> {
   const entrada = p ?? {};
   const grupos = CAMPOS_HERRAMIENTAS[nombre];
   const campos: Record<string, unknown> = {};
   for (const c of grupos.texto ?? []) {
     const v = entrada[c];
-    if (typeof v === "string" && v.trim()) campos[c] = v.trim().slice(0, 300);
+    if (typeof v === "string" && v.trim()) campos[c] = v.trim().slice(0, grupos.limites?.[c] ?? 300);
   }
   const comoNumero = (v: unknown): number | null => {
     const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v.replace(",", ".")) : NaN;
@@ -151,6 +180,10 @@ export function camposDeHerramienta(nombre: NombreHerramientaVoz, p: Record<stri
   }
   for (const c of grupos.nombres ?? []) {
     const lista = comoPersonas(entrada[c]);
+    if (lista.length) campos[c] = lista;
+  }
+  for (const c of grupos.lista ?? []) {
+    const lista = comoLista(entrada[c]);
     if (lista.length) campos[c] = lista;
   }
   return campos;

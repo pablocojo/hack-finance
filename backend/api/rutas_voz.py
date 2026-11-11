@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..plataforma import orquestador
-from ..plataforma.tipos import ACCIONES, PersonaGasto
+from ..plataforma.tipos import ACCIONES, PersonaGasto, TipoHechoChat
 from ..voz import consultas, herramientas_llamada, sesiones, texto
 from ..voz import sesion as abrir_sesion
 from .rutas_copiloto import a_http, exigir_demo_key, no_implementado
@@ -88,6 +88,18 @@ class PeticionApuntarGasto(PeticionHerramienta):
     incluye_usuario: bool = True
     efectivo: bool = False
     movimiento_id: str | None = Field(default=None, max_length=80)
+    confirmar_personas_nuevas: bool = False
+
+
+class PeticionRecordarSobreMi(PeticionHerramienta):
+    """`HechoChatEntrada` + `token_sesion` + `confirmar_personas_nuevas`. `tipo` fuera de la lista cerrada -> 422;
+    `usuario_id` en el cuerpo -> 422. Los límites de cada campo los valida el modelo."""
+    tipo: TipoHechoChat
+    texto: str = Field(min_length=1, max_length=160)
+    persona: str | None = Field(default=None, max_length=40)
+    personas: list[str] = Field(default_factory=list, max_length=15)
+    pista: str | None = Field(default=None, max_length=60)
+    dia_semana: int | None = Field(default=None, ge=0, le=6)
     confirmar_personas_nuevas: bool = False
 
 
@@ -198,6 +210,18 @@ def herramienta_apuntar_gasto(peticion: PeticionApuntarGasto) -> dict:
     try:
         registro = sesiones.obtener(peticion.token_sesion)
         return herramientas_llamada.apuntar(registro.kit, peticion.model_dump(exclude={"token_sesion"}, mode="json"))
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.post("/herramientas/recordar_sobre_mi")
+def herramienta_recordar_sobre_mi(peticion: PeticionRecordarSobreMi) -> dict:
+    """Una frase del usuario de una lista cerrada que enseña sin crear un caso (curva-amigos.md §4.2): `{ok, resultado,
+    mensaje}` (texto libre entre `<datos>`) o `{ok: false, error}`; si guarda algo, más `cambio_id` y `hecho` para el aviso
+    con «Deshacer» del navegador. Nunca mueve dinero ni crea casos."""
+    try:
+        registro = sesiones.obtener(peticion.token_sesion)
+        return herramientas_llamada.recordar(registro.kit, peticion.model_dump(exclude={"token_sesion"}, mode="json"))
     except Exception as error:
         raise a_http(error) from error
 

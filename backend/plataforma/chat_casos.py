@@ -11,6 +11,10 @@ ya había un `pago_individual`) el caso con `orquestador.crear_caso_usuario`. Re
 - Todo con el candado del usuario; rastro `caso_chat` en la auditoría y origen `chat` en el caso. «Deshacer» como en
   `actualizar_caso` (`apuntar_gasto_con_rastro` devuelve el caso antes y después para que la sesión lo guarde).
 - Todo texto libre que vuelve al modelo va entre `<datos>`: la pista, los comercios y los nombres son DATOS.
+
+`recordar_sobre_mi_usuario` (herramienta `recordar_sobre_mi`) es lo mismo para las frases que enseñan sin crear un caso:
+con el candado, auditoría `hecho_chat` y «Deshacer» (`recordar_con_rastro` / `deshacer_hecho`). La lógica pura vive en
+`personalizacion/hechos_chat.py`.
 """
 
 from __future__ import annotations
@@ -22,12 +26,23 @@ from .. import casos
 from ..casos import apuntar as _apuntar
 from ..modulos.plantillas import sanear_dato
 from ..personalizacion import amigos as _contactos
+from ..personalizacion import edicion, hechos_chat
 from ..personalizacion.perfil import es_sensible
 from . import almacenamiento as alm
 from . import orquestador
 from .privacidad import enmascarar_texto
 from .reloj import ahora_por_defecto
-from .tipos import ApuntarGastoEntrada, ApuntarGastoSalida, Caso, CargoCandidato, CuotaPersona, Movimiento, ResultadoApuntar
+from .tipos import (
+    ApuntarGastoEntrada,
+    ApuntarGastoSalida,
+    AprendizajeAmigos,
+    Caso,
+    CargoCandidato,
+    CuotaPersona,
+    HechoChatEntrada,
+    Movimiento,
+    ResultadoApuntar,
+)
 
 MSG_EFECTIVO = ("Todavía no puedo apuntar una deuda que no sale de un pago de tu cuenta (como lo pagado en efectivo): "
                 "está en la hoja de ruta. No he creado nada. Si el pago fue con tarjeta, dime cuál era y lo apunto.")
@@ -71,7 +86,7 @@ def _resolver(modelo, lista: list[Caso], texto: str) -> tuple[str, str | None]:
             return "ok", coinciden[0]
         if len(coinciden) > 1:
             return "ambigua", None
-    return "desconocida", clave
+    return "desconocida", clave   # (la misma regla que `hechos_chat.resolver_persona`, que usa `recordar_sobre_mi`)
 
 
 def _movimiento_elegido(historial: list[Movimiento], movimiento_id: str, hoy: date) -> Movimiento | None:
@@ -192,3 +207,71 @@ def deshacer_apuntado(usuario_id: str, despues: Caso) -> Caso:
         orquestador._guardar_caso(usuario_id, hoy, lista, nuevo, actual)
         orquestador._auditar(usuario_id, "caso_chat_deshecho", caso_id=despues.id)
         return nuevo
+
+
+# --- `recordar_sobre_mi`: frases que enseñan sin crear un caso (personalizacion/hechos_chat.py) -------------------------
+
+def recordar_con_rastro(usuario_id: str, entrada: HechoChatEntrada,
+                        confirmar_personas_nuevas: bool = False) -> tuple[dict, dict | None]:
+    """Como `recordar_sobre_mi_usuario`, pero devuelve también el rastro para «Deshacer» (`None` si no cambió nada): el
+    hecho y el aprendizaje antes y después. Con el candado del usuario y rastro `hecho_chat` en la auditoría."""
+    with alm.candado(usuario_id):
+        estado = orquestador._estado(usuario_id)
+        hoy = orquestador._hoy(estado)
+        modelo = orquestador._leer(usuario_id, "modelo")
+        if modelo is None:
+            raise orquestador.NoEncontrado(f"El usuario {usuario_id!r} aún no tiene modelo.")
+        historial = [m for m in orquestador._leer(usuario_id, "movimientos", [])
+                     if m.fecha <= hoy and m.importe < 0 and m.canal not in ("bizum", "transferencia", "cajero") and m.comercio
+                     and not es_sensible(m.categoria, m.comercio, m.concepto)]
+        por_comercio: dict[str, Movimiento] = {}
+        for m in historial:
+            por_comercio.setdefault(m.comercio, m)
+        r = hechos_chat.aplicar_hecho(
+            modelo, entrada, hoy, conocidas={d.contraparte for c in casos.cargar(usuario_id) for d in c.deudores},
+            comercios=list(por_comercio), tipo_de=lambda c: orquestador._tipo_comercio(por_comercio[c]),
+            confirmar_personas_nuevas=confirmar_personas_nuevas)
+        if not r.ok:
+            salida = {"ok": False, "resultado": r.resultado, "error": r.mensaje}
+            if r.personas_sin_resolver:
+                salida["personas_sin_resolver"] = r.personas_sin_resolver
+            return salida, None
+        salida = {"ok": True, "resultado": r.resultado, "mensaje": r.mensaje}
+        if r.hecho is None or r.modelo is modelo:      # ya lo sabía: nada que guardar ni deshacer
+            return salida, None
+        alm.guardar(usuario_id, "modelo", r.modelo.model_copy(update={"actualizado": ahora_por_defecto(hoy)}))
+        orquestador._auditar(usuario_id, "hecho_chat", hecho_id=r.hecho.id, tipo=r.hecho.tipo, eventos=len(r.eventos),
+                             personas=len(r.hecho.datos.get("personas") or []))
+        salida.update({"hecho": r.hecho.texto, "hecho_id": r.hecho.id})
+        rastro = {"hecho_id": r.hecho.id, "antes": modelo.aprendizaje.model_dump(mode="json"),
+                  "despues": r.modelo.aprendizaje.model_dump(mode="json")}
+        return salida, rastro
+
+
+def recordar_sobre_mi_usuario(usuario_id: str, entrada: HechoChatEntrada, confirmar_personas_nuevas: bool = False) -> dict:
+    """Herramienta `recordar_sobre_mi` (y simulador de amigos): `{ok, resultado, mensaje, hecho, hecho_id}` o
+    `{ok: False, resultado, error}` (`persona_desconocida`, `persona_ambigua`, `falta_persona`, `falta_sitio`,
+    `texto_no_valido`, `aprendizaje_apagado`, `tipo_no_valido`). Nunca lanza por lo que dice el usuario; lanza
+    `orquestador.NoEncontrado` solo si el usuario no existe. Una persona desconocida se confirma repitiendo con
+    `confirmar_personas_nuevas=True`."""
+    return recordar_con_rastro(usuario_id, entrada, confirmar_personas_nuevas)[0]
+
+
+def deshacer_hecho(usuario_id: str, rastro: dict) -> None:
+    """«Deshacer» un hecho que acaba de guardar el chat: se borra con su efecto (silencio, canal, sitios). Si el aprendizaje
+    no ha cambiado desde entonces, vuelve exactamente a como estaba. `ValueError` si el hecho ya no está."""
+    with alm.candado(usuario_id):
+        hoy = orquestador._hoy(orquestador._estado(usuario_id))
+        modelo = orquestador._leer(usuario_id, "modelo")
+        hecho = next((h for h in modelo.hechos_aprendidos if h.id == rastro["hecho_id"]), None) if modelo else None
+        if hecho is None:
+            raise ValueError("Ese dato ya no está guardado: no hay nada que deshacer.")
+        nuevo = edicion.borrar_hecho(modelo, hecho.id)
+        if modelo.aprendizaje.model_dump(mode="json") == rastro["despues"]:
+            nuevo = nuevo.model_copy(update={"aprendizaje": AprendizajeAmigos.model_validate(rastro["antes"])})
+        for clave in hecho.datos.get("contactos_nuevos") or []:      # la agenda vuelve a como estaba si nadie más la usó
+            c = nuevo.contactos.get(clave)
+            if c is not None and c.veces == 0 and not any(clave in (h.datos.get("personas") or []) for h in nuevo.hechos_aprendidos):
+                del nuevo.contactos[clave]
+        alm.guardar(usuario_id, "modelo", nuevo.model_copy(update={"actualizado": ahora_por_defecto(hoy)}))
+        orquestador._auditar(usuario_id, "hecho_chat_deshecho", hecho_id=hecho.id)

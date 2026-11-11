@@ -110,11 +110,16 @@ def borrar_contacto(modelo: ModeloUsuario, clave: str) -> ModeloUsuario:
     """Quita a la persona de la agenda y, con ella, todo lo aprendido: su `HabitoPersona`, su sitio en los grupos
     habituales y los hechos que se refieren a ella (curva de amigos, A5)."""
     from .aprende_amigos import borrar_persona
+    from .edicion import _deshacer_efecto
+    from .hechos_chat import menciona
 
     nuevo = modelo.model_copy(deep=True)
     nuevo.contactos.pop(clave, None)
     nuevo.aprendizaje = borrar_persona(nuevo.aprendizaje, clave)
-    nuevo.hechos_aprendidos = [h for h in nuevo.hechos_aprendidos if h.contraparte != clave]
+    propios = [h for h in nuevo.hechos_aprendidos if h.contraparte == clave or (h.origen == "chat" and menciona(h, clave))]
+    for h in [h for h in propios if h.activo]:
+        _deshacer_efecto(nuevo, h, sitios=False)   # p. ej. el silencio de «no le recuerdes nada»: no se queda sin hecho a la vista
+    nuevo.hechos_aprendidos = [h for h in nuevo.hechos_aprendidos if h not in propios]
     return nuevo
 
 

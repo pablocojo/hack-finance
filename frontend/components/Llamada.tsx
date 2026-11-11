@@ -15,7 +15,7 @@ import Transcripcion from "./Transcripcion";
 import type { Turno } from "./Transcripcion";
 
 type Rapida = { texto: string; mensaje?: string; feedback?: ResultadoFeedback };
-// Cambio hecho por el agente con `actualizar_caso` o `apuntar_gasto`: se avisa en pantalla y, si el servidor lo permite, se puede deshacer.
+// Cambio hecho por el agente con `actualizar_caso`, `apuntar_gasto` o `recordar_sobre_mi`: se avisa en pantalla y, si el servidor lo permite, se puede deshacer.
 // `token` es el de la sesión que lo hizo (al cambiar de canal hay otra sesión, y el cambio sigue siendo suyo).
 type CambioHecho = { id: string; hecho: string; token: string; estado: "hecho" | "deshaciendo" | "deshecho" | "no"; error?: string };
 // Canal activo: voz (ElevenLabs, micrófono), chat (ElevenLabs, solo texto) o kit (nivel 3: /voz/texto con el agente del kit).
@@ -245,8 +245,9 @@ export default function Llamada({
     (nombre: NombreHerramientaVoz, token: string, viva: () => boolean) => async (p: Record<string, unknown>) => {
       try {
         const { cambio_id: cambioId, ...alAgente } = await vozHerramienta(nombre, token, camposDeHerramienta(nombre, p));
-        // `apuntar_gasto` también deja un aviso «Apuntado …» con Deshacer cuando crea o convierte un caso.
-        if ((nombre === "actualizar_caso" || nombre === "apuntar_gasto") && alAgente.ok && cambioId && typeof alAgente.hecho === "string" && viva()) {
+        // `apuntar_gasto` también deja un aviso «Apuntado …» con Deshacer cuando crea o convierte un caso, y `recordar_sobre_mi`
+        // cuando guarda algo que el usuario ha contado (se ve y se borra en «Lo que he aprendido»).
+        if ((nombre === "actualizar_caso" || nombre === "apuntar_gasto" || nombre === "recordar_sobre_mi") && alAgente.ok && cambioId && typeof alAgente.hecho === "string" && viva()) {
           anotarCambio(cambioId, alAgente.hecho, token);
         }
         return JSON.stringify(alAgente);
@@ -285,6 +286,7 @@ export default function Llamada({
           lo_que_sabes_de_mi: herramientaDeVoz("lo_que_sabes_de_mi", s.token_sesion, viva),
           actualizar_caso: herramientaDeVoz("actualizar_caso", s.token_sesion, viva),
           apuntar_gasto: herramientaDeVoz("apuntar_gasto", s.token_sesion, viva),
+          recordar_sobre_mi: herramientaDeVoz("recordar_sobre_mi", s.token_sesion, viva),
           registrar_feedback: async (p: { resultado?: string }) => {
             const resultado = RESULTADOS_AGENTE.find((r) => r === p?.resultado);
             if (!resultado) return JSON.stringify({ ok: false });

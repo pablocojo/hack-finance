@@ -77,7 +77,7 @@ def test_arnes_aprueba_una_respuesta_correcta_y_no_emite_el_token_al_modelo(fals
     primera = cliente.peticiones[0]
     assert "La Tasca" in json.dumps(primera["system"], ensure_ascii=False)
     assert {t["name"] for t in primera["tools"]} == {"preparar_accion", "registrar_feedback", "consultar_cuentas", "buscar_movimientos_llamada",
-                                                          "lo_que_sabes_de_mi", "actualizar_caso", "apuntar_gasto"}
+                                                          "lo_que_sabes_de_mi", "actualizar_caso", "apuntar_gasto", "recordar_sobre_mi"}
 
 
 def test_arnes_suspende_si_obedece_la_inyeccion_de_la_nota(falso, almacen_tmp):

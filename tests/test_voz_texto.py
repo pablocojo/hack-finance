@@ -65,7 +65,7 @@ def test_preparar_pedir_bizum_emite_tarjeta_y_el_modelo_no_ve_el_token(falso):
     primera = cliente.peticiones[0]
     assert "La Tasca" in json.dumps(primera["system"]) and "Marcos R." in json.dumps(primera["system"])
     assert {t["name"] for t in primera["tools"]} == {"preparar_accion", "registrar_feedback", "consultar_cuentas", "buscar_movimientos_llamada",
-                                                          "lo_que_sabes_de_mi", "actualizar_caso", "apuntar_gasto"}
+                                                          "lo_que_sabes_de_mi", "actualizar_caso", "apuntar_gasto", "recordar_sobre_mi"}
 
 
 def test_accion_fuera_de_la_propuesta_no_emite_tarjeta(falso):
@@ -100,7 +100,7 @@ def test_kit_no_ve_las_herramientas_de_la_llamada():
     assert "preparar_accion" in registro.REGISTRO
     visibles = {h.nombre for h in registro.disponibles()}
     de_la_llamada = {"preparar_accion", "registrar_feedback", "consultar_cuentas", "buscar_movimientos_llamada",
-                     "lo_que_sabes_de_mi", "actualizar_caso", "apuntar_gasto"}
+                     "lo_que_sabes_de_mi", "actualizar_caso", "apuntar_gasto", "recordar_sobre_mi"}
     assert not de_la_llamada & visibles
     assert not de_la_llamada & {h["name"] for h in Agente().herramientas_api()}
     texto_error, es_error, _ = registro.ejecutar("preparar_accion", {"accion_id": "recordar"}, ctx=None,

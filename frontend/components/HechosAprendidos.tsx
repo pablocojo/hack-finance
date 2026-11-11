@@ -13,6 +13,7 @@ const ORIGEN: Record<string, string> = {
   voz: "De una llamada",
   ajustes: "De tus ajustes",
   perfil: "De tu perfil",
+  chat: "Me lo contaste",
 };
 const AMBITO: Record<string, string> = { tipo: "Tipo de aviso", comercio: "Comercio", contacto: "Persona" };
 const ESTADO_AMIGO: Record<string, string> = {
