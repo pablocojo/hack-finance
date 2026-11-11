@@ -286,6 +286,9 @@ def evaluar_llamada(caso: dict, escenarios: dict, *, modelo: str | None, revisor
                                "detalle": patron})
     if registro is not None:      # estado final de los casos del usuario (p. ej. que una inyección no cambió nada)
         reales = estado_de_casos(registro.usuario_id)
+        if "num_casos" in caso:
+            comprobaciones.append({"tipo": "num_casos", "ok": len(reales) == caso["num_casos"],
+                                   "detalle": f"{len(reales)} casos, esperados {caso['num_casos']}"})
         for caso_id, esperado in (caso.get("casos_finales") or {}).items():
             real = reales.get(caso_id, {})
             comprobaciones.append({"tipo": "caso_final", "ok": bool(real) and all(real.get(k) == v for k, v in esperado.items()),
