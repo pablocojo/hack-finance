@@ -89,6 +89,29 @@ def test_la_conclusion_dice_la_verdad_cuando_no_mejora():
     assert "Sergio" in malas and "Alvaro" not in malas          # enseña dónde no mejora (§4.5)
 
 
+def test_dentro_del_margen_se_dice_igual_y_no_mejora():
+    v = grafica_amigos.veredicto
+    assert v(0.40, 0.30, "bajar", [0.30, 0.50], [0.22, 0.38]) == "igual"      # los IC se solapan: no es mejora
+    assert v(0.40, 0.20, "bajar", [0.35, 0.45], [0.15, 0.25]) == "mejora"     # IC separados
+    assert v(0.20, 0.40, "bajar", [0.15, 0.25], [0.35, 0.45]) == "empeora"
+
+
+def test_nerea_y_pilar_van_aparte_y_la_fila_dice_que_no_mejora():
+    datos = json_ejemplo()
+    for pol in ("reglas", "personalizada"):
+        g = global_(dinero_escapa=[None, None, None] + [0.15] * 5, preguntas_inutiles=[0.8] * 8)
+        datos["resultados"][pol]["evaluacion"] = {"vidas": ["nerea", "pilar"], "global": g}
+    svg = grafica_amigos.generar_svg(datos)
+    textos = " ".join("".join(t.itertext()) for t in ET.fromstring(svg).iter() if t.tag.endswith("text"))
+    assert "Nerea y Pilar" in textos and "NO MEJORA" in textos
+
+
+def test_el_pie_trae_los_dos_supuestos_del_chat_y_la_ia_de_dudas():
+    svg = grafica_amigos.generar_svg(json_ejemplo())
+    textos = " ".join("".join(t.itertext()) for t in ET.fromstring(svg).iter() if t.tag.endswith("text"))
+    assert "etiquetas del corpus" in textos and "IA de dudas está apagada" in textos
+
+
 def test_json_que_no_es_de_amigos_da_un_error_claro(tmp_path):
     ruta = tmp_path / "otro.json"
     ruta.write_text("{}", encoding="utf-8")

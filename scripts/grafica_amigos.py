@@ -125,7 +125,8 @@ def solapan(a: list | None, b: list | None) -> bool:
 def veredicto(base: float | None, nueva: float | None, debe: str, ic_base: list | None = None,
               ic_nueva: list | None = None) -> str:
     """mejora | igual | empeora. «igual» si el cambio es menor del 2 % o si los IC 95 % de las dos se solapan (no se
-    puede distinguir del azar de las semillas: criterio prudente)."""
+    puede distinguir del azar de las semillas: criterio prudente). El JSON no trae IC de la diferencia entre políticas,
+    por eso se usa el solapamiento de los IC de las dos."""
     if base is None or nueva is None:
         return "sin comparar"
     if solapan(ic_base, ic_nueva):
