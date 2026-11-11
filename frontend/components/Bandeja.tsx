@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { amigos as pedirAmigos, prepararAccion } from "@/lib/api";
 import type { Amigo, CasoResumen, Notificacion, TarjetaConfirmacion } from "@/lib/api";
+import { casoAbierto } from "@/lib/cuentas";
 import { casos as pedirCasos, esMaqueta } from "@/lib/cuentasApi";
 import { esPregunta, fraseResumen, resumenSemanal } from "@/lib/preguntas";
 import { eur, nombreVisible, textoVisible } from "@/lib/formato";
@@ -44,8 +45,6 @@ export default function Bandeja({ usuarioId, ahora, resumen, hoy = null, alResol
   // «✓ Resuelto» y no cuenta en «Ahora». Sigue en la campana, en «Resueltas».
   const cerrado = (n: Notificacion) => n.estado === "resuelta" || n.estado === "rechazada";
   const ordenar = (ns: Notificacion[]) => [...ns.filter((n) => !cerrado(n)), ...ns.filter(cerrado)];
-  const lista = ordenar(pestana === "ahora" ? ahora : resumen);
-  const abiertasAhora = ahora.filter((n) => !cerrado(n)).length;
 
   // Preguntas de Meisam (¿fuiste con alguien?, ¿con Laura y Marcos?, dudas): casos con aviso `resumen`. Solo viven en esta
   // pestaña, nunca como notificación. Una pregunta ya contestada se conserva en pantalla (con su «Deshacer») hasta la
@@ -80,6 +79,16 @@ export default function Bandeja({ usuarioId, ahora, resumen, hoy = null, alResol
     cargarPreguntas();
   }, [cargarPreguntas, ahora, resumen, hoy]);
   const visibles = preguntas.filter((k) => !ahoraNo.includes(k.id));
+  // Cuando su caso ya está cerrado (todos pagaron, lo saldaste o lo descartaste), el aviso sale de la bandeja: sigue en la
+  // campana, en «Resueltas». Mientras el caso siga abierto (p. ej. Bizum pedido y aún sin pagar) se ve como «✓ Hecho».
+  const casoDe = (n: Notificacion) =>
+    todosLosCasos.find((c) => (c as { propuesta_id?: string | null }).propuesta_id === n.propuesta.id || n.propuesta.id === `prop-preg-${c.id}`);
+  const casoCerrado = (n: Notificacion) => {
+    const c = casoDe(n);
+    return !!c && !casoAbierto(c);
+  };
+  const lista = ordenar((pestana === "ahora" ? ahora : resumen).filter((n) => !casoCerrado(n)));
+  const abiertasAhora = ahora.filter((n) => !cerrado(n) && !casoCerrado(n)).length;
   const pendientes = visibles.filter((k) => !respondidas.includes(k.id));
   const marcarRespondida = (id: string, si: boolean) => {
     respondidasRef.current = si ? [...respondidasRef.current, id] : respondidasRef.current.filter((x) => x !== id);
