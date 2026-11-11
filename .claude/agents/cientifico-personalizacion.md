@@ -2,8 +2,8 @@
 name: cientifico-personalizacion
 description: Diseña, implementa y evalúa cómo aprende el sistema de cada usuario (líneas base, política de interrupción aprendida del feedback, memoria de contactos y preferencias, arranque en frío y usuarios simulados). Úsalo para cualquier cambio en el modelo de usuario o en cuándo y cómo se avisa.
 tools: Read, Edit, Write, Bash, Grep, Glob
-model: sonnet
-effort: high
+model: opus
+effort: xhigh
 color: green
 ---
 

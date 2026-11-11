@@ -9,7 +9,7 @@ Plataforma para bancos que vive dentro de su app. Un **motor** convierte los mov
 
 ## Dónde está cada cosa
 - `reto/RETO.md`: rúbrica, entrega y dudas. Es la fuente de verdad del reto.
-- `docs/diseno/`: `CONTRATO.md` (tipos e interfaces que comparten todas las partes) y los diseños de cada parte: `motor.md`, `personalizacion.md`, `modulos.md`, `experiencia.md`. **`deudas-casos.md`** es el diseño vigente de todo lo que toca deudas y Bizum (escenarios, casos, detector en dos fases, portero, agente post-llamada) y su plan hasta la congelación; manda sobre `motor.md` §3.1 donde choquen.
+- `docs/diseno/`: `CONTRATO.md` (tipos e interfaces que comparten todas las partes) y los diseños de cada parte: `motor.md`, `personalizacion.md`, `modulos.md`, `experiencia.md`. **`deudas-casos.md`** es el diseño vigente de todo lo que toca deudas y Bizum (escenarios, casos, detector en dos fases, portero, agente post-llamada) y su plan hasta la congelación; manda sobre `motor.md` §3.1 donde choquen. **`curva-amigos.md`** es el encargo del 11 nov: simulador de vidas con amigos, lo que aprende Meisam de cada usuario, casos desde el chat y la curva para el jurado.
 - `docs/`: `ANALISIS.md` (la idea), `PLAN.md` (fases, puertas, tareas y estado), `ARQUITECTURA.md`, `DECISIONES.md`, `DIARIO.md` (memoria entre días), `IDEAS.md` (compañeros), `INVESTIGACION.md`, `PITCH.md`, `DEMO.md`.
 - `backend/`: el kit (`agente/`, `herramientas/`, `datos/`, `api/`, `claude_client.py`) y los paquetes nuevos que crea `/esqueleto`: `plataforma/`, `motor/`, `escenarios/`, `personalizacion/`, `modulos/`, `acciones/`, `voz/`. El mapa completo está en la skill `copiloto`.
 - `frontend/`: Next.js. Pantallas nuevas `/app` (cliente), `/banco` (consola) y `/jurado` (métricas); el chat del kit pasa a `/kit`.
@@ -25,6 +25,8 @@ Divides el trabajo, delegas en el subagente adecuado, integras y verificas. Los 
 | Plataforma de módulos (YAML, minilenguaje, creación desde lenguaje natural) y acciones con el banco simulado | `ingeniero-modulos` |
 | Llamada de voz con ElevenLabs y modo texto | `ingeniero-voz` |
 | Realismo y normativa bancaria española (Bizum, recibos, bloqueos, PSD2, RGPD) | `experto-banca` |
+| Realismo de las personas: vidas del simulador de amigos, hábitos reales con Bizum y efectivo, y si lo que aprende Meisam es creíble | `experto-usuarios` |
+| Juicio independiente con el contexto limpio: si Meisam cubre una necesidad real, si cada aviso ayuda o molesta y si la curva y las cifras del pitch se sostienen | `critico-necesidad` |
 | Stack, contrato de la API y reparto en tareas paralelas | `arquitecto` |
 | Prompts y guardarraíles del agente conversacional del kit | `ingeniero-agente` |
 | Backend en Python: plataforma, orquestador, API y datos | `programador` |
