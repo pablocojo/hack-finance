@@ -34,6 +34,8 @@ from .privacidad import enmascarar_nombre, enmascarar_texto
 from .reloj import ahora_por_defecto
 from .tipos import (
     Caso,
+    Contacto,
+    OrigenCaso,
     ACCIONES,
     Decision,
     Evento,
@@ -179,6 +181,22 @@ def cargar_escenario(escenario_id: str) -> dict:
                    for m in _campo(escenario, "movimientos", [])]
     if not uid or activacion is None:
         raise ValueError(f"El escenario {escenario_id!r} no tiene usuario_id o activacion.")
+    return _cargar_usuario(uid, activacion, movimientos, _contactos.agenda_de_escenario(_campo(escenario, "contactos", None)),
+                           None, escenario_id)
+
+
+def cargar_simulacion(usuario_id: str, movimientos: list[Movimiento], activacion: date,
+                      contactos: dict[str, Contacto] | None = None, modelo: ModeloUsuario | None = None) -> dict:
+    """Como `cargar_escenario`, pero desde memoria (comparten cuerpo). `modelo` fija p. ej. `aprendizaje.modo`;
+    `contactos` es la agenda ya construida. Devuelve `{usuario_id, hoy, activacion}`."""
+    if isinstance(activacion, str):
+        activacion = date.fromisoformat(activacion)
+    movimientos = [m if isinstance(m, Movimiento) else Movimiento.model_validate(m) for m in movimientos]
+    return _cargar_usuario(usuario_id, activacion, movimientos, contactos, modelo, "simulacion")
+
+
+def _cargar_usuario(uid: str, activacion: date, movimientos: list[Movimiento], contactos: dict[str, Contacto] | None,
+                    modelo: ModeloUsuario | None, escenario_id: str) -> dict:
     with alm.candado(uid):
         alm.borrar_usuario(uid)
         motor.reiniciar(uid)
@@ -189,10 +207,10 @@ def cargar_escenario(escenario_id: str) -> dict:
         alm.guardar(uid, "reloj", {"hoy": activacion.isoformat()})  # lo lee acciones.banco_sim.fecha_simulada
         alm.guardar(uid, "estado", {"hoy": activacion.isoformat(), "activado": False, "activacion": activacion.isoformat(),
                                     "ultimo_perfil": None, "escenario_id": escenario_id})
-        modelo_nuevo = personalizacion.nuevo_modelo(uid)
-        agenda = _contactos.agenda_de_escenario(_campo(escenario, "contactos", None))   # agenda inventada del escenario
-        if agenda:
-            modelo_nuevo = modelo_nuevo.model_copy(update={"contactos": agenda})
+        modelo_nuevo = (modelo.model_copy(update={"usuario_id": uid}) if modelo is not None
+                        else personalizacion.nuevo_modelo(uid))
+        if contactos:   # agenda inventada del escenario o de la simulación
+            modelo_nuevo = modelo_nuevo.model_copy(update={"contactos": contactos})
         alm.guardar(uid, "modelo", modelo_nuevo)
         for nombre in ("momentos", "propuestas", "decisiones", "casos"):
             alm.guardar(uid, nombre, [])
@@ -200,6 +218,25 @@ def cargar_escenario(escenario_id: str) -> dict:
         alm.guardar(uid, "recordatorios", [])
         _auditar(uid, "escenario_cargado", escenario_id=escenario_id)
     return {"usuario_id": uid, "hoy": activacion.isoformat(), "activacion": activacion.isoformat()}
+
+
+def anadir_movimientos(usuario_id: str, movimientos: list[Movimiento]) -> int:
+    """Añade a `pendientes` movimientos con fecha posterior a hoy (el reloj simulado). Rechaza el pasado: nadie mira
+    el futuro ni reescribe el pasado. Devuelve cuántos añade (ids ya existentes se ignoran)."""
+    nuevos = [m if isinstance(m, Movimiento) else Movimiento.model_validate(m) for m in movimientos or []]
+    with alm.candado(usuario_id):
+        hoy = _hoy(_estado(usuario_id))
+        viejos = [m for m in nuevos if m.fecha <= hoy]
+        if viejos:
+            raise ValueError(f"Solo se añaden movimientos posteriores a hoy ({hoy.isoformat()}): "
+                             f"{viejos[0].id!r} es del {viejos[0].fecha.isoformat()}. Pon una fecha futura.")
+        pendientes = _leer(usuario_id, "pendientes", [])
+        conocidos = {m.id for m in pendientes} | {m.id for m in _leer(usuario_id, "movimientos", [])}
+        nuevos = [m for m in nuevos if m.id not in conocidos]
+        if nuevos:
+            alm.guardar(usuario_id, "pendientes", sorted(pendientes + nuevos, key=lambda m: (m.fecha, m.id)))
+            _auditar(usuario_id, "movimientos_anadidos", n=len(nuevos))
+        return len(nuevos)
 
 
 def activar(usuario_id: str, modulos_activos: list[str], consentimientos: dict) -> ModeloUsuario:
@@ -280,7 +317,9 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         vistos = {m.id for m in momentos}
         items: list[tuple[Momento, Propuesta, Decision]] = []
         momentos_dia: list[Momento] = []
-        for momento in motor.procesar(uid, nuevos, hoy, perfil):
+        compania = None   # gancho (curva de amigos, A4): aquí irá `aprende_amigos.compania_para_motor(modelo.aprendizaje)`
+        args_motor = {"compania": compania} if compania is not None else {}   # con None, la llamada es idéntica a la de antes
+        for momento in motor.procesar(uid, nuevos, hoy, perfil, **args_motor):
             if momento.id in vistos:
                 continue
             vistos.add(momento.id)
@@ -288,7 +327,7 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
             momentos_dia.append(momento)
             if momento.tipo == "gasto_compartido":   # abre un caso; el portero de casos decide el aviso
                 if not any(c.momento_id == momento.id for c in lista_casos):
-                    nuevo_caso = casos.crear_desde_momento(momento, hoy, ahora)
+                    nuevo_caso = casos.crear_desde_momento(momento, hoy, ahora).model_copy(update={"origen": "motor"})
                     lista_casos.append(casos.aplicar_recurrente(nuevo_caso, momento, hoy, ahora))   # serie -> fijo
                     _auditar(uid, "caso_abierto", caso_id=f"caso-{momento.id}", dudoso=bool(momento.datos.get("dudoso")))
                 continue
@@ -1074,7 +1113,8 @@ def _guardar_caso(uid: str, hoy: date, lista: list[Caso], nuevo: Caso, antes: Ca
         _estado_notificacion(uid, nuevo.propuesta_id, "resuelta" if nuevo.estado == "saldado" else "rechazada")
 
 
-def crear_caso_usuario(usuario_id: str, movimiento_id: str, deudores: list[dict], escenario: str | None = None) -> dict:
+def crear_caso_usuario(usuario_id: str, movimiento_id: str, deudores: list[dict], escenario: str | None = None,
+                       origen: OrigenCaso = "boton") -> dict:
     """«X me debe esto»: abre un caso `pago_por_otro` (una persona) o `gasto_compartido` (varias) sobre un cargo del
     usuario. Valida que el movimiento existe y es un cargo, y que cada importe es mayor que cero y no pasa del pago.
     Si ya hay un caso abierto de ese movimiento (p. ej. `pago_individual`), lo CONVIERTE con rastro en vez de crear otro.
@@ -1103,9 +1143,10 @@ def crear_caso_usuario(usuario_id: str, movimiento_id: str, deudores: list[dict]
             raise ValueError(f"Ya hay un caso abierto de ese gasto ({previo.id}). Usa saldar o cambia su escenario.")
         if previo is not None:
             caso = casos.cambiar_escenario(previo, escenario, "lo dices tú.", "usuario", hoy, ahora, deudores=nuevos)
+            caso = caso.model_copy(update={"origen": previo.origen or origen})
             evento, ya = "caso_convertido", {d.contraparte for d in previo.deudores}
         else:
-            caso = casos.caso_de_movimiento(usuario_id, movimiento, nuevos, escenario, hoy, ahora)
+            caso = casos.caso_de_movimiento(usuario_id, movimiento, nuevos, escenario, hoy, ahora).model_copy(update={"origen": origen})
             evento, ya = "caso_creado", set()
         caso = casos.conciliar_con_historial(caso, historial, hoy, ahora)
         if modelo is not None:
