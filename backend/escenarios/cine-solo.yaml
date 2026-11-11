@@ -1,0 +1,20 @@
+# Trampa de pago_individual con precio por persona (K1 d). Datos sintéticos.
+# Lucía va sola al cine el sábado 7/11 (una entrada: 9,50 € en CINES FOTOGRAMA, `precio_persona: 9.50`) y al teatro el
+# domingo 8/11 (una butaca: 24,00 € en TEATRO LAS TRES MASCARAS, `precio_persona: 22.00`). El teatro, por las reglas de
+# lugar y día, abriría una pregunta (ocio, domingo, >= 20 €), pero 24 / 22 = 1,09 <= 1 + TOL_PERSONAS: una entrada y
+# nada que reclamar. Silencio en los dos.
+id: cine-solo
+usuario_id: lucia
+descripcion: "Lucía va sola al cine (9,50 €) y al teatro (24 €, una entrada): silencio, nada que preguntar"
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: {calculado: 2026-10-01, dias_historial: 60, ticket_tipico: 12, umbral_relevante_eur: 20}   # a mano: así también se mide con perfil
+movimientos:
+  - {id: cso-n1, fecha: 2026-10-30, concepto: "NOMINA EMPRESA SOL", importe: 1450.00, canal: transferencia, categoria: ingresos}
+  - {id: cso-c1, fecha: 2026-11-07, concepto: "COMPRA TARJETA CINES FOTOGRAMA", comercio: "CINES FOTOGRAMA", importe: -9.50, canal: tarjeta, categoria: ocio}
+  - {id: cso-t1, fecha: 2026-11-08, concepto: "COMPRA TARJETA TEATRO LAS TRES MASCARAS", comercio: "TEATRO LAS TRES MASCARAS", importe: -24.00, canal: tarjeta, categoria: ocio}
+eventos: []
+esperado: []
+trampas:
+  - {tipo: pago_individual, ids: [cso-c1, cso-t1], motivo: "una sola entrada: el precio por persona dice que fue solo"}
+  - {tipo: gasto_compartido, ids: [cso-c1, cso-t1], motivo: "no hay deuda: nadie ha enviado nada"}

@@ -73,7 +73,11 @@ class PagoIndividual:
     IMPORTE_MIN: Decimal = Decimal("20")                # sin perfil; con perfil: clamp(umbral_relevante_eur, 20, 60)
     IMPORTE_MIN_TOPE: Decimal = Decimal("60")
     MULT_ENTRE_SEMANA: Decimal = Decimal("2")           # entre semana solo cuenta un pago de >= 2 x el umbral
-    TIPOS_ELEGIBLES: tuple[str, ...] = ("restaurante", "bar", "ocio")   # nunca supermercado, gasolinera, servicios...
+    # Toda actividad de ocio o social (K1 c). ÚNICO sitio de la lista: `conocimiento.TIPOS` (la lista cerrada de la
+    # búsqueda web y del catálogo) empieza por estos. Nunca supermercado, gasolinera, tienda, servicios personales...
+    TIPOS_ELEGIBLES: tuple[str, ...] = ("restaurante", "bar", "ocio", "cine", "teatro", "concierto", "evento",
+                                        "actividad")    # actividad: bolera, escape room, karaoke, karting...
+    TIPOS_SENAL_DEBIL: tuple[str, ...] = ("bar",)       # en fin de semana, `debil` (el resto de elegibles, `media`)
     DIAS_FINDE: tuple[int, ...] = (5, 6)                # sábado y domingo (`date.weekday`)
     DIAS_NOCHE: tuple[int, ...] = (4,)                  # viernes: plausible, solo señal débil
     CONFIANZA: float = 0.50                             # baja y fija: el razonador descarta < 0,5 y aquí no avisa nadie
@@ -82,6 +86,12 @@ class PagoIndividual:
     P_ACOMPANADO_MIN: float = 0.60                      # p(acompañado) del ámbito desde la que abre (>=)
     IMPORTE_MIN_APRENDIDA: Decimal = Decimal("10")      # mínimo propio, cualquier día; el perfil no lo sube
     CONFIANZA_APRENDIDA: float = 0.60                   # < 0,7 del módulo: el aviso lo decide la escalera, no el motor
+    # Precio por persona (K1 d; `InfoComercio.precio_persona` del catálogo o la caché, nunca de internet aquí):
+    # personas ≈ importe / precio_persona, comparado en local
+    TOL_PERSONAS: Decimal = Decimal("0.35")             # <= 1,35 x precio: 1 persona (silencio); >= 1,65 x: 2 o más
+    PERSONAS_MAX_PRECIO: int = 12                       # más: el precio no explica el pago (sin estimación)
+    IMPORTE_MIN_PRECIO: Decimal = Decimal("10")         # con >= 2 personas abre aunque no llegue a IMPORTE_MIN
+    CONFIANZA_PRECIO: float = 0.60                      # < 0,7 del módulo: solo pregunta en el Resumen
 
 
 @dataclass(frozen=True)

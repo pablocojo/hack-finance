@@ -1,0 +1,23 @@
+# Trampa de pago_individual con precio por persona (K1 d). Datos sintéticos.
+# ASADOR LA BRASA ESCONDIDA (restaurante ficticio del catálogo, `precio_persona: 28.00`). El sábado 7/11 Lucía paga
+# 29,50 €: por las reglas (restaurante, sábado, >= 20 €) abriría la pregunta, pero 29,50 / 28 = 1,05 <= 1 + TOL_PERSONAS
+# es el menú de una persona -> silencio. El sábado 14/11 vuelve y paga 61,00 € (61 / 28 = 2,18 -> unas 2 personas):
+# sale la pregunta con `personas_estimadas: 2` el martes 17/11 (DIAS_ESPERA = 3).
+id: restaurante-precio-una-persona
+usuario_id: lucia
+descripcion: "Un menú de una persona en un asador (29,50 €) no pregunta nada; la cena de dos (61 €), sí"
+activacion: 2026-10-01
+hasta: 2026-11-20
+perfil: {calculado: 2026-10-01, dias_historial: 60, ticket_tipico: 12, umbral_relevante_eur: 20}   # a mano: así también se mide con perfil
+movimientos:
+  - {id: rpu-n1, fecha: 2026-10-30, concepto: "NOMINA EMPRESA SOL", importe: 1450.00, canal: transferencia, categoria: ingresos}
+  - {id: rpu-a1, fecha: 2026-11-07, concepto: "COMPRA TARJETA ASADOR LA BRASA ESCONDIDA", comercio: "ASADOR LA BRASA ESCONDIDA", importe: -29.50, canal: tarjeta, categoria: restaurantes}
+  - {id: rpu-a2, fecha: 2026-11-14, concepto: "COMPRA TARJETA ASADOR LA BRASA ESCONDIDA", comercio: "ASADOR LA BRASA ESCONDIDA", importe: -61.00, canal: tarjeta, categoria: restaurantes}
+eventos: []
+esperado:
+  - {tipo: pago_individual, fecha_detectable: 2026-11-17, ids: [rpu-a2], tolerancia_dias: 0,
+     datos: {origen: pago_individual, senal: media, tipo_comercio: restaurante, pago_id: rpu-a2,
+             comercio: "ASADOR LA BRASA ESCONDIDA", importe_total: "61.00", personas_estimadas: 2}}
+trampas:
+  - {tipo: pago_individual, ids: [rpu-a1], motivo: "importe de una persona según el precio por persona del asador"}
+  - {tipo: gasto_compartido, ids: [rpu-a1, rpu-a2], motivo: "no hay deuda calculada: nadie ha enviado nada"}

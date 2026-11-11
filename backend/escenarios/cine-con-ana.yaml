@@ -1,0 +1,24 @@
+# pago_individual con precio por persona (K1 d; deudas-casos.md, «pago_individual»). Datos sintéticos.
+# Lucía va al cine con Ana el sábado 7/11 y paga las dos entradas: 19,00 € en CINES FOTOGRAMA (comercio ficticio del
+# catálogo, `tipo: cine`, `precio_persona: 9.50`). Por las reglas de lugar y día no saldría nada (19 € < 20 €), pero el
+# código compara en local 19,00 / 9,50 = 2 entradas: abre la pregunta «¿fuiste con alguien?» con `senal: media` y
+# `personas_estimadas: 2`. Ana no le ha mandado nada. Sin línea base, DIAS_ESPERA = 3 -> el martes 10/11.
+# La búsqueda web no interviene (el cine está en el catálogo) y nunca vería el importe.
+id: cine-con-ana
+usuario_id: lucia
+descripcion: "Lucía paga dos entradas de cine (19 €) y Ana no le ha devuelto la suya: pregunta con ≈ 2 personas"
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: {calculado: 2026-10-01, dias_historial: 60, ticket_tipico: 12, umbral_relevante_eur: 20}   # a mano: así también se mide con perfil
+movimientos:
+  - {id: cca-n1, fecha: 2026-10-30, concepto: "NOMINA EMPRESA SOL", importe: 1450.00, canal: transferencia, categoria: ingresos}
+  - {id: cca-m1, fecha: 2026-11-03, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -58.40, canal: tarjeta, categoria: supermercado}
+  - {id: cca-c1, fecha: 2026-11-07, concepto: "COMPRA TARJETA CINES FOTOGRAMA", comercio: "CINES FOTOGRAMA", importe: -19.00, canal: tarjeta, categoria: ocio}
+eventos: []
+esperado:
+  - {tipo: pago_individual, fecha_detectable: 2026-11-10, ids: [cca-c1], tolerancia_dias: 0,
+     datos: {origen: pago_individual, senal: media, tipo_comercio: cine, pago_id: cca-c1, comercio: "CINES FOTOGRAMA",
+             importe_total: "19.00", personas_estimadas: 2, precio_persona: "9.50"}}
+trampas:
+  - {tipo: pago_individual, ids: [cca-m1], motivo: "supermercado: compra diaria"}
+  - {tipo: gasto_compartido, ids: [cca-c1, cca-m1], motivo: "no hay deuda calculada: nadie ha enviado nada"}

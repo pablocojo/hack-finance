@@ -358,6 +358,8 @@ def nivel_pregunta(apr: AprendizajeAmigos, *, comercio: str | None, tipo_comerci
 # backend/motor (H2, ingeniero-deteccion). Solo añade un argumento opcional; con None, idéntico.
 def procesar(usuario_id, nuevos, hoy, perfil=None, compania: dict[str, float] | None = None) -> list[Momento]: ...
 #   compania: "c:<COMERCIO>" o "t:<tipo>|<franja>" -> p(acompañado), solo ámbitos con n suficiente.
+#   K1 (c, d): pago_individual estudia todo el ocio (PagoIndividual.TIPOS_ELEGIBLES) y, con InfoComercio.precio_persona,
+#   estima personas en local: Momento.datos += personas_estimadas, precio_persona, motivo_personas (1 persona = silencio).
 #   `pago_individual` abre con `senal="aprendida"` donde p es alta (aunque sea entre semana o por debajo de IMPORTE_MIN,
 #   con un mínimo propio en `PagoIndividual`). Nunca lee el modelo del usuario ni importa `personalizacion`.
 

@@ -10,11 +10,12 @@ con `datos["origen"] = "pago_individual"` y `datos["dudoso"] = True`; el hilo de
 Reglas (todas con parámetros con nombre en `parametros.PagoIndividual`, ajustados al perfil):
 1. Pago de tarjeta (no de una serie, no de una persona) de >= `IMPORTE_MIN` (20 € sin perfil; con perfil
    clamp(`umbral_relevante_eur`, 20, 60)).
-2. Tipo de comercio de la lista elegible (`restaurante`, `bar`, `ocio`) según `conocimiento.tipo_comercio` (catálogo,
-   caché, heurística; aquí nunca hay búsqueda web) o, si el tipo es `desconocido`, la categoría del movimiento
-   (`restaurantes`). Un supermercado, una gasolinera, una barbería (`servicios_personales`), un gimnasio...
-   no abren nada, ningún día.
-3. Día: sábado o domingo -> `senal = media` para restaurante u ocio (`debil` para un bar); viernes ("la noche")
+2. Tipo de comercio de la lista elegible `PagoIndividual.TIPOS_ELEGIBLES` (toda actividad de ocio o social, K1 c:
+   `restaurante`, `bar`, `ocio`, `cine`, `teatro`, `concierto`, `evento`, `actividad`) según `conocimiento.tipo_comercio`
+   (catálogo, caché, heurística; aquí nunca hay búsqueda web) o, si el tipo es `desconocido`, la categoría del
+   movimiento (`restaurantes`; la de `ocio` no, porque también es gimnasio, viajes o juegos). Un supermercado, una
+   gasolinera, una barbería (`servicios_personales`), un gimnasio... no abren nada, ningún día.
+3. Día: sábado o domingo -> `senal = media` (`debil` para los `TIPOS_SENAL_DEBIL`: un bar); viernes ("la noche")
    -> `debil`; entre semana solo cuenta un pago de >= `MULT_ENTRE_SEMANA` x el umbral y es `debil`.
 4. Cuándo: el primer `hoy` con `hoy - pago >= DIAS_ESPERA` (el mismo plazo que `gasto_compartido`, para dar tiempo
    a los Bizums) y mientras `hoy - pago <= VENTANA_REEMBOLSO`, y solo si NINGÚN Bizum o transferencia recibidos en la
@@ -30,26 +31,46 @@ Lo aprendido (curva de amigos, A3; `compania` en `procesar` y en `Contexto`, cal
    `senal = "aprendida"`, `CONFIANZA_APRENDIDA` y `datos["p_acompanado"]` y `datos["ambito_aprendido"]`. La regla 4
    (espera y Bizums) se aplica igual. Una p baja no quita nada: callar donde va solo lo decide la escalera al abrir
    el caso. Con `compania` None o vacío, todo es idéntico a las reglas 1-4.
+
+El precio por persona (K1 d; `conocimiento.precio_persona`, del catálogo o de la caché, nunca de internet aquí):
+7. Si el sitio (de un tipo elegible) tiene `precio_persona`, el código estima en local las personas = importe /
+   precio: <= 1 + `TOL_PERSONAS` es 1 persona -> SILENCIO (manda sobre las reglas 1-3 y sobre lo aprendido: una sola
+   entrada o un solo menú no deja nada que reclamar); >= 2 - `TOL_PERSONAS` son `max(2, redondeo)` personas (hasta
+   `PERSONAS_MAX_PRECIO`) -> abre con `senal = media` cualquier día y desde `IMPORTE_MIN_PRECIO`, o refuerza lo que
+   abran las reglas (`debil` pasa a `media`; `aprendida` se queda) con `datos["personas_estimadas"]`,
+   `datos["precio_persona"]` y `datos["motivo_personas"]` («19,00 € en Cines Fotograma son unas 2 entradas»).
+   Entre medias (o sin precio), todo como en las reglas 1-6. La regla 4 (espera y Bizums) se aplica igual.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from ...plataforma.tipos import MovimientoEnriquecido
 from .. import conocimiento
 from ..enriquecer import centimos, es_reembolso_entrante
+from ..formato import eur
 from ..parametros import GastoCompartido, PagoIndividual
 from .base import Contexto, Hallazgo
 
-CATEGORIA_A_TIPO = {"restaurantes": "restaurante"}      # `ocio` no: incluye tiendas de deporte, entradas online...
-TIPOS_SENAL_MEDIA = ("restaurante", "ocio")
+CATEGORIA_A_TIPO = {"restaurantes": "restaurante"}      # `ocio` no: incluye gimnasios, viajes, juegos...
 MOTIVO_CON_ALGUIEN = "Pudo ir con alguien y nadie le ha enviado todavía su parte"
 MOTIVO_SOLO = "Pudo ir solo: un pago propio sin nada que reclamar"
 MOTIVO_APRENDIDA = "Sueles ir acompañado a este sitio y nadie le ha enviado todavía su parte"
+MOTIVO_PRECIO = "Por el importe fueron unas {n} personas y nadie le ha enviado todavía su parte"
+TIPOS_CON_ENTRADA = ("cine", "teatro", "concierto", "evento", "actividad")   # «son unas 2 entradas»; si no, «personas»
 CLAVE_COMERCIO, CLAVE_TIPO = "c:", "t:"
 FRANJAS = {4: "viernes", 5: "finde", 6: "finde"}       # `date.weekday`; el resto, `laborable` (Franja del contrato)
+
+
+@dataclass(frozen=True)
+class Estimacion:
+    """Cuántas personas explica el importe con el precio por persona del sitio (regla 7)."""
+    personas: int
+    precio: Decimal
+    motivo: str
 
 
 def tipo_del_pago(m: MovimientoEnriquecido) -> tuple[str, str]:
@@ -67,7 +88,7 @@ def senal_de(fecha: date, tipo: str, importe: Decimal, p: PagoIndividual) -> str
         return None
     dia = fecha.weekday()
     if dia in p.DIAS_FINDE:
-        return "media" if tipo in TIPOS_SENAL_MEDIA else "debil"
+        return "debil" if tipo in p.TIPOS_SENAL_DEBIL else "media"
     if dia in p.DIAS_NOCHE:
         return "debil"
     return "debil" if importe >= p.IMPORTE_MIN * p.MULT_ENTRE_SEMANA else None
@@ -76,6 +97,37 @@ def senal_de(fecha: date, tipo: str, importe: Decimal, p: PagoIndividual) -> str
 def franja_de(fecha: date) -> str:
     """`laborable`, `viernes` o `finde`, solo del día de la semana (el banco no da la hora)."""
     return FRANJAS.get(fecha.weekday(), "laborable")
+
+
+def _nombre_visible(comercio: str | None) -> str:
+    from ..razonador import nombre_visible         # aquí dentro: el razonador importa los detectores
+
+    return nombre_visible(comercio)
+
+
+def estimar_personas(importe: Decimal, tipo: str, precio: Decimal | None, comercio: str | None,
+                     p: PagoIndividual) -> Estimacion | None:
+    """Regla 7, en local y con `Decimal`: personas ≈ importe / precio por persona. None si no hay precio, el tipo no
+    es elegible o el importe cae entre 1 y 2 personas (ambiguo) o por encima de `PERSONAS_MAX_PRECIO`."""
+    if precio is None or precio <= 0 or tipo not in p.TIPOS_ELEGIBLES:
+        return None
+    ratio = importe / precio
+    if ratio <= 1 + p.TOL_PERSONAS:
+        personas = 1
+    elif ratio >= 2 - p.TOL_PERSONAS:
+        personas = max(2, int(ratio.quantize(Decimal("1"), rounding=ROUND_HALF_UP)))
+        if personas > p.PERSONAS_MAX_PRECIO:
+            return None
+    else:
+        return None
+    sitio = _nombre_visible(comercio)
+    if tipo in TIPOS_CON_ENTRADA:
+        cuantas = "una entrada" if personas == 1 else f"unas {personas} entradas"
+        motivo = f"{eur(importe)} en {sitio} {'es' if personas == 1 else 'son'} {cuantas}"
+    else:
+        cuantas = "una persona" if personas == 1 else f"unas {personas} personas"
+        motivo = f"{eur(importe)} en {sitio} dan para {cuantas} (unos {eur(precio)} por persona)"
+    return Estimacion(personas=personas, precio=precio, motivo=motivo)
 
 
 def _p_valida(valor: object) -> float | None:
@@ -108,7 +160,7 @@ def _es_pago_propio(m: MovimientoEnriquecido, p: PagoIndividual, minimo: Decimal
 
 
 def _hallazgo(m: MovimientoEnriquecido, tipo: str, senal: str, p: PagoIndividual,
-              aprendido: tuple[str, float] | None = None) -> Hallazgo:
+              aprendido: tuple[str, float] | None = None, estimacion: Estimacion | None = None) -> Hallazgo:
     importe = centimos(-m.importe)
     datos = {
         "origen": "pago_individual",
@@ -130,6 +182,13 @@ def _hallazgo(m: MovimientoEnriquecido, tipo: str, senal: str, p: PagoIndividual
         datos["ambito_aprendido"], datos["p_acompanado"] = aprendido[0], round(aprendido[1], 3)
         datos["hipotesis"][0]["motivo"] = MOTIVO_APRENDIDA
         confianza = p.CONFIANZA_APRENDIDA
+    if estimacion:                              # siempre de >= 2 personas: con 1 no se abre nada
+        datos["personas_estimadas"] = estimacion.personas
+        datos["precio_persona"] = estimacion.precio
+        datos["motivo_personas"] = estimacion.motivo
+        if not aprendido:
+            datos["hipotesis"][0]["motivo"] = MOTIVO_PRECIO.format(n=estimacion.personas)
+        confianza = max(confianza, p.CONFIANZA_PRECIO)
     return Hallazgo(tipo="gasto_compartido", clave=f"individual:{m.id}", movimientos=[m.id],
                     confianza=confianza, datos=datos, impacto_eur=None)
 
@@ -149,8 +208,8 @@ def detectar(ctx: Contexto) -> list[Hallazgo]:
     g: GastoCompartido = ctx.params["gasto_compartido"]
     espera = dias_espera(g, ctx.lineas_base.get("retraso_reembolso_p75"))
     desde, hasta = ctx.hoy - timedelta(days=g.VENTANA_REEMBOLSO), ctx.hoy - timedelta(days=espera)
-    minimo = min(p.IMPORTE_MIN, p.IMPORTE_MIN_APRENDIDA) if ctx.compania else p.IMPORTE_MIN
-    candidatos = [m for m in ctx.historial if desde <= m.fecha <= hasta and _es_pago_propio(m, p, minimo)]
+    minimos = [p.IMPORTE_MIN, p.IMPORTE_MIN_PRECIO] + ([p.IMPORTE_MIN_APRENDIDA] if ctx.compania else [])
+    candidatos = [m for m in ctx.historial if desde <= m.fecha <= hasta and _es_pago_propio(m, p, min(minimos))]
     if not candidatos:
         return []
     entrantes = [r for r in ctx.historial if es_reembolso_entrante(r) and r.fecha >= desde]
@@ -158,16 +217,23 @@ def detectar(ctx: Contexto) -> list[Hallazgo]:
     for m in candidatos:
         if _hay_bizum_que_encaja(m, entrantes, g):
             continue
+        importe = -m.importe
         tipo, _ = tipo_del_pago(m)
+        estimacion = None
+        if tipo in p.TIPOS_ELEGIBLES:           # regla 7: precio por persona del catálogo o la caché, sin red
+            estimacion = estimar_personas(importe, tipo, conocimiento.precio_persona(m.comercio_normalizado or ""),
+                                          m.comercio_normalizado, p)
+            if estimacion and estimacion.personas == 1:
+                continue                        # una entrada o un menú: nada que reclamar
         aprendido = ambito_aprendido(ctx.compania, m, tipo)
-        if aprendido and aprendido[1] >= p.P_ACOMPANADO_MIN and -m.importe >= p.IMPORTE_MIN_APRENDIDA:
-            hallazgos.append(_hallazgo(m, tipo, "aprendida", p, aprendido))
+        if aprendido and aprendido[1] >= p.P_ACOMPANADO_MIN and importe >= p.IMPORTE_MIN_APRENDIDA:
+            hallazgos.append(_hallazgo(m, tipo, "aprendida", p, aprendido, estimacion))
             continue
-        if -m.importe < p.IMPORTE_MIN:          # solo entró por el mínimo propio de lo aprendido
-            continue
-        senal = senal_de(m.fecha, tipo, -m.importe, p)
+        senal = senal_de(m.fecha, tipo, importe, p) if importe >= p.IMPORTE_MIN else None
+        if estimacion and importe >= p.IMPORTE_MIN_PRECIO:
+            senal = "media"                     # >= 2 personas: abre cualquier día o refuerza un `debil`
         if senal:
-            hallazgos.append(_hallazgo(m, tipo, senal, p))
+            hallazgos.append(_hallazgo(m, tipo, senal, p, None, estimacion))
     return hallazgos
 
 

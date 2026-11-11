@@ -20,6 +20,7 @@ from typing import Any, Callable
 from ..plataforma.tipos import Momento, PerfilUsuario
 from . import detectores
 from .detectores.base import Hallazgo
+from .detectores.pago_individual import TIPOS_CON_ENTRADA
 from .formato import decimal, eur  # noqa: F401  (`eur` es API pública del razonador)
 from .parametros import Razonador
 
@@ -56,8 +57,13 @@ _DIAS_SEMANA = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado",
 def _explicar_pago_individual(d: dict) -> str:
     """Solo pregunta: no hay deuda calculada. El comercio es un dato y solo entra por `nombre_visible`."""
     fecha = date.fromisoformat(str(d["fecha"]))
+    personas = d.get("personas_estimadas")
+    cuantas = ""
+    if isinstance(personas, int) and not isinstance(personas, bool) and personas >= 2:     # precio por persona (K1 d)
+        unidad = "entradas" if d.get("tipo_comercio") in TIPOS_CON_ENTRADA else "personas"
+        cuantas = f", unas {personas} {unidad},"
     return (f"Pagaste {eur(d['importe_total'])} en {nombre_visible(d.get('comercio'))} el "
-            f"{_DIAS_SEMANA[fecha.weekday()]} {fecha.day}/{fecha.month} y nadie te ha enviado un Bizum: "
+            f"{_DIAS_SEMANA[fecha.weekday()]} {fecha.day}/{fecha.month}{cuantas} y nadie te ha enviado un Bizum: "
             f"¿fuiste con alguien?")
 
 

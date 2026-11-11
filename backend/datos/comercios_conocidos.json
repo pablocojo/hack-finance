@@ -2,6 +2,7 @@
   "_meta": {
     "descripcion": "Catálogo revisado a mano (origen: catalogo). Lo que trae la web NO va aqui: va a datos_usuario/_cache/comercios_web.json.",
     "ficticios": "STREAMFLIX, SONORA MUSIC y FITAPP PLUS son comercios inventados para la demo; sus cifras, su URL (dominio .example, reservado) y sus pasos de baja son de la demo.",
+    "ficticios_ocio": "CINES FOTOGRAMA, TEATRO LAS TRES MASCARAS, BOLERA PLANETA BOLO y ASADOR LA BRASA ESCONDIDA son sitios inventados (K1 d): su precio_persona (entrada, partida o menú típico) es de la demo y lo compara el código en local.",
     "reales": "Marcas reales solo con tipo y es_suscripcion. Sin dias de prueba, sin precios y sin URL de baja hasta que investigador los traiga con enlace.",
     "revisión_pendiente": "experto-banca: confirmar la lista de reales y que ZARA, REPSOL, NH HOTELES y MERCADONA sigan fuera de suscripciones."
   },
@@ -63,5 +64,9 @@
   "TICKETMASTER": {"nombre": "TICKETMASTER", "tipo": "otro", "es_suscripcion": false, "origen": "catalogo"},
   "CINES YELMO": {"nombre": "CINES YELMO", "tipo": "ocio", "es_suscripcion": false, "origen": "catalogo"},
   "CINES KINEPOLIS": {"nombre": "CINES KINEPOLIS", "tipo": "ocio", "es_suscripcion": false, "origen": "catalogo"},
-  "CINES NERVION": {"nombre": "CINES NERVION", "tipo": "ocio", "es_suscripcion": false, "origen": "catalogo"}
+  "CINES NERVION": {"nombre": "CINES NERVION", "tipo": "ocio", "es_suscripcion": false, "origen": "catalogo"},
+  "CINES FOTOGRAMA": {"nombre": "CINES FOTOGRAMA", "tipo": "cine", "es_suscripcion": false, "precio_persona": "9.50", "fuentes": ["Catálogo de la demo (comercio ficticio)"], "origen": "catalogo"},
+  "TEATRO LAS TRES MASCARAS": {"nombre": "TEATRO LAS TRES MASCARAS", "tipo": "teatro", "es_suscripcion": false, "precio_persona": "22.00", "fuentes": ["Catálogo de la demo (comercio ficticio)"], "origen": "catalogo"},
+  "BOLERA PLANETA BOLO": {"nombre": "BOLERA PLANETA BOLO", "tipo": "actividad", "es_suscripcion": false, "precio_persona": "7.50", "fuentes": ["Catálogo de la demo (comercio ficticio)"], "origen": "catalogo"},
+  "ASADOR LA BRASA ESCONDIDA": {"nombre": "ASADOR LA BRASA ESCONDIDA", "tipo": "restaurante", "es_suscripcion": false, "precio_persona": "28.00", "fuentes": ["Catálogo de la demo (comercio ficticio)"], "origen": "catalogo"}
 }

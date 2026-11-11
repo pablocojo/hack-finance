@@ -90,7 +90,9 @@ PARAMETROS: dict[str, Any] = {
 }
 
 FRANJA_TEXTO = {"laborable": "entre semana", "viernes": "los viernes", "finde": "los fines de semana"}
-TIPO_TEXTO = {"restaurante": "restaurantes", "bar": "bares", "ocio": "planes de ocio", "cafeteria": "cafeterías"}
+TIPO_TEXTO = {"restaurante": "restaurantes", "bar": "bares", "ocio": "planes de ocio", "cafeteria": "cafeterías",
+              "cine": "el cine", "teatro": "el teatro", "concierto": "conciertos", "evento": "eventos",
+              "actividad": "actividades"}
 FORMA_TEXTO = {"iguales": "a partes iguales", "por_consumo": "según lo que toma cada uno",
                "redondeo": "redondeando", "cada_uno_lo_suyo": "cada uno lo suyo"}
 VIA_A_CANAL: dict[str, CanalDevolucion] = {"bizum": "bizum", "efectivo": "efectivo", "invitacion": "invitacion"}
