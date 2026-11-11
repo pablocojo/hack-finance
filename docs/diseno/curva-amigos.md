@@ -80,6 +80,11 @@ Fuentes: respuestas a las preguntas, casos creados (con el botón o el chat), Bi
 | Cómo te paga cada persona | «Pilar suele pagarte en efectivo» | Que el recordatorio ofrezca primero «ya me lo dio» |
 | Cuánto molestar | Tope semanal y agrupar avisos en un resumen (el portero ya lo hace) | Menos avisos sueltos |
 
+**Pesos (ajuste I2, 11 nov; detalle en `registro/ajuste-amigos.md`).** No todas las observaciones valen lo mismo:
+- un Bizum que llega cuenta como media visita acompañado (`peso_bizum = 0,5`), porque el banco ve cuándo vas con gente y nunca cuándo vas solo; para el grupo (quién fue) cuenta entero;
+- «iba solo» o «nadie me debe» al contestar una pregunta pesa 1,5 (`peso_inutil`): con dos así en un sitio, Meisam deja de preguntar ahí;
+- el tipo de sitio y franja (que mezcla planes) necesita ~3 observaciones recientes para que lo aprendido abra preguntas (`min_evidencia_motor_tipo = 2,5`); el comercio, ~2.
+
 **Escalera de la pregunta.** Sube con la confianza aprendida y baja con «iba solo» o cuando se ignora.
 
 | Nivel | Qué hace | Cuándo |

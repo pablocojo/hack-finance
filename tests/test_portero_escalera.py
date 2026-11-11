@@ -210,13 +210,14 @@ def test_un_amigo_con_p75_3_no_recibe_recordatorio_antes_del_dia_3(usuario):
     _avanzar_hasta(D)
     r = orq.crear_caso_usuario(UID, "p1", [{"contraparte": "Rodrigo P.", "importe": "16.00"}])
     caso = _caso(r["id"])
-    assert caso.deudores[0].avisar_desde == D + timedelta(days=4)            # pago + p75 (3) + 1
-    for n in range(1, 4):
+    dia = 3 + A.PARAMETROS["margen_dias"]                                    # pago + p75 (3) + margen
+    assert caso.deudores[0].avisar_desde == D + timedelta(days=dia)
+    for n in range(1, dia):
         _avanzar_hasta(D + timedelta(days=n))
         assert _caso(r["id"]).propuesta_id is None, f"recordatorio a destiempo el día {n}"
-    _avanzar_hasta(D + timedelta(days=4))
+    _avanzar_hasta(D + timedelta(days=dia))
     propuesta = _caso(r["id"]).propuesta_id
-    assert propuesta, "el día 4 sí toca recordárselo"
+    assert propuesta, f"el día {dia} sí toca recordárselo"
     acciones = next(n for n in orq.notificaciones(UID) if n["propuesta"]["id"] == propuesta)["propuesta"]["acciones_ofrecidas"]
     assert any(a["accion_id"] == "pedir_bizum" and a["parametros"].get("contraparte") == "RODRIGO P" for a in acciones)
 

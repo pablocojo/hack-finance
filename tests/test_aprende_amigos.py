@@ -200,10 +200,10 @@ def test_retraso_tras_pedir_no_cuenta_para_el_primer_recordatorio():
 
 
 def test_avisar_desde_respeta_el_retraso_de_cada_uno():
-    """Un amigo con p75 = 3 no recibe recordatorio antes del día 3 (se recuerda el día siguiente si no ha pagado)."""
+    """Un amigo con p75 = 3 no recibe recordatorio antes del día 3 (se recuerda `margen_dias` después si no ha pagado)."""
     apr = aprender(AprendizajeAmigos(), [devolucion("b1", "RODRIGO P", 2), devolucion("b2", "RODRIGO P", 3)])
     pago = JUEVES
-    assert A.avisar_desde(apr, "RODRIGO P", pago, hoy=pago) == pago + timedelta(days=4)
+    assert A.avisar_desde(apr, "RODRIGO P", pago, hoy=pago) == pago + timedelta(days=3 + A.PARAMETROS["margen_dias"])
     # caso apuntado tarde: nunca antes de mañana
     assert A.avisar_desde(apr, "RODRIGO P", pago, hoy=pago + timedelta(days=6)) == pago + timedelta(days=7)
     # alguien desconocido: lo de siempre, 2 días desde que se apunta
@@ -238,6 +238,50 @@ def test_compania_para_motor():
     assert A.compania_para_motor(poco) is None                          # sin evidencia suficiente, como antes
     sin_deuda = aprender(AprendizajeAmigos(), [visita(f"s{i}", True, forma="cada_uno_lo_suyo") for i in range(3)])
     assert A.compania_para_motor(sin_deuda)["c:LA TASCA"] == 0.2        # acompañado, pero nadie le debe
+
+
+def test_tipo_de_sitio_pide_mas_evidencia_que_el_comercio_para_el_motor():
+    """Ajuste I2: «restaurantes los fines de semana» mezcla planes; con 2 visitas abre el comercio, no el tipo."""
+    dos = aprender(AprendizajeAmigos(), [visita(f"v{i}", True, personas=["LAURA M"], forma="iguales")
+                                         for i in range(2)])
+    assert A.compania_para_motor(dos) == {"c:LA TASCA": 0.75}
+    tres = aprender(dos, [visita("v2", True, personas=["LAURA M"], forma="iguales")])
+    assert "t:restaurante|finde" in A.compania_para_motor(tres)
+
+
+# --- Pesos del ajuste I2: Bizums que llegan y preguntas inútiles ---------------------------------------------------
+
+def bizum_compania(id_: str, fecha: date = SABADO) -> EventoAmigos:
+    return visita(id_, True, fecha=fecha, personas=["LAURA M", "MARCOS R"], forma="iguales", fuente="bizum")
+
+
+def test_un_bizum_cuenta_media_visita_acompanado_pero_el_grupo_entero():
+    """El banco ve cuándo vas acompañado (llega un Bizum) y nunca cuándo vas solo: dos Bizums no bastan para que lo
+    aprendido abra preguntas; tres sí. El grupo (quién fue) cuenta entero."""
+    dos = aprender(AprendizajeAmigos(), [bizum_compania(f"b{i}") for i in range(2)])
+    tasca = dos.por_comercio["LA TASCA"]
+    assert tasca.con_alguien == 2 * A.PARAMETROS["peso_bizum"] == 1.0 and tasca.n == 2
+    assert tasca.grupos[0].veces == 2.0 and A.grupo_con_deuda(tasca).miembros == ["LAURA M", "MARCOS R"]
+    assert A.compania_para_motor(dos) is None
+    tres = aprender(dos, [bizum_compania("b2")])
+    assert A.compania_para_motor(tres) == {"c:LA TASCA": round(2.5 / 3.5, 3)}
+    # lo que dice el usuario cuenta entero
+    respuestas = aprender(AprendizajeAmigos(), [visita(f"r{i}", True, personas=["LAURA M"]) for i in range(2)])
+    assert respuestas.por_comercio["LA TASCA"].con_alguien == 2.0
+
+
+def test_una_pregunta_inutil_pesa_mas_que_lo_que_se_cuenta_sin_pregunta():
+    """«Iba solo» o «nadie me debe» al contestar una pregunta (`nivel`) pesan `peso_inutil`; sin pregunta, 1."""
+    w = A.PARAMETROS["peso_inutil"]
+    solo = aprender(AprendizajeAmigos(), [visita("s1", False, nivel=1)]).por_comercio["LA TASCA"]
+    assert (solo.solo, solo.n) == (w, 1)
+    nadie = aprender(AprendizajeAmigos(), [visita("n1", True, forma="cada_uno_lo_suyo", nivel=1)])
+    a = nadie.por_comercio["LA TASCA"]
+    assert a.con_alguien == w and A.sin_deuda_de(a) == w and A.p_de(a) == pytest.approx(1 / (w + 2))
+    # lo que no es una pregunta inútil cuenta 1: sin pregunta, o con deuda
+    assert aprender(AprendizajeAmigos(), [visita("s1", False)]).por_comercio["LA TASCA"].solo == 1.0
+    con = aprender(AprendizajeAmigos(), [visita("c1", True, personas=["LAURA M"], forma="iguales", nivel=1)])
+    assert con.por_comercio["LA TASCA"].con_alguien == 1.0
 
 
 # --- Lo que he aprendido de ti --------------------------------------------------------------------------------------

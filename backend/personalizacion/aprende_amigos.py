@@ -59,22 +59,30 @@ PARAMETROS: dict[str, Any] = {
     "max_grupos": 5,                   # grupos habituales por ámbito
     "max_eventos_vistos": 500,         # ids recordados para la idempotencia
     "max_retrasos": 10,                # últimas devoluciones por persona
+    "peso_bizum": 0.5,                 # ajuste I2: un Bizum que llega dice con quién fuiste, pero el banco nunca ve
+                                       # cuándo vas solo: media visita en «vas acompañado» (en el grupo, entera)
+    "peso_inutil": 1.5,                # ajuste I2: «iba solo» o «nadie me debe» al contestar una pregunta pesa 1,5
+                                       # (dos así en un sitio suman ~2,9 y se calla; sin pregunta, hacen falta tres)
     # --- Cuándo recordar a cada persona ---------------------------------------------------------------------------
     "dias_general": 2,                 # lo de antes: 2 días desde que se apunta (casos.DIAS_ESPERA_PAGO_POR_OTRO)
     "min_obs_persona": 2,              # devoluciones propias para usar su p75
     "min_obs_grupo": 2,                # devoluciones del grupo para usar el p75 del grupo
-    "margen_dias": 1,                  # se recuerda el día siguiente a su p75 (si para entonces no ha pagado)
+    "margen_dias": 1,                  # se recuerda el día siguiente a su p75 (si para entonces no ha pagado); con 2,
+                                       # el aviso de la demo de la cena se retrasa un día (ajuste I2: no se toca la demo)
     "dias_min_desde_hoy": 1,           # con lo aprendido, nunca el mismo día en que se apunta
     "dias_max_persona": 10,            # nadie espera más de 10 días a su primer recordatorio
     # --- Canal ------------------------------------------------------------------------------------------------------
     "min_obs_canal": 2,                # «suele pagarte en efectivo» con al menos 2 veces y más de la mitad
     # --- Motor y frases ----------------------------------------------------------------------------------------------
     "min_evidencia_motor": 1.5,        # pseudo-cuentas con decaimiento (~2 observaciones recientes) para el motor
+    "min_evidencia_motor_tipo": 2.5,   # ajuste I2: un tipo de sitio y franja mezcla planes (comer solo, cenar con
+                                       # amigos): ~3 observaciones recientes para que abra el motor
     "min_evidencia_frase": 1.5,        # para enseñar una frase de un sitio
     # --- Escalera de la pregunta (escalera.py) -----------------------------------------------------------------------
     "min_evidencia_comercio": 1.0,     # con menos evidencia en el comercio se mira el tipo de sitio y la franja
     "p_solo_max": 0.25,                # nivel 0: casi siempre solo...
-    "min_evidencia_silencio": 2.5,     # ...con ~3 observaciones recientes (tres «iba solo» semanales suman ~2,8)
+    "min_evidencia_silencio": 2.5,     # ...con ~3 observaciones recientes (tres «iba solo» semanales suman ~2,8;
+                                       # dos respuestas inútiles, ~2,9). Con 2,1 se volvía a preguntar al decaer
     "p_preguntar": 0.6,                # sube a nivel 1 una señal débil si sueles ir acompañado...
     "min_evidencia_preguntar": 1.5,    # ...con ~2 observaciones recientes
     "p_media": 0.6,                    # nivel 2: resumen con sugerencia
@@ -305,23 +313,32 @@ def _recortar_grupos(a: Acompanamiento) -> None:
     a.grupos = con[:PARAMETROS["max_grupos"]] + ([anonimo] if anonimo is not None else [])
 
 
-def _sumar_grupo(a: Acompanamiento, personas: list[str], forma: FormaReparto | None, fecha: date) -> None:
-    """Suma una vez a un grupo exacto (miembros ordenados). Sin personas solo se apunta lo «sin deuda» (grupo sin
-    miembros): una deuda con personas desconocidas no enseña nada de con quién."""
+def _sumar_grupo(a: Acompanamiento, personas: list[str], forma: FormaReparto | None, fecha: date,
+                 peso: float = 1.0) -> None:
+    """Suma `peso` veces (una, salvo una pregunta inútil) a un grupo exacto (miembros ordenados). Sin personas solo se
+    apunta lo «sin deuda» (grupo sin miembros): una deuda con personas desconocidas no enseña nada de con quién."""
     miembros = sorted({p for p in personas if p})
     if not miembros and forma != SIN_DEUDA:
         return
     for g in a.grupos:
         if g.miembros == miembros:
-            g.veces += 1.0
+            g.veces += peso
             g.ultima = max(g.ultima, fecha) if g.ultima else fecha
             if forma:
-                g.repartos[forma] = g.repartos.get(forma, 0.0) + 1.0
+                g.repartos[forma] = g.repartos.get(forma, 0.0) + peso
             break
     else:
-        a.grupos.append(GrupoHabitual(miembros=miembros, veces=1.0, ultima=fecha,
-                                      repartos={forma: 1.0} if forma else {}))
+        a.grupos.append(GrupoHabitual(miembros=miembros, veces=peso, ultima=fecha,
+                                      repartos={forma: peso} if forma else {}))
     _recortar_grupos(a)
+
+
+def _peso_inutil(ev: EventoAmigos) -> float:
+    """`peso_inutil` si es la respuesta a una pregunta de Meisam (`nivel`) que acabó en «iba solo» o «nadie me debe»;
+    1 en el resto (lo que cuentas sin pregunta, el botón sin aviso, los Bizums)."""
+    if ev.nivel is None or ev.fuente in ("bizum", "ignorada", "cierre"):
+        return 1.0
+    return PARAMETROS["peso_inutil"] if (not ev.acompanado or ev.forma == SIN_DEUDA) else 1.0
 
 
 def _aprender_ambito(a: Acompanamiento, ev: EventoAmigos) -> Acompanamiento:
@@ -332,11 +349,12 @@ def _aprender_ambito(a: Acompanamiento, ev: EventoAmigos) -> Acompanamiento:
     a.n += 1
     a.ignoradas = 0
     a.ultima = max(a.ultima, ev.fecha) if a.ultima else ev.fecha
+    peso = _peso_inutil(ev)
     if ev.acompanado:
-        a.con_alguien += 1.0
-        _sumar_grupo(a, ev.personas, ev.forma, ev.fecha)
+        a.con_alguien += PARAMETROS["peso_bizum"] if ev.fuente == "bizum" else peso   # sesgo: los «solo» no se ven
+        _sumar_grupo(a, ev.personas, ev.forma, ev.fecha, peso)
     else:
-        a.solo += 1.0
+        a.solo += peso
     if ev.sugerencia_aceptada is True:
         a.aceptadas_seguidas += 1
     elif ev.sugerencia_aceptada is False:
@@ -530,7 +548,8 @@ def retraso_persona(apr: AprendizajeAmigos, contraparte: str, grupo: list[str] |
 def avisar_desde(apr: AprendizajeAmigos, contraparte: str, fecha_pago: date, hoy: date,
                  grupo: list[str] | None = None, perfil: PerfilUsuario | None = None) -> date:
     """Desde cuándo se le puede recordar a esta persona. Sin saber nada: `hoy + 2` (lo de antes). Sabiendo su retraso
-    típico: el día siguiente a «pago + p75» (no se recuerda antes de que pague por su cuenta), nunca antes de mañana."""
+    típico: `margen_dias` (1) días después de «pago + p75» (no se recuerda antes de que pague por su cuenta), nunca
+    antes de mañana."""
     P = PARAMETROS
     dias, fuente = retraso_persona(apr, contraparte, grupo, perfil)
     if fuente == "general":
@@ -562,9 +581,10 @@ def compania_para_motor(apr: AprendizajeAmigos) -> dict[str, float] | None:
     ninguno (el motor se comporta exactamente como antes)."""
     if apr.modo == "reglas":
         return None
-    minimo = PARAMETROS["min_evidencia_motor"]
+    minimo, minimo_tipo = PARAMETROS["min_evidencia_motor"], PARAMETROS["min_evidencia_motor_tipo"]
     salida = {f"c:{k}": round(p_de(a), 3) for k, a in apr.por_comercio.items() if evidencia_de(a) >= minimo}
-    salida.update({f"t:{k}": round(p_de(a), 3) for k, a in apr.por_tipo_franja.items() if evidencia_de(a) >= minimo})
+    salida.update({f"t:{k}": round(p_de(a), 3) for k, a in apr.por_tipo_franja.items()
+                   if evidencia_de(a) >= minimo_tipo})
     return salida or None
 
 

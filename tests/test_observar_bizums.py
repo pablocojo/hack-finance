@@ -125,9 +125,11 @@ def test_sin_preguntar_meisam_aprende_con_quien_fuiste_y_cuando_paga_cada_uno(us
     apr = orq._leer(UID, "modelo").aprendizaje
     assert casos.cargar(UID) == []                                           # sin ningún caso
     assert apr.personas["MARCOS B"].retrasos_dias == [0] and apr.personas["RODRIGO S"].retrasos_dias == [5]
-    assert apr.por_comercio[PIZZERIA].con_alguien == 1
+    # Un Bizum cuenta como `peso_bizum` visitas acompañado (el banco no ve cuándo vas solo); el grupo, como una entera
+    assert apr.por_comercio[PIZZERIA].con_alguien == A.PARAMETROS["peso_bizum"] and apr.por_comercio[PIZZERIA].n == 1
     assert apr.por_comercio[PIZZERIA].grupos[0].miembros == ["MARCOS B", "RODRIGO S"]
-    assert apr.por_tipo_franja["restaurante|laborable"].con_alguien == 1
+    assert apr.por_comercio[PIZZERIA].grupos[0].veces == 1.0
+    assert apr.por_tipo_franja["restaurante|laborable"].con_alguien == A.PARAMETROS["peso_bizum"]
     vistos = list(apr.eventos_vistos)
     _avanzar(D + timedelta(days=9))
     assert orq._leer(UID, "modelo").aprendizaje.eventos_vistos == vistos     # idempotente: nada se repite
