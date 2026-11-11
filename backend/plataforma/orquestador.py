@@ -29,12 +29,17 @@ from ..motor import dudas as _dudas              # directo: los tests sustituyen
 from . import almacenamiento as alm
 from ..modulos.plantillas import CABECERA_DATOS, sanear_dato
 from ..personalizacion import amigos as _contactos   # directo: los tests sustituyen `personalizacion` por un stub
+from ..personalizacion import aprende_amigos as _aprende   # curva de amigos (11 nov), directo por lo mismo
 from ..personalizacion import edicion
+from ..personalizacion import escalera as _escalera
+from ..personalizacion import politica as _politica
 from .privacidad import enmascarar_nombre, enmascarar_texto
 from .reloj import ahora_por_defecto
 from .tipos import (
     Caso,
     Contacto,
+    DecisionPregunta,
+    FuenteAprendizaje,
     OrigenCaso,
     ACCIONES,
     Decision,
@@ -312,12 +317,14 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         propuestas = _leer(uid, "propuestas", [])
         decisiones = _leer(uid, "decisiones", [])
         notificaciones = _leer(uid, "notificaciones", [])
-        lista_casos = _actualizar_casos(uid, casos.cargar(uid), nuevos, hoy, ahora, notificaciones)
+        casos_previos = casos.cargar(uid)
+        lista_casos = _actualizar_casos(uid, casos_previos, nuevos, hoy, ahora, notificaciones)
+        modelo = _aprender_de_cambios(modelo, casos_previos, lista_casos, "bizum", hoy)   # Bizums que saldan: su retraso
         ids_previos = {c.id for c in lista_casos}
         vistos = {m.id for m in momentos}
         items: list[tuple[Momento, Propuesta, Decision]] = []
         momentos_dia: list[Momento] = []
-        compania = None   # gancho (curva de amigos, A4): aquí irá `aprende_amigos.compania_para_motor(modelo.aprendizaje)`
+        compania = _compania(modelo)   # curva de amigos: dónde sueles ir acompañado (None con `reglas` o sin datos)
         args_motor = {"compania": compania} if compania is not None else {}   # con None, la llamada es idéntica a la de antes
         for momento in motor.procesar(uid, nuevos, hoy, perfil, **args_motor):
             if momento.id in vistos:
@@ -326,10 +333,18 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
             momentos.append(momento)
             momentos_dia.append(momento)
             if momento.tipo == "gasto_compartido":   # abre un caso; el portero de casos decide el aviso
-                if not any(c.momento_id == momento.id for c in lista_casos):
-                    nuevo_caso = casos.crear_desde_momento(momento, hoy, ahora).model_copy(update={"origen": "motor"})
-                    lista_casos.append(casos.aplicar_recurrente(nuevo_caso, momento, hoy, ahora))   # serie -> fijo
-                    _auditar(uid, "caso_abierto", caso_id=f"caso-{momento.id}", dudoso=bool(momento.datos.get("dudoso")))
+                if casos.abre_caso(lista_casos, momento):   # ni repetido ni un pago_individual sobre un cargo con caso
+                    pregunta = _pregunta_de(momento, modelo)
+                    nuevo_caso = casos.crear_desde_momento(momento, hoy, ahora, pregunta).model_copy(update={"origen": "motor"})
+                    nuevo_caso = casos.aplicar_recurrente(nuevo_caso, momento, hoy, ahora)   # serie -> fijo
+                    nuevo_caso = _plazos_amigos(nuevo_caso, modelo, hoy, ahora)
+                    if nuevo_caso.escenario == "pago_individual" and nuevo_caso.aviso == "notificar":
+                        modelo, nuevo_caso = _preguntar_un_toque(uid, nuevo_caso, momento, pregunta, modelo, hoy, ahora,
+                                                                 propuestas, decisiones, notificaciones, items)
+                    lista_casos.append(nuevo_caso)
+                    _auditar(uid, "caso_abierto", caso_id=f"caso-{momento.id}", dudoso=bool(momento.datos.get("dudoso")),
+                             **({"pregunta_nivel": nuevo_caso.pregunta_nivel} if nuevo_caso.pregunta_nivel is not None
+                                else {}))
                 continue
             for propuesta in modulos.proponer(momento, modelo):
                 propuesta = personalizacion.ordenar_acciones(propuesta, modelo)
@@ -362,6 +377,7 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         if ignoradas:
             ids = {c.id for pid in ignoradas for c in casos.de_propuesta(lista_casos, pid)}
             lista_casos = [casos.marcar_ignorado(c, hoy, ahora) if c.id in ids else c for c in lista_casos]
+        modelo = _aprender_ignoradas(modelo, lista_casos, hoy)   # «¿fuiste con alguien?» sin respuesta: pregunta menos
 
         # 5. observar (contactos), saldo con cada amigo (desde los casos) y gancho de búsqueda web
         modelo = personalizacion.observar(modelo, nuevos, hoy)
@@ -406,6 +422,144 @@ def _actualizar_casos(uid: str, lista: list[Caso], nuevos: list[Movimiento], hoy
                 if c.propuesta_id and n["propuesta_id"] == c.propuesta_id and n["estado"] in ("nueva", "vista"):
                     n.update(estado="resuelta", actualizado=ahora.isoformat(timespec="seconds"))
     return salida
+
+
+# --- Curva de amigos (11 nov): lo aprendido decide cómo preguntar y cuándo recordar ------------------
+# Todo con funciones puras de `personalizacion.aprende_amigos` y `escalera`. Con `modo = "reglas"` o el aprendizaje
+# vacío, el comportamiento es exactamente el de antes (misma escalera, mismo plazo y el motor sin `compania`). Con
+# `reglas` o `fijo` no se aprende. Lo aprendido nunca rompe el día: si algo falla, se sigue con las reglas de siempre.
+
+def _aprendizaje(modelo: ModeloUsuario | None):
+    return getattr(modelo, "aprendizaje", None) if modelo is not None else None
+
+
+def _compania(modelo: ModeloUsuario | None) -> dict[str, float] | None:
+    apr = _aprendizaje(modelo)
+    if apr is None:
+        return None
+    try:
+        return _aprende.compania_para_motor(apr)
+    except Exception:   # noqa: BLE001  (sin lo aprendido, el motor de siempre)
+        return None
+
+
+def _pregunta_de(momento: Momento, modelo: ModeloUsuario | None) -> DecisionPregunta | None:
+    """La escalera de la pregunta para un `pago_individual` (None para el resto o si falta algo: lo de siempre)."""
+    datos = momento.datos
+    apr = _aprendizaje(modelo)
+    if datos.get("origen") != "pago_individual" or apr is None:
+        return None
+    try:
+        fecha = date.fromisoformat(str(datos.get("fecha"))[:10]) if datos.get("fecha") else momento.fecha
+        importe = casos.ciclo.a_decimal(datos.get("importe_total"), Decimal("0"))
+        return _escalera.nivel_pregunta(apr, comercio=datos.get("comercio"), tipo_comercio=datos.get("tipo_comercio"),
+                                        fecha=fecha, importe=importe, senal=datos.get("senal"),
+                                        umbral=_politica.umbral(modelo))
+    except Exception:   # noqa: BLE001
+        return None
+
+
+def _plazos_amigos(caso: Caso, modelo: ModeloUsuario | None, hoy: date, ahora: datetime,
+                   previos: set[str] | frozenset[str] = frozenset()) -> Caso:
+    """`Deudor.avisar_desde` de cada deudor nuevo según su retraso típico aprendido (el suyo, el de su grupo o el del
+    perfil) y `hechos["canal_probable"]`. Quien no tiene nada aprendido se queda con el plazo del caso (como antes)."""
+    apr = _aprendizaje(modelo)
+    if apr is None or apr.modo == "reglas" or _aprende.vacio(apr) or not caso.deudores:
+        return caso
+    try:
+        fecha_pago = casos.ciclo._a_fecha(caso.hechos.get("fecha")) or caso.creado
+        perfil = modelo.perfil if modelo.preferencias.usar_perfil else None
+        claves = [d.contraparte for d in caso.deudores]
+        plazos: dict[str, date] = {}
+        canales: dict[str, str] = {}
+        for d in caso.deudores:
+            if d.contraparte in previos or d.estado == "saldada":
+                continue
+            grupo = [c for c in claves if c != d.contraparte]
+            _, fuente = _aprende.retraso_persona(apr, d.contraparte, grupo, perfil)
+            if fuente != "general":
+                plazos[d.contraparte] = _aprende.avisar_desde(apr, d.contraparte, fecha_pago, hoy, grupo, perfil)
+            canal = _aprende.canal_probable(apr, d.contraparte)
+            if canal:
+                canales[d.contraparte] = canal
+        return casos.fijar_plazos(caso, plazos, canales, hoy, ahora)
+    except Exception:   # noqa: BLE001
+        return caso
+
+
+def _aprender_caso(modelo: ModeloUsuario | None, antes: Caso | None, despues: Caso, fuente: FuenteAprendizaje,
+                   hoy: date) -> ModeloUsuario | None:
+    """Lo que enseña un cambio de un caso (`aprende_amigos.eventos_de_caso`). Solo con `modo = "aprende"`."""
+    apr = _aprendizaje(modelo)
+    if apr is None or apr.modo != "aprende" or antes is despues:
+        return modelo
+    try:
+        eventos = _aprende.eventos_de_caso(antes, despues, fuente, hoy, despues.hechos.get("tipo_comercio"))
+        return _aprende.aprender_eventos(modelo, eventos) if eventos else modelo
+    except Exception:   # noqa: BLE001  (aprender nunca rompe una acción del usuario)
+        return modelo
+
+
+def _aprender_de_cambios(modelo: ModeloUsuario | None, antes: list[Caso], despues: list[Caso],
+                         fuente: FuenteAprendizaje, hoy: date) -> ModeloUsuario | None:
+    apr = _aprendizaje(modelo)
+    if apr is None or apr.modo != "aprende":
+        return modelo
+    previos = {c.id: c for c in antes}
+    for c in despues:
+        previo = previos.get(c.id)
+        if previo is not None and previo is not c:
+            modelo = _aprender_caso(modelo, previo, c, fuente, hoy)
+    return modelo
+
+
+def _aprender_ignoradas(modelo: ModeloUsuario | None, lista: list[Caso], hoy: date) -> ModeloUsuario | None:
+    """Preguntas «¿fuiste con alguien?» sin respuesta (2 días si fue notificación, 3 si fue al Resumen): cada 2 seguidas
+    en un sitio, la escalera baja un nivel. Idempotente por caso (`ign:<caso_id>`)."""
+    apr = _aprendizaje(modelo)
+    if apr is None or apr.modo != "aprende":
+        return modelo
+    for c in lista:
+        if casos.pregunta_sin_respuesta(c, hoy):
+            modelo = _aprender_caso(modelo, None, c, "ignorada", hoy)
+    return modelo
+
+
+def _tipo_comercio(movimiento: Movimiento) -> str | None:
+    """Tipo de sitio de un cargo (catálogo, caché o heurística; sin red) para aprender también por tipo y franja."""
+    try:
+        from ..motor.detectores.pago_individual import tipo_del_pago
+        from ..motor.normalizar import normalizar
+        tipo, _ = tipo_del_pago(normalizar(movimiento))
+        return tipo if tipo and tipo != "desconocido" else None
+    except Exception:   # noqa: BLE001
+        return None
+
+
+def _preguntar_un_toque(uid, caso, momento, pregunta, modelo, hoy, ahora, propuestas, decisiones, notificaciones, items):
+    """Nivel 3 de la escalera: la pregunta de un toque («48 € en La Tasca: ¿con Laura y Marcos, 16 € cada uno?") sale
+    como propuesta de solo preguntar que pasa por `decidir` y el tope de avisos (como `prop-duda-*`). El canal que
+    decide `decidir` queda en `Caso.aviso` (notificación, Resumen o silencio) y el caso ya no vuelve al portero."""
+    nombres = {c: _aprende.nombre_persona(c, modelo.contactos) for c in (caso.sugerencia.personas if caso.sugerencia else [])}
+    propuesta = casos.propuesta_pregunta(caso, ahora, nombres)
+    decision = personalizacion.decidir(propuesta, modelo, ahora)
+    if pregunta is not None and pregunta.motivos:   # por qué así: primero lo aprendido, luego lo de `decidir`
+        decision = decision.model_copy(update={"motivos": [pregunta.motivos[0], *decision.motivos][:3]})
+    modelo = personalizacion.registrar_decision(modelo, propuesta, decision)
+    propuestas.append(propuesta)
+    decisiones.append(decision)
+    notificaciones.append({"propuesta_id": propuesta.id, "estado": "nueva", "actualizado": ahora.isoformat(timespec="seconds")})
+    items.append((momento, propuesta, decision))
+    canal = {"notificar_ahora": "notificar", "resumen": "resumen"}.get(decision.accion, "silencioso")
+    caso = casos.vincular_propuesta(caso, propuesta.id)
+    if canal != caso.aviso:
+        caso = caso.model_copy(update={"aviso": canal})
+    nota = {"notificar": "Pregunta de un toque enviada.", "resumen": "La pregunta va al Resumen (lo decide el portero)."
+            }.get(canal, "La pregunta se calla (lo decide el portero).")
+    caso = casos.marcar_avisado(caso, hoy, ahora, nota)
+    _auditar(uid, "decision", propuesta_id=propuesta.id, tipo=propuesta.tipo_momento, accion=decision.accion,
+             politica=decision.politica, caso_id=caso.id)
+    return modelo, caso
 
 
 def _sin_silenciados(propuesta: Propuesta, caso: Caso, modelo: ModeloUsuario) -> Propuesta:
@@ -722,9 +876,11 @@ def _feedback_a_casos(uid: str, feedback: Feedback, modelo: ModeloUsuario, hoy: 
     if not ids:
         return modelo
     ahora = ahora_por_defecto(hoy)
+    antes = lista
     lista = [casos.aplicar_feedback(c, feedback.resultado, hoy, ahora) if c.id in ids else c for c in lista]
     casos.guardar(uid, lista)
     _auditar(uid, "caso_feedback", resultado=feedback.resultado, casos=sorted(ids))
+    modelo = _aprender_de_cambios(modelo, antes, lista, "respuesta", hoy)   # «no era compartido» también enseña
     return casos.sincronizar_amigos(modelo, lista, hoy)
 
 
@@ -1013,7 +1169,8 @@ def registrar_conversacion(usuario_id: str, propuesta_id: str, mensajes: list[di
                 hecho = None
             else:
                 hecho = resumir.aplicar(actual, modelo, plan, hoy, ahora_por_defecto(hoy), canal)
-                actual, modelo = hecho.caso, hecho.modelo
+                modelo = _aprender_caso(hecho.modelo, actual, hecho.caso, "llamada", hoy)
+                actual = hecho.caso
                 cambios += hecho.cambios
                 _auditar(usuario_id, "conversacion", propuesta_id=propuesta_id, acciones=[a["tipo"] for a in plan.acciones],
                          descartadas=len(plan.descartadas), resumen=bool(plan.resumen))
@@ -1047,6 +1204,10 @@ def _resumen_caso(c: Caso, por_id: dict[str, Movimiento] | None = None) -> dict:
     return {
         "id": c.id, "escenario": c.escenario, "estado": c.estado, "aviso": c.aviso, "creado": c.creado.isoformat(),
         "avisar_desde": c.avisar_desde.isoformat() if c.avisar_desde else None,
+        # Curva de amigos: con qué nivel de la escalera se preguntó, qué se propuso (cuotas como texto decimal, del
+        # código) y quién abrió el caso (motor, botón o chat).
+        "pregunta_nivel": c.pregunta_nivel, "origen": c.origen,
+        "sugerencia": c.sugerencia.model_dump(mode="json") if c.sugerencia else None,
         "pregunta": ({"texto": pregunta.get("texto"), "estado": pregunta.get("estado"),
                       "candidatos": [enmascarar_nombre(x) for x in pregunta.get("candidatos", []) if isinstance(x, str)]}
                      if pregunta else None),
@@ -1099,14 +1260,17 @@ def _caso_de(lista: list[Caso], caso_id: str) -> Caso:
 
 
 def _guardar_caso(uid: str, hoy: date, lista: list[Caso], nuevo: Caso, antes: Caso | None = None,
-                  modelo: ModeloUsuario | None = None) -> None:
+                  modelo: ModeloUsuario | None = None, fuente: FuenteAprendizaje | None = None) -> None:
     """Guarda la lista con `nuevo` (reemplaza o añade), recalcula el saldo con cada amigo y, si el caso se cierra, su
-    aviso pendiente deja de estarlo. Va dentro del candado del usuario."""
+    aviso pendiente deja de estarlo. Con `fuente` (respuesta, botón, chat, cierre, llamada), Meisam aprende del cambio
+    (curva de amigos; solo con `modo = "aprende"`). Va dentro del candado del usuario."""
     lista = [nuevo if c.id == nuevo.id else c for c in lista]
     if all(c.id != nuevo.id for c in lista):
         lista.append(nuevo)
     casos.guardar(uid, lista)
     modelo = modelo or _leer(uid, "modelo")
+    if modelo is not None and fuente is not None:
+        modelo = _aprender_caso(modelo, antes, nuevo, fuente, hoy)
     if modelo is not None:
         alm.guardar(uid, "modelo", casos.sincronizar_amigos(modelo, lista, hoy))
     if nuevo.propuesta_id and nuevo.estado in casos.CERRADOS and (antes is None or antes.estado != nuevo.estado):
@@ -1148,12 +1312,17 @@ def crear_caso_usuario(usuario_id: str, movimiento_id: str, deudores: list[dict]
         else:
             caso = casos.caso_de_movimiento(usuario_id, movimiento, nuevos, escenario, hoy, ahora).model_copy(update={"origen": origen})
             evento, ya = "caso_creado", set()
+        if "tipo_comercio" not in caso.hechos:          # para aprender también por tipo de sitio y franja
+            tipo = _tipo_comercio(movimiento)
+            if tipo:
+                caso = caso.model_copy(update={"hechos": {**caso.hechos, "tipo_comercio": tipo}})
         caso = casos.conciliar_con_historial(caso, historial, hoy, ahora)
+        caso = _plazos_amigos(caso, modelo, hoy, ahora, ya)
         if modelo is not None:
             for d in nuevos:
                 if d.contraparte not in ya:
                     modelo = _contactos.anotar_contacto(modelo, d.contraparte, hoy)
-        _guardar_caso(usuario_id, hoy, lista, caso, previo, modelo)
+        _guardar_caso(usuario_id, hoy, lista, caso, previo, modelo, fuente="chat" if origen == "chat" else "boton")
         _auditar(usuario_id, evento, caso_id=caso.id, escenario=caso.escenario, personas=len(caso.deudores))
         return _resumen_caso(caso, _movimientos_por_id(usuario_id))
 
@@ -1167,7 +1336,7 @@ def saldar_caso_usuario(usuario_id: str, caso_id: str, contraparte: str | None, 
         lista = casos.cargar(usuario_id)
         caso = _caso_de(lista, caso_id)
         nuevo = casos.saldar_manual(caso, contraparte, via, motivo, hoy, ahora_por_defecto(hoy))
-        _guardar_caso(usuario_id, hoy, lista, nuevo, caso)
+        _guardar_caso(usuario_id, hoy, lista, nuevo, caso, fuente="cierre")
         _auditar(usuario_id, "caso_saldado_manual", caso_id=caso_id, via=via, todo=contraparte is None)
         return _resumen_caso(nuevo, _movimientos_por_id(usuario_id))
 
@@ -1188,7 +1357,8 @@ def descartar_caso_usuario(usuario_id: str, caso_id: str, motivo: str | None = N
             nuevo = casos.descartar(caso, hoy, nota, "usuario", ahora_por_defecto(hoy))
         else:
             nuevo = casos.descartar_persona(caso, contraparte, hoy, nota, "usuario", ahora_por_defecto(hoy))
-        _guardar_caso(usuario_id, hoy, lista, nuevo, caso)
+        _guardar_caso(usuario_id, hoy, lista, nuevo, caso,
+                      fuente="boton" if caso.escenario == "pago_individual" else "cierre")
         _auditar(usuario_id, "caso_descartado", caso_id=caso_id, persona=contraparte is not None)
         return _resumen_caso(nuevo, _movimientos_por_id(usuario_id))
 
@@ -1201,7 +1371,7 @@ def cambiar_escenario_caso_usuario(usuario_id: str, caso_id: str, escenario: str
         lista = casos.cargar(usuario_id)
         caso = _caso_de(lista, caso_id)
         nuevo = casos.cambiar_escenario(caso, escenario, motivo, "usuario", hoy, ahora_por_defecto(hoy))
-        _guardar_caso(usuario_id, hoy, lista, nuevo, caso)
+        _guardar_caso(usuario_id, hoy, lista, nuevo, caso, fuente="boton")
         _auditar(usuario_id, "caso_escenario", caso_id=caso_id, de=caso.escenario, a=escenario)
         return _resumen_caso(nuevo, _movimientos_por_id(usuario_id))
 
@@ -1250,10 +1420,18 @@ def actualizar_caso_llamada(usuario_id: str, caso_id: str, accion: str, persona:
         nuevo = cambio.caso
         if accion == "con_personas":
             nuevo = casos.conciliar_con_historial(nuevo, historial, hoy, ahora)   # quien ya había pagado, saldada
+            if "tipo_comercio" not in nuevo.hechos and movimiento is not None:
+                tipo = _tipo_comercio(movimiento)
+                if tipo:
+                    nuevo = nuevo.model_copy(update={"hechos": {**nuevo.hechos, "tipo_comercio": tipo}})
+            nuevo = _plazos_amigos(nuevo, modelo, hoy, ahora, {d.contraparte for d in caso.deudores})
             if modelo is not None:
                 for clave in claves:
                     modelo = _contactos.anotar_contacto(modelo, clave, hoy)
-        _guardar_caso(usuario_id, hoy, lista, nuevo, caso, modelo)
+        respuesta_pregunta = caso.escenario == "pago_individual" and accion in ("iba_solo", "nadie_me_debe", "con_personas")
+        _guardar_caso(usuario_id, hoy, lista, nuevo, caso, modelo, fuente="respuesta" if respuesta_pregunta else "llamada")
+        if respuesta_pregunta and caso.propuesta_id:   # la pregunta de un toque (nivel 3) queda contestada
+            _estado_notificacion(usuario_id, caso.propuesta_id, "resuelta")
         pregunta = caso.hechos.get("pregunta")
         if accion == "responder_duda" and isinstance(pregunta, dict) and isinstance(pregunta.get("propuesta_id"), str):
             _estado_notificacion(usuario_id, pregunta["propuesta_id"], "resuelta")

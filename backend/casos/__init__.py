@@ -12,7 +12,11 @@ API pública (todo puro salvo `cargar` y `guardar`; solo el orquestador escribe 
     marcar_pedido(caso, contraparte, hoy, origen="usuario", ahora=None) -> Caso
     aplicar_feedback(caso, resultado, hoy, ahora=None) -> Caso
     aplicar_respuesta(caso, respuesta, hoy, ahora=None, origen="llamada") -> Caso    (pregunta pendiente de un caso dudoso)
-    listo_para_avisar(caso, hoy) -> bool;  agrupar_por_contacto(casos) -> list[list[Caso]]
+    listo_para_avisar(caso, hoy) -> bool;  fecha_aviso(caso) -> date;  agrupar_por_contacto(casos) -> list[list[Caso]]
+    Curva de amigos (11 nov): crear_desde_momento(..., pregunta=DecisionPregunta) aplica la escalera;
+    fijar_plazos(caso, plazos, canales, hoy) (Deudor.avisar_desde y hechos["canal_probable"]);
+    propuesta_pregunta(caso, ahora, nombres) (nivel 3, como prop-duda-*); pregunta_sin_respuesta(caso, hoy);
+    abre_caso(lista, momento) (ningún pago_individual sobre un cargo que ya tiene caso)
     amigos_desde_casos(casos, hoy) -> list[Amigo];  sincronizar_amigos(modelo, casos, hoy) -> ModeloUsuario
     cargar(usuario_id) -> list[Caso];  guardar(usuario_id, casos) -> None
 
@@ -35,6 +39,8 @@ from .amigos import amigos_desde_casos, olvidar_contacto, purgar, sincronizar_am
 from .ciclo import (
     ABIERTOS,
     CERRADOS,
+    CLAVE_CANAL,
+    CLAVE_SIN_DEUDA,
     DIAS_COLA,
     DIAS_POSPONER,
     DIAS_VIDA,
@@ -51,6 +57,8 @@ from .ciclo import (
     decision_dudosa,
     descartar,
     es_dudoso,
+    fecha_aviso,
+    fijar_plazos,
     importe_pendiente,
     limitar_aviso,
     listo_para_avisar,
@@ -59,7 +67,10 @@ from .ciclo import (
     marcar_pedido,
     pendientes,
     posponer,
+    pregunta_sin_respuesta,
+    propuesta_pregunta,
     sanear_motivo,
+    texto_pregunta,
     vincular_propuesta,
 )
 from .cierre import pagos_entrantes, saldar_casos, saldar_con_movimientos
@@ -67,6 +78,7 @@ from .transiciones import (
     DIAS_ESPERA_PAGO_POR_OTRO,
     TRANSICIONES,
     VIAS_MANUALES,
+    abre_caso,
     aplicar_recurrente,
     buscar_de_movimiento,
     cambiar_escenario,

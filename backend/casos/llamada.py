@@ -115,6 +115,8 @@ def aplicar(caso: Caso, accion: str, hoy: date, ahora: datetime | None = None, *
                              "Si una persona concreta no te debe, usa no_me_debe.")
         nuevo = transiciones.cambiar_escenario(caso, "descartado", "fuiste acompañado, pero nadie te debe nada.",
                                                "llamada", hoy, cuando)
+        if nuevo is not caso:      # para aprender: acompañado sin deuda (no es lo mismo que ir solo)
+            nuevo = nuevo.model_copy(update={"hechos": {**nuevo.hechos, ciclo.CLAVE_SIN_DEUDA: True}})
         return Cambio(nuevo, "Pago marcado: fuiste acompañado, pero nadie te debe")
 
     if accion == "con_personas":

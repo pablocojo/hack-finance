@@ -261,6 +261,21 @@ def buscar_de_movimiento(lista: Iterable[Caso], movimiento_id: str) -> Caso | No
     return None
 
 
+def abre_caso(lista: Iterable[Caso], momento: Momento) -> bool:
+    """¿Abre caso este momento de `gasto_compartido`? No si ya hay un caso de ese momento. Un `pago_individual`
+    («¿fuiste con alguien?») tampoco si el cargo ya tiene un caso, abierto o cerrado: p. ej. el que creó el usuario con
+    el botón o el chat antes de que el motor lo viera (ya sabemos con quién fue) o uno que ya se cerró."""
+    lista = list(lista)
+    if any(c.momento_id == momento.id for c in lista):
+        return False
+    if momento.datos.get("origen") != "pago_individual":
+        return True
+    cargo = momento.datos.get("pago_id") or momento.datos.get("movimiento_origen")
+    if not isinstance(cargo, str):
+        return True
+    return not any(cargo in (c.hechos.get("movimiento_origen"), c.hechos.get("pago_id")) for c in lista)
+
+
 def caso_de_movimiento(usuario_id: str, movimiento: Movimiento, deudores: list[Deudor], escenario: str, hoy: date,
                        ahora: datetime | None = None) -> Caso:
     """Caso nuevo `pago_por_otro` o `gasto_compartido` sobre un cargo del usuario. Avisa (pregunta y propone

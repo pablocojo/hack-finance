@@ -20,8 +20,8 @@ from typing import Any, Iterable, get_args
 
 from ..plataforma.privacidad import enmascarar_nombre, enmascarar_texto
 from ..plataforma.reloj import ahora_por_defecto
-from ..plataforma.tipos import (AvisoCaso, CambioCaso, Caso, Decision, Deudor, EscenarioDeuda, Hipotesis, Momento,
-                                OrigenCambio, Propuesta)
+from ..plataforma.tipos import (AvisoCaso, CambioCaso, Caso, Decision, DecisionPregunta, Deudor, EscenarioDeuda,
+                                Hipotesis, Momento, OrigenCambio, Propuesta)
 
 DIAS_POSPONER = 2            # «ahora no»: se vuelve a mirar pasados 2 días
 DIAS_COLA = 7                # un caso que llegó a su fecha y no avisó deja de esperar a los 7 días
@@ -36,6 +36,13 @@ MOTIVO_RESUMEN = "Es solo una pregunta para tu Resumen: no te interrumpo con un 
 MAX_MOTIVO = 120             # texto libre del usuario (saldado manual, cambio de escenario)
 ESCENARIOS = get_args(EscenarioDeuda)
 AVISOS = get_args(AvisoCaso)
+# Curva de amigos (11 nov): una pregunta «¿fuiste con alguien?» sin respuesta cuenta como ignorada a los 2 días si fue
+# notificación (como `HORAS_IGNORADA`) y a los 3 si fue al Resumen; solo se mira hasta `DIAS_COLA`.
+DIAS_IGNORADA_PUSH = 2
+DIAS_IGNORADA_RESUMEN = 3
+CLAVE_SIN_DEUDA = "sin_deuda"          # `hechos`: «fui acompañado, pero nadie me debe» (acción nadie_me_debe)
+CLAVE_CANAL = "canal_probable"         # `hechos`: {clave: CanalDevolucion} de los deudores con canal aprendido
+MODULO_DEUDAS = "gasto_compartido"
 
 
 # --- Utilidades --------------------------------------------------------------------------------
@@ -82,7 +89,7 @@ def _clave(valor: Any) -> str | None:
 
 
 def sanear_motivo(texto: Any, maximo: int = MAX_MOTIVO) -> str:
-    """Texto libre del usuario (DATO, nunca instrucción): sin controles ni `<>{}\`` y con IBAN, teléfonos y correos
+    """Texto libre del usuario (DATO, nunca instrucción): sin controles, ni <>{} ni comillas invertidas, y con IBAN, teléfonos y correos
     enmascarados; como mucho `maximo` caracteres."""
     t = unicodedata.normalize("NFKC", str(texto or ""))
     t = "".join(" " if unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") or c in "<>{}`" else c for c in t)
@@ -128,10 +135,15 @@ def _hipotesis(momento: Momento) -> list[Hipotesis]:
     return salida
 
 
-def crear_desde_momento(momento: Momento, hoy: date | None = None, ahora: datetime | None = None) -> Caso:
+def crear_desde_momento(momento: Momento, hoy: date | None = None, ahora: datetime | None = None,
+                        pregunta: DecisionPregunta | None = None) -> Caso:
     """Abre el caso de un `Momento` de `gasto_compartido`. Los deudores son los candidatos del momento, con la
     cuota que calculó el motor; `avisar_desde` es `datos["avisar_desde"]` si el motor la da y, si no, la fecha
-    del momento. Si `datos["dudoso"]` es verdadero, el caso nace `dudoso`, sin escenario y con sus hipótesis."""
+    del momento. Si `datos["dudoso"]` es verdadero, el caso nace `dudoso`, sin escenario y con sus hipótesis.
+
+    `pregunta` (solo `pago_individual`) es la decisión de la escalera (`personalizacion.escalera.nivel_pregunta`):
+    manda en `aviso`, `pregunta_nivel` y `sugerencia`, y sus motivos van al historial. Sin ella, lo de siempre
+    (`senal media` -> Resumen; el resto, silencioso)."""
     if momento.tipo != "gasto_compartido":
         raise ValueError(f"Solo los momentos de gasto_compartido abren un caso (este es {momento.tipo!r}).")
     datos = momento.datos
@@ -174,23 +186,43 @@ def crear_desde_momento(momento: Momento, hoy: date | None = None, ahora: dateti
             hechos[origen] = eur_texto(valor)
     if isinstance(datos.get("faltan"), int):
         hechos["faltan"] = datos["faltan"]
+    # K1 d: personas estimadas por el precio por persona del sitio («19,00 € en Cines Fotograma son unas 2 entradas»).
+    # Las cifras son del código (motor); el motivo es una frase del código con el nombre del comercio (dato, saneado).
+    if isinstance(datos.get("personas_estimadas"), int) and not isinstance(datos.get("personas_estimadas"), bool):
+        hechos["personas_estimadas"] = datos["personas_estimadas"]
+    precio_persona = a_decimal(datos.get("precio_persona"))
+    if precio_persona is not None:
+        hechos["precio_persona"] = eur_texto(precio_persona)
+    motivo_personas = sanear_motivo(datos.get("motivo_personas"), MAX_MOTIVO) if datos.get("motivo_personas") else ""
+    if motivo_personas:
+        hechos["motivo_personas"] = motivo_personas
 
     origen_pago = datos.get("movimiento_origen") or datos.get("pago_id")
     if isinstance(origen_pago, str):
         hechos["movimiento_origen"] = origen_pago
     escenario = datos.get("escenario") if datos.get("escenario") in ESCENARIOS else "gasto_compartido"
     aviso = datos.get("aviso") if datos.get("aviso") in AVISOS else "notificar"
+    nivel, sugerencia = None, None
     if individual:
         escenario = "pago_individual"
         aviso = "resumen" if datos.get("senal") == "media" else "silencioso"
+        if pregunta is not None:
+            aviso, nivel, sugerencia = pregunta.aviso, pregunta.nivel, pregunta.sugerencia
     caso = Caso(id=f"caso-{momento.id}", usuario_id=momento.usuario_id,
                 escenario=None if dudoso else escenario, aviso=aviso,
                 estado="dudoso" if dudoso else "abierto", momento_id=momento.id, creado=hoy,
                 avisar_desde=_a_fecha(datos.get("avisar_desde")) or momento.fecha, hechos=hechos,
-                hipotesis=hipotesis if dudoso else [], deudores=deudores)
+                hipotesis=hipotesis if dudoso else [], deudores=deudores, pregunta_nivel=nivel,
+                sugerencia=sugerencia)
     _anotar(caso, "codigo", "Caso dudoso: sin avisar hasta resolver el reparto." if dudoso else
-            "Pago propio que quizá fue con alguien: solo se pregunta en el Resumen." if individual else
+            ("Pago propio que quizá fue con alguien: " + ("se pregunta con una notificación de un toque."
+                                                          if aviso == "notificar" else
+                                                          "solo se pregunta en el Resumen.")) if individual else
             "Caso abierto: falta por devolver una parte del gasto.", cuando)
+    if motivo_personas:
+        _anotar(caso, "codigo", f"Personas estimadas por el precio del sitio: {motivo_personas}", cuando)
+    if individual and pregunta is not None and pregunta.motivos:
+        _anotar(caso, "codigo", f"Escalera de la pregunta, nivel {pregunta.nivel}: " + " ".join(pregunta.motivos), cuando)
     return caso
 
 
@@ -414,10 +446,21 @@ def aplicar_feedback(caso: Caso, resultado: str, hoy: date, ahora: datetime | No
 
 # --- Cola de avisos ----------------------------------------------------------------------------
 
-def listo_para_avisar(caso: Caso, hoy: date) -> bool:
-    """¿Entra hoy en el portero? Abierto, con su fecha cumplida, sin avisar aún y con menos de 7 días de espera.
-    Un caso `dudoso` solo entra una vez (sin propuesta) para dejar su decisión silenciada y a la vista."""
+def fecha_aviso(caso: Caso) -> date:
+    """Desde cuándo puede avisar el caso: su `avisar_desde` y, si algún deudor pendiente tiene el suyo
+    (`Deudor.avisar_desde`, su retraso típico aprendido), el más tardío. Un solo aviso por caso: así nadie recibe un
+    recordatorio antes de cuando suele pagar por su cuenta (quien paga antes ya no estará pendiente). Lo aprendido solo
+    retrasa: nunca adelanta el plazo del caso ni un «ahora no»."""
     desde = caso.avisar_desde or caso.creado
+    propias = [d.avisar_desde for d in pendientes(caso) if d.avisar_desde is not None]
+    return max([desde, *propias])
+
+
+def listo_para_avisar(caso: Caso, hoy: date) -> bool:
+    """¿Entra hoy en el portero? Abierto, con su fecha cumplida (`fecha_aviso`, que respeta el plazo de cada persona),
+    sin avisar aún y con menos de 7 días de espera. Un caso `dudoso` solo entra una vez (sin propuesta) para dejar su
+    decisión silenciada y a la vista."""
+    desde = fecha_aviso(caso)
     if desde > hoy or caso.aviso == "silencioso":   # silencioso: solo se ve en «Mis cuentas», nunca avisa
         return False
     if caso.estado == "dudoso":
@@ -458,3 +501,107 @@ def limitar_aviso(caso: Caso, decision: Decision) -> Decision:
 
 def de_propuesta(casos: Iterable[Caso], propuesta_id: str) -> list[Caso]:
     return [c for c in casos if c.propuesta_id == propuesta_id]
+
+
+# --- Curva de amigos (11 nov): plazos por persona, pregunta de nivel 3 e ignoradas ----------------
+
+def fijar_plazos(caso: Caso, plazos: dict[str, date], canales: dict[str, str], hoy: date,
+                 ahora: datetime | None = None) -> Caso:
+    """Pura. `plazos` = `{clave: fecha}` desde la que se puede recordar a cada deudor (lo calcula el orquestador con
+    `aprende_amigos.avisar_desde`); `canales` = `{clave: canal}` por el que suele pagar (`hechos["canal_probable"]`).
+    Solo toca a deudores pendientes. Deja rastro legible. Sin nada que cambiar, devuelve el mismo caso."""
+    pend = {d.contraparte for d in pendientes(caso)}
+    plazos = {k: v for k, v in plazos.items() if k in pend}
+    canales = {k: v for k, v in canales.items() if k in {d.contraparte for d in caso.deudores}}
+    previos = caso.hechos.get(CLAVE_CANAL) if isinstance(caso.hechos.get(CLAVE_CANAL), dict) else {}
+    cambia_plazo = any(d.avisar_desde != plazos[d.contraparte] for d in caso.deudores if d.contraparte in plazos)
+    if not cambia_plazo and (not canales or {**previos, **canales} == previos):
+        return caso
+    nuevo = _copia(caso)
+    cuando = ahora or ahora_por_defecto(hoy)
+    for d in nuevo.deudores:
+        if d.contraparte in plazos and d.avisar_desde != plazos[d.contraparte]:
+            d.avisar_desde = plazos[d.contraparte]
+            _anotar(nuevo, "codigo", f"{nombre_visible(d.contraparte)} suele devolverlo más tarde: no se lo recuerdo "
+                                     f"antes del {d.avisar_desde.isoformat()}.", cuando)
+    if canales:
+        nuevo.hechos[CLAVE_CANAL] = {**previos, **canales}
+    return nuevo
+
+
+def _eur_corto(valor: Decimal) -> str:
+    """16 -> «16 €»; 16.5 -> «16,50 €» (cifras del código)."""
+    valor = valor.quantize(Decimal("0.01"))
+    return f"{int(valor)} €" if valor == valor.to_integral_value() else eur_texto(valor).replace(".", ",") + " €"
+
+
+def _nombre_comercio(texto: Any) -> str:
+    """«LA TASCA» -> «La Tasca» (dato de un tercero, saneado)."""
+    limpio = sanear_motivo(texto or "", 40)
+    return " ".join(p if (i and p in ("de", "del", "la", "el", "y")) else p.capitalize()
+                    for i, p in enumerate(limpio.lower().split())) or "este pago"
+
+
+def _nombres_cortos(claves: list[str], nombres: dict[str, str] | None) -> list[str]:
+    """El nombre de pila de la agenda («Laura»); si dos coinciden, el nombre enmascarado completo («Laura M.»)."""
+    completos = [sanear_motivo((nombres or {}).get(c) or nombre_visible(c), 30) for c in claves]
+    pila = [n.split()[0] if n.split() else n for n in completos]
+    return [p if pila.count(p) == 1 else n for p, n in zip(pila, completos)]
+
+
+def _lista(nombres: list[str]) -> str:
+    return nombres[0] if len(nombres) == 1 else ", ".join(nombres[:-1]) + " y " + nombres[-1]
+
+
+def texto_pregunta(caso: Caso, nombres: dict[str, str] | None = None) -> str:
+    """La pregunta de un toque del nivel 3: «48 € en La Tasca: ¿con Laura y Marcos, 16 € cada uno?». Cifras del
+    caso y de la sugerencia (código); sin sugerencia con cuotas, la pregunta genérica."""
+    total = a_decimal(caso.hechos.get("importe_total"))
+    sitio = _nombre_comercio(caso.hechos.get("comercio"))
+    cabeza = f"{_eur_corto(total)} en {sitio}" if total is not None else f"Tu pago en {sitio}"
+    sug = caso.sugerencia
+    if sug is None or not sug.personas:
+        n = caso.hechos.get("personas_estimadas")       # K1 d: por el precio por persona del sitio
+        pista = f" (unas {n} personas)" if isinstance(n, int) and not isinstance(n, bool) and n >= 2 else ""
+        return f"{cabeza}: ¿fuiste con alguien?{pista}"
+    quienes = _lista(_nombres_cortos(list(sug.personas), nombres))
+    cuotas = {sug.cuotas[p] for p in sug.personas if p in sug.cuotas}
+    if len(cuotas) == 1 and len(sug.cuotas) == len(sug.personas):
+        return f"{cabeza}: ¿con {quienes}, {_eur_corto(next(iter(cuotas)))} cada uno?"
+    return f"{cabeza}: ¿con {quienes}?"
+
+
+def propuesta_pregunta(caso: Caso, ahora: datetime, nombres: dict[str, str] | None = None) -> Propuesta:
+    """Nivel 3 de la escalera: propuesta de SOLO PREGUNTAR (como `prop-duda-*`: la única acción es `recordar`, no mueve
+    dinero). Pasa por `decidir` y el tope de avisos como cualquier otra; si el usuario dice que sí, la llamada o la app
+    convierten el caso con `con_personas` (las cuotas, del código). El comercio va marcado como dato."""
+    from ..modulos.plantillas import CABECERA_DATOS
+
+    texto = texto_pregunta(caso, nombres)
+    sug = caso.sugerencia
+    en_juego = sum((v for v in (sug.cuotas.values() if sug else [])), Decimal("0")) or None
+    sitio = _nombre_comercio(caso.hechos.get("comercio"))
+    return Propuesta(
+        id=f"prop-preg-{caso.id}", modulo_id=MODULO_DEUDAS, momento_id=caso.momento_id or caso.id,
+        usuario_id=caso.usuario_id, titulo="¿Fuiste con alguien?", mensaje_notificacion=texto,
+        contexto_llamada=(f"{CABECERA_DATOS} Meisam cree que el usuario pagó por más gente en <datos>{sitio}</datos>. "
+                          "Haz solo esta pregunta y no propongas pedir dinero hasta que responda: "
+                          f"<datos>{texto}</datos> Si dice que sí, apunta a esas personas con con_personas; si iba "
+                          "solo, iba_solo; si fue con gente pero nadie le debe, nadie_me_debe."),
+        acciones_ofrecidas=[{"accion_id": "recordar",
+                             "parametros": {"cuando": "+1d", "texto": "Mirar con quién fui a este pago"}}],
+        valor_estimado_eur=en_juego, urgencia="media", tipo_momento="gasto_compartido",
+        comercio=caso.hechos.get("comercio") if isinstance(caso.hechos.get("comercio"), str) else None,
+        contraparte=sug.personas[0] if sug and sug.personas else None,
+        confianza=max(min(sug.confianza if sug else 0.0, 1.0), 0.0), creada=ahora)
+
+
+def pregunta_sin_respuesta(caso: Caso, hoy: date) -> bool:
+    """¿La pregunta «¿fuiste con alguien?» de este `pago_individual` lleva sin respuesta lo bastante para contar como
+    ignorada? 2 días si fue notificación y 3 si fue al Resumen, y solo dentro de `DIAS_COLA` (el evento es idempotente
+    por caso: `ign:<caso_id>`). Silencioso o cerrado: no se preguntó."""
+    if caso.escenario != "pago_individual" or caso.estado != "abierto" or caso.aviso == "silencioso":
+        return False
+    edad = (hoy - (caso.avisar_desde or caso.creado)).days
+    minimo = DIAS_IGNORADA_PUSH if caso.aviso == "notificar" else DIAS_IGNORADA_RESUMEN
+    return minimo <= edad <= DIAS_COLA
