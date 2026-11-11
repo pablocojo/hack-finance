@@ -461,7 +461,7 @@ export type SugerenciaReparto = {
   ambito?: string | null;
 };
 // La pregunta pendiente de un caso dudoso (`hechos.pregunta`); `casos_usuario` la manda como objeto.
-export type PreguntaCaso = { texto?: string | null; estado?: string | null; candidatos?: string[] };
+export type PreguntaCaso = { texto?: string | null; estado?: string | null; candidatos?: string[]; tipo?: string | null };
 // `movimiento_origen`: el backend aún no fija su forma; se acepta el id o el movimiento (enmascarado).
 export type MovimientoOrigen = string | Partial<Movimiento>;
 export type CasoResumen = {

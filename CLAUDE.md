@@ -92,6 +92,8 @@ Cada vez que Claude se equivoque de forma evitable, añade aquí una línea con 
 - En los encargos a subagentes, copia las rutas de `docs/diseno/` y `ARQUITECTURA.md`; no las escribas de memoria (el catálogo de comercios es `backend/datos/comercios_conocidos.json`, no `backend/motor/`).
 - En el Bash de este equipo, `\\` dentro de un heredoc llega como `\`: para escribir `\b` u otras barras en código o regex usa la herramienta Edit o `chr(92)`, y comprueba después que no hay caracteres de control (el 11 nov se colaron dos `\x08`).
 - Los scripts de diagnóstico no usan `datos_usuario/` de Pablo: pon `DATOS_USUARIO_DIR` en una carpeta temporal (el 11 nov se reinició su demo local).
+- Al acabar un subagente con `isolation: worktree`, la sesión principal puede quedarse dentro de ese worktree y los agentes siguientes trabajan allí: comprueba `pwd` antes de lanzar más e integra con `git -C` (el 11 nov K1 (a) se hizo sobre una base sin A3b).
+- Las estimaciones de horas del plan salen de 3 a 10 veces por encima de lo real con subagentes (11 nov: ~20 h estimadas, ~5 h reales). Planifica por dependencias y mide con `registro/agentes.jsonl`, no por horas.
 
 ## Instrucciones de compactación
 Conserva la idea, el contrato (`docs/diseno/CONTRATO.md`), el estado de `docs/PLAN.md`, las decisiones tomadas, los errores abiertos y la tarea en curso.

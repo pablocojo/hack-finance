@@ -18,6 +18,8 @@ export function tipoPregunta(caso: CasoResumen): TipoPregunta | null {
   if (!casoAbierto(caso)) return null;
   const p = caso.pregunta;
   if (caso.estado === "dudoso") return typeof p === "object" && p && p.estado === "pendiente" && p.texto ? "duda" : null;
+  // K1 (a): «Marcos te ha enviado 25 €: ¿es lo de La Tasca (24 €)?» en un caso abierto. Sí / No con `responder_duda`.
+  if (typeof p === "object" && p && p.tipo === "bizum_no_encaja" && p.estado === "pendiente" && p.texto) return "duda";
   if (caso.escenario !== "pago_individual" || caso.aviso !== "resumen" || caso.deudores.length > 0) return null;
   return caso.sugerencia && caso.sugerencia.personas.length > 0 ? "sugerida" : "individual";
 }
