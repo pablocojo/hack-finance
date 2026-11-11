@@ -113,9 +113,6 @@ export default function PantallaCliente() {
         </div>
         <div className="banco-acciones">
           <Campana />
-          <Link href="/" className="banco-salir">
-            Inicio
-          </Link>
         </div>
       </header>
 
