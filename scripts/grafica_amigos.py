@@ -47,6 +47,8 @@ SUPUESTOS_CORTOS = (
     "dinero que se escapa = lo prestado que a los 21 días ni volvió ni se reclamó (solo semanas 4-8)",
     "no cuenta quien pide que no se le recuerde; el efectivo devuelto es cobrado",
     "IC 95 % entre semillas",
+    "el chat usa las etiquetas del corpus (sin extracción con IA)",
+    "la IA de dudas está apagada en la simulación",
 )
 NBSP = chr(160)         # espacio que no parte línea: «21,1 %» no se separa de su %
 UMBRAL_IGUAL = 0.02    # cambio relativo por debajo del cual se dice «igual»
@@ -104,13 +106,30 @@ def serie(datos: dict, politica: str, medida: str) -> list[dict]:
     return [{"media": g["global"][medida][s]["media"], "ic95": g["global"][medida][s]["ic95"]} for s in SEMANAS]
 
 
-def total(datos: dict, politica: str, medida: str) -> float | None:
-    return grupo(datos["resultados"][politica])["global"][medida]["total"]["media"]
+def total(datos: dict, politica: str, medida: str, bloque: str | None = None) -> float | None:
+    return total_ic(datos, politica, medida, bloque)[0]
 
 
-def veredicto(base: float | None, nueva: float | None, debe: str) -> str:
+def total_ic(datos: dict, politica: str, medida: str, bloque: str | None = None) -> tuple[float | None, list | None]:
+    """Media e IC 95 % del total de las 8 semanas (`bloque`: `ajuste` o `evaluacion`; por defecto el principal)."""
+    r = datos["resultados"][politica]
+    g = (r.get(bloque) if bloque else grupo(r)) or {}
+    celda = g["global"][medida]["total"]
+    return celda["media"], celda.get("ic95")
+
+
+def solapan(a: list | None, b: list | None) -> bool:
+    return bool(a and b and a[0] <= b[1] and b[0] <= a[1])
+
+
+def veredicto(base: float | None, nueva: float | None, debe: str, ic_base: list | None = None,
+              ic_nueva: list | None = None) -> str:
+    """mejora | igual | empeora. «igual» si el cambio es menor del 2 % o si los IC 95 % de las dos se solapan (no se
+    puede distinguir del azar de las semillas: criterio prudente)."""
     if base is None or nueva is None:
         return "sin comparar"
+    if solapan(ic_base, ic_nueva):
+        return "igual"
     if base == 0:
         return "igual" if nueva == 0 else ("empeora" if debe == "bajar" else "mejora")
     cambio = (nueva - base) / abs(base)
@@ -126,13 +145,15 @@ def conclusion(datos: dict) -> str:
     for medida, etiqueta, formato, unidad, plural in (
             ("dinero_escapa", "el dinero que se escapa", "pct", "", False),
             ("preguntas_inutiles", "las preguntas inútiles", "num", " por vida", True)):
-        b, n = total(datos, "reglas", medida), total(datos, "personalizada", medida)
+        (b, ib), (n, i_n) = total_ic(datos, "reglas", medida), total_ic(datos, "personalizada", medida)
         if b is None or n is None:
             partes.append(f"{etiqueta}: sin dato")
             continue
-        v = veredicto(b, n, "bajar")
+        v = veredicto(b, n, "bajar", ib, i_n)
         if v == "igual":
-            partes.append(f"{etiqueta} {'no cambian' if plural else 'no cambia'} ({valor(b, formato)}{unidad})")
+            detalle = f"{valor(b, formato)}{unidad}" if valor(b, formato) == valor(n, formato) else (
+                f"{valor(b, formato)} a {valor(n, formato)}{unidad}, dentro del IC{NBSP}95{NBSP}%")
+            partes.append(f"{etiqueta} {'no cambian' if plural else 'no cambia'} ({detalle})")
             continue
         cambio = f", {'-' if n < b else '+'}{abs(round((n - b) / b * 100)) if b else 0}{NBSP}%"
         palabra = ("bajan" if plural else "baja") if v == "mejora" else ("SUBEN" if plural else "SUBE")
@@ -143,13 +164,16 @@ def conclusion(datos: dict) -> str:
 def sin_mejora(datos: dict) -> list[str]:
     """Vidas en las que `personalizada` no mejora a `reglas` (total de 8 semanas): §4.5, enseñar dónde no mejora."""
     por = {p: datos["resultados"].get(p, {}).get("por_vida", {}) for p in POLITICAS}
+    ajuste = set((grupo(datos["resultados"]["personalizada"]) or {}).get("vidas", [])) or set(por["reglas"])
+    por = {p: {v: x for v, x in vs.items() if v in ajuste} for p, vs in por.items()}   # Nerea y Pilar van aparte
     frases = []
     for medida, etiqueta in (("dinero_escapa", "dinero que se escapa"), ("preguntas_inutiles", "preguntas inútiles")):
         vidas = []
         for vida in sorted(set(por["reglas"]) & set(por["personalizada"])):
-            b = por["reglas"][vida][medida]["total"]["media"]
-            n = por["personalizada"][vida][medida]["total"]["media"]
-            if b is not None and n is not None and veredicto(b, n, "bajar") in ("igual", "empeora"):
+            cb, cn = por["reglas"][vida][medida]["total"], por["personalizada"][vida][medida]["total"]
+            b, n = cb["media"], cn["media"]
+            if b is not None and n is not None and veredicto(b, n, "bajar", cb.get("ic95"), cn.get("ic95")) in (
+                    "igual", "empeora"):
                 vidas.append(nombre_vida(vida))
         if vidas:
             total_vidas = len(set(por["reglas"]) & set(por["personalizada"]))
@@ -163,7 +187,7 @@ def sin_mejora(datos: dict) -> list[str]:
 def tope(mayor: float) -> float:
     """Máximo «redondo» del eje por encima de `mayor` (el eje arranca en 0)."""
     mayor = max(mayor, 1e-9)
-    candidatos = [paso * escala for paso in (1, 1.5, 2, 2.5, 3, 4, 5, 7.5) for escala in (0.001, 0.01, 0.1, 1, 10, 100)]
+    candidatos = [paso * escala for paso in (1, 2, 3, 4, 5, 6, 8) for escala in (0.001, 0.01, 0.1, 1, 10, 100)]
     return min(c for c in candidatos if c >= mayor * 1.05)
 
 
@@ -255,14 +279,16 @@ def panel(datos: dict, medida: str, titulo: str, formato: str, x: float, y: floa
             extremos[pol] = (ultimo[0], ultimo[1], ultimo[3])
     # etiqueta directa al final de cada línea (sin leyenda); si chocan, se separan
     ys = {p: e[1] for p, e in extremos.items()}
-    if len(ys) == 2 and abs(ys["reglas"] - ys["personalizada"]) < 66:
+    if len(ys) == 2 and abs(ys["reglas"] - ys["personalizada"]) < 84:
         centro = (ys["reglas"] + ys["personalizada"]) / 2
         arriba = "reglas" if ys["reglas"] <= ys["personalizada"] else "personalizada"
         abajo = "personalizada" if arriba == "reglas" else "reglas"
-        ys[arriba], ys[abajo] = centro - 33, centro + 33
+        ys[arriba], ys[abajo] = centro - 42, centro + 42
     for pol, (ex, _ey, v) in extremos.items():
         sal.append(texto(ex + 22, ys[pol] + 2, pol, 28, COLOR[pol], "bold"))
-        sal.append(texto(ex + 22, ys[pol] + 30, valor(v, formato), 26, COLOR[pol]))
+        sal.append(texto(ex + 22, ys[pol] + 30, f"total {valor(total(datos, pol, medida), formato)}", 26, COLOR[pol],
+                         "bold"))
+        sal.append(texto(ex + 22, ys[pol] + 54, f"S8: {valor(v, formato)}", 20, SUAVE))
     sal.append("</g>")
     return sal
 
@@ -281,7 +307,8 @@ def fila_totales(datos: dict, y: float) -> list[str]:
             b, n = total(datos, "reglas", medida), total(datos, "personalizada", medida)
         except KeyError:
             continue
-        v = veredicto(b, n, medidas.get(medida, {}).get("debe", "bajar"))
+        v = veredicto(b, n, medidas.get(medida, {}).get("debe", "bajar"), total_ic(datos, "reglas", medida)[1],
+                      total_ic(datos, "personalizada", medida)[1])
         sal.append(f'<line x1="{x:.1f}" y1="{y + 14}" x2="{x + ancho - 18:.1f}" y2="{y + 14}" stroke="{EJE}" '
                    f'stroke-width="1"/>')
         for i, linea in enumerate(envolver(etiqueta, 22, ancho - 18)[:2]):
@@ -292,6 +319,34 @@ def fila_totales(datos: dict, y: float) -> list[str]:
     return sal
 
 
+def fila_evaluacion(datos: dict, y: float) -> list[str]:
+    """Las vidas solo de evaluación (Nerea y Pilar), aparte: nunca se ajustó con ellas, así que es la prueba más limpia."""
+    bloques = [datos["resultados"][p].get("evaluacion") for p in POLITICAS]
+    if not all(bloques):
+        return []
+    nombres = lista_nombres([nombre_vida(v) for v in bloques[1].get("vidas", [])])
+    partes = []
+    for medida, etiqueta, formato in (("preguntas_inutiles", "preguntas inútiles", "num"),
+                                      ("dinero_escapa", "dinero que se escapa", "pct")):
+        (b, ib), (n, i_n) = (total_ic(datos, p, medida, "evaluacion") for p in POLITICAS)
+        v = veredicto(b, n, "bajar", ib, i_n)
+        palabra = {"mejora": "mejora", "igual": "NO MEJORA (igual)", "empeora": "EMPEORA"}.get(v, "sin comparar")
+        partes.append(f"{etiqueta} {valor(b, formato)} a {valor(n, formato)}: {palabra}")
+    texto_fila = (f"Solo evaluación, vidas nuevas con las que no se ajustó nada ({nombres}, semillas 100 o más; total de "
+                  f"las 8 semanas, reglas a personalizada): " + "; ".join(partes) + ".")
+    sal = []
+    for linea in envolver(texto_fila, 24, ANCHO - 140)[:2]:
+        sal.append(texto(70, y, linea, 24, TINTA, "bold"))
+        y += 28
+    return sal
+
+
+def lista_nombres(nombres: list[str]) -> str:
+    if len(nombres) <= 1:
+        return "".join(nombres)
+    return ", ".join(nombres[:-1]) + " y " + nombres[-1]
+
+
 def pie(datos: dict, y: float) -> list[str]:
     g = grupo(datos["resultados"]["personalizada"]) or {}
     vidas = len(g.get("vidas", datos.get("vidas", [])))
@@ -300,20 +355,21 @@ def pie(datos: dict, y: float) -> list[str]:
     frases = [f"Simulación: {vidas} vidas × {semillas} semillas · supuestos: " + "; ".join(SUPUESTOS_CORTOS)
               + f" · vidas {codigo}"]
     malas = sin_mejora(datos)
-    frases.append("Dónde no mejora (total 8 semanas) · " + (" · ".join(malas) if malas else "en ninguna vida"))
+    cola = "Dónde no mejora (vidas de ajuste, total 8 semanas) · " + (" · ".join(malas) if malas else "en ninguna vida")
     sens = datos.get("sensibilidad", {}).get("resultados", {})
     try:
         gb, gn = (grupo(sens[p]) for p in POLITICAS)
         sb, sn = gb["dinero_escapa"]["total"]["media"], gn["dinero_escapa"]["total"]["media"]
-        frases.append(f"Con la mitad de respuestas del usuario, el dinero que se escapa va de {valor(sb, 'pct')} (reglas) "
-                      f"a {valor(sn, 'pct')} (personalizada).")
+        cola += (f" · Con la mitad de respuestas del usuario, el dinero que se escapa va de {valor(sb, 'pct')} (reglas) "
+                 f"a {valor(sn, 'pct')} (personalizada).")
     except (KeyError, TypeError):
         pass
+    frases.append(cola)
     sal = []
     for frase in frases:
         for linea in envolver(frase, 19, ANCHO - 140):
             sal.append(texto(70, y, linea, 19, SUAVE))
-            y += 24
+            y += 23
     return sal
 
 
@@ -332,10 +388,11 @@ def generar_svg(datos: dict) -> str:
         partes.append(texto(70, y, linea, 42, TINTA, "bold"))
         y += 54
     ancho_panel = (ANCHO - 140 - 50) / 2
-    partes += panel(datos, "dinero_escapa", "Dinero que se escapa (% de lo prestado)", "pct", 70, 235, ancho_panel, 315, 0)
+    partes += panel(datos, "dinero_escapa", "Dinero que se escapa (% de lo prestado)", "pct", 70, 235, ancho_panel, 290, 0)
     partes += panel(datos, "preguntas_inutiles", "Preguntas inútiles (por vida y semana)", "num",
-                    70 + ancho_panel + 50, 235, ancho_panel, 315, 1)
-    partes += fila_totales(datos, 680)
+                    70 + ancho_panel + 50, 235, ancho_panel, 290, 1)
+    partes += fila_totales(datos, 645)
+    partes += fila_evaluacion(datos, 855)
     partes += pie(datos, 925)
     partes.append("</svg>")
     return "\n".join(partes) + "\n"
