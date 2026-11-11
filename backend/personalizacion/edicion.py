@@ -15,7 +15,10 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from ..motor.normalizar import clave_contraparte
 from ..plataforma.tipos import FrasePerfil, HechoAprendido, ModeloUsuario, PerfilUsuario, Preferencias, Silencio
+from . import aprende_amigos
+from .amigos import buscar_contacto
 from .memoria import texto_permitido
 from .motivos import euros
 from .perfil import CAMPOS_CALCULADOS, nombre_visible, resumen_plantilla
@@ -268,6 +271,68 @@ def borrar_amigo(modelo: ModeloUsuario, contraparte: str, propuesta_origen: str 
     if len(nuevo.amigos) == antes:
         raise NoExiste("No hay ningún amigo pendiente con ese nombre.")
     return nuevo
+
+
+# --- Lo aprendido de amigos y sitios (curva de amigos, A5) ----------------------------------------------------
+# Lo puro vive en `aprende_amigos`; aquí se resuelve la persona (por clave o por nombre visible), se comprueba que
+# existe y se limpian también sus hechos. Nunca hay juicios: las frases son de `aprende_amigos.frases_amigos`.
+
+def frases_aprendido_amigos(modelo: ModeloUsuario) -> list[dict]:
+    """Las frases de amigos y sitios, listas para la API: `FrasePerfil` más su `clave` (persona o ámbito) para editar o
+    borrar. Solo sirven para los recordatorios del propio usuario."""
+    salida = []
+    for f in aprende_amigos.frases_amigos(modelo.aprendizaje, modelo.contactos):
+        tipo, _, clave = f.campo.partition(":")
+        salida.append({**f.model_dump(mode="json"), "tipo": "persona" if tipo == "amigos" else "sitio",
+                       "clave": clave})
+    return salida
+
+
+def _clave_persona(modelo: ModeloUsuario, texto: str) -> str:
+    apr = modelo.aprendizaje
+    if texto in apr.personas or texto in modelo.contactos:
+        return texto
+    return buscar_contacto(modelo, texto) or clave_contraparte(texto) or texto
+
+
+def _persona_conocida(modelo: ModeloUsuario, clave: str) -> bool:
+    apr = modelo.aprendizaje
+    return (clave in apr.personas or clave in modelo.contactos
+            or any(clave in g.miembros for a in (*apr.por_comercio.values(), *apr.por_tipo_franja.values())
+                   for g in a.grupos)
+            or any(h.contraparte == clave for h in modelo.hechos_aprendidos))
+
+
+def olvidar_persona(modelo: ModeloUsuario, contraparte: str) -> ModeloUsuario:
+    """Quita lo aprendido de una persona (su hábito, su sitio en los grupos y los hechos que se refieren a ella). El
+    contacto y los casos no se tocan. `NoExiste` si no se sabe nada de ella."""
+    clave = _clave_persona(modelo, contraparte)
+    if not _persona_conocida(modelo, clave):
+        raise NoExiste("No he aprendido nada de esa persona.")
+    nuevo = modelo.model_copy(deep=True)
+    nuevo.aprendizaje = aprende_amigos.borrar_persona(nuevo.aprendizaje, clave)
+    for h in [h for h in nuevo.hechos_aprendidos if h.contraparte == clave and h.activo]:
+        _deshacer_efecto(nuevo, h)
+    nuevo.hechos_aprendidos = [h for h in nuevo.hechos_aprendidos if h.contraparte != clave]
+    return nuevo
+
+
+def olvidar_sitio(modelo: ModeloUsuario, clave: str) -> ModeloUsuario:
+    """Quita lo aprendido de un sitio (`comercio:<X>` o `tipo:<tipo>|<franja>`). `NoExiste` si no hay nada."""
+    try:
+        aprendizaje = aprende_amigos.borrar_sitio(modelo.aprendizaje, clave)
+    except KeyError as error:
+        raise NoExiste("No he aprendido nada de ese sitio.") from error
+    return modelo.model_copy(update={"aprendizaje": aprendizaje})
+
+
+def corregir_persona(modelo: ModeloUsuario, contraparte: str, campo: str, valor: Any) -> ModeloUsuario:
+    """Corrige a mano `retraso_dias` o `canal` de una persona; el código ya no lo pisa. `NoExiste` si no la conoce;
+    `ValueError` (en español) si el campo o el valor no valen."""
+    clave = _clave_persona(modelo, contraparte)
+    if not _persona_conocida(modelo, clave):
+        raise NoExiste("No conozco a esa persona.")
+    return modelo.model_copy(update={"aprendizaje": aprende_amigos.editar_persona(modelo.aprendizaje, clave, campo, valor)})
 
 
 def olvidar_todo(modelo: ModeloUsuario) -> ModeloUsuario:

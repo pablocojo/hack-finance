@@ -107,8 +107,14 @@ def editar_relacion(modelo: ModeloUsuario, clave: str, relacion: str | None) -> 
 
 
 def borrar_contacto(modelo: ModeloUsuario, clave: str) -> ModeloUsuario:
+    """Quita a la persona de la agenda y, con ella, todo lo aprendido: su `HabitoPersona`, su sitio en los grupos
+    habituales y los hechos que se refieren a ella (curva de amigos, A5)."""
+    from .aprende_amigos import borrar_persona
+
     nuevo = modelo.model_copy(deep=True)
     nuevo.contactos.pop(clave, None)
+    nuevo.aprendizaje = borrar_persona(nuevo.aprendizaje, clave)
+    nuevo.hechos_aprendidos = [h for h in nuevo.hechos_aprendidos if h.contraparte != clave]
     return nuevo
 
 

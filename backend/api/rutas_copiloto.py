@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import AliasChoices, BaseModel, Field
 
 from .. import config
+from ..personalizacion import edicion
 from ..plataforma import orquestador
 from ..plataforma.reloj import ahora_por_defecto
 from ..plataforma.tipos import CanalFeedback, Feedback, ResultadoFeedback
@@ -296,10 +297,18 @@ def perfil_borrar_campo(usuario_id: str, campo: str) -> dict:
         raise a_http(error) from error
 
 
+def _aprendido_completo(usuario_id: str) -> dict:
+    """`aprendido_usuario` más `amigos_aprendido`: las frases de personas y sitios (curva de amigos, A5). Va aparte
+    de `amigos` (los saldos pendientes, que la app ya usa)."""
+    datos = orquestador.aprendido_usuario(usuario_id)
+    datos["amigos_aprendido"] = edicion.frases_aprendido_amigos(orquestador._modelo_de(usuario_id))
+    return datos
+
+
 @router.get("/usuarios/{usuario_id}/aprendido")
 def aprendido_ver(usuario_id: str) -> dict:
     try:
-        return orquestador.aprendido_usuario(usuario_id)
+        return _aprendido_completo(usuario_id)
     except Exception as error:
         raise a_http(error) from error
 
@@ -307,7 +316,8 @@ def aprendido_ver(usuario_id: str) -> dict:
 @router.delete("/usuarios/{usuario_id}/aprendido", dependencies=[Depends(exigir_demo_key)])
 def aprendido_olvidar_todo(usuario_id: str) -> dict:
     try:
-        return orquestador.olvidar_todo_usuario(usuario_id)
+        orquestador.olvidar_todo_usuario(usuario_id)
+        return _aprendido_completo(usuario_id)
     except Exception as error:
         raise a_http(error) from error
 
@@ -315,7 +325,8 @@ def aprendido_olvidar_todo(usuario_id: str) -> dict:
 @router.patch("/usuarios/{usuario_id}/aprendido/{hecho_id}", dependencies=[Depends(exigir_demo_key)])
 def aprendido_editar(usuario_id: str, hecho_id: str, peticion: PeticionEditarHecho) -> dict:
     try:
-        return orquestador.editar_hecho_usuario(usuario_id, hecho_id, peticion.activo, peticion.texto)
+        orquestador.editar_hecho_usuario(usuario_id, hecho_id, peticion.activo, peticion.texto)
+        return _aprendido_completo(usuario_id)
     except Exception as error:
         raise a_http(error) from error
 
@@ -323,7 +334,50 @@ def aprendido_editar(usuario_id: str, hecho_id: str, peticion: PeticionEditarHec
 @router.delete("/usuarios/{usuario_id}/aprendido/{hecho_id}", dependencies=[Depends(exigir_demo_key)])
 def aprendido_borrar(usuario_id: str, hecho_id: str) -> dict:
     try:
-        return orquestador.borrar_hecho_usuario(usuario_id, hecho_id)
+        orquestador.borrar_hecho_usuario(usuario_id, hecho_id)
+        return _aprendido_completo(usuario_id)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+# Lo aprendido de amigos y sitios (curva de amigos, A5). Las tres devuelven lo mismo que `GET /aprendido`.
+
+class PeticionEditarAmigo(BaseModel):
+    campo: str = Field(min_length=1, max_length=32)    # retraso_dias | canal
+    valor: Any = None
+
+
+@router.patch("/usuarios/{usuario_id}/aprendido/amigos/{contraparte}", dependencies=[Depends(exigir_demo_key)])
+def aprendido_amigo_editar(usuario_id: str, contraparte: str, peticion: PeticionEditarAmigo) -> dict:
+    """`{campo: "retraso_dias", valor: 5}` o `{campo: "canal", valor: "efectivo"}`: lo que diga el usuario no lo pisa
+    el aprendizaje. `contraparte` es la clave (`RODRIGO P`) o el nombre visible (`Rodrigo P.`)."""
+    try:
+        orquestador._cambiar_modelo(usuario_id, lambda m, e: edicion.corregir_persona(m, contraparte, peticion.campo,
+                                                                                      peticion.valor),
+                                    "amigo_aprendido_editado", campo=peticion.campo)
+        return _aprendido_completo(usuario_id)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.delete("/usuarios/{usuario_id}/aprendido/amigos/{contraparte}", dependencies=[Depends(exigir_demo_key)])
+def aprendido_amigo_borrar(usuario_id: str, contraparte: str) -> dict:
+    """Olvida lo aprendido de una persona (cuándo y cómo suele devolverte el dinero, y con quién vas). Desde la
+    siguiente decisión, sus recordatorios vuelven a los 2 días de siempre."""
+    try:
+        orquestador._cambiar_modelo(usuario_id, lambda m, e: edicion.olvidar_persona(m, contraparte),
+                                    "amigo_aprendido_borrado")
+        return _aprendido_completo(usuario_id)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.delete("/usuarios/{usuario_id}/aprendido/sitios/{clave}", dependencies=[Depends(exigir_demo_key)])
+def aprendido_sitio_borrar(usuario_id: str, clave: str) -> dict:
+    """Olvida un sitio: `comercio:LA TASCA` o `tipo:restaurante|finde` (con `sitios:` delante también vale)."""
+    try:
+        orquestador._cambiar_modelo(usuario_id, lambda m, e: edicion.olvidar_sitio(m, clave), "sitio_aprendido_borrado")
+        return _aprendido_completo(usuario_id)
     except Exception as error:
         raise a_http(error) from error
 
@@ -347,7 +401,18 @@ def amigos(usuario_id: str) -> list[dict]:
 def amigo_borrar(usuario_id: str, contraparte: str) -> list[dict]:
     """Borra a un amigo de «Lo que he aprendido» (por su nombre enmascarado, p. ej. `Marcos R.`)."""
     try:
-        return orquestador.borrar_amigo_usuario(usuario_id, contraparte)
+        pendiente = True
+        try:
+            lista = orquestador.borrar_amigo_usuario(usuario_id, contraparte)
+        except orquestador.NoEncontrado:
+            pendiente = False   # sin saldo pendiente: aún puede haber algo aprendido de esa persona
+        try:   # borrar al amigo borra también su hábito y sus hechos
+            orquestador._cambiar_modelo(usuario_id, lambda m, e: edicion.olvidar_persona(m, contraparte),
+                                        "amigo_aprendido_borrado")
+        except orquestador.NoEncontrado:
+            if not pendiente:
+                raise
+        return orquestador.amigos_usuario(usuario_id)
     except Exception as error:
         raise a_http(error) from error
 
