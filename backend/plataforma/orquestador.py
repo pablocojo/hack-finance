@@ -1242,7 +1242,7 @@ def _resumen_caso(c: Caso, por_id: dict[str, Movimiento] | None = None) -> dict:
         # código) y quién abrió el caso (motor, botón o chat).
         "pregunta_nivel": c.pregunta_nivel, "origen": c.origen,
         "sugerencia": c.sugerencia.model_dump(mode="json") if c.sugerencia else None,
-        "pregunta": ({"texto": pregunta.get("texto"), "estado": pregunta.get("estado"),
+        "pregunta": ({"texto": pregunta.get("texto"), "estado": pregunta.get("estado"), "tipo": pregunta.get("tipo"),
                       "candidatos": [enmascarar_nombre(x) for x in pregunta.get("candidatos", []) if isinstance(x, str)]}
                      if pregunta else None),
         "movimiento_origen": _origen_caso(c, por_id or {}),

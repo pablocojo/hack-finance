@@ -43,6 +43,8 @@ DIAS_IGNORADA_RESUMEN = 3
 CLAVE_SIN_DEUDA = "sin_deuda"          # `hechos`: «fui acompañado, pero nadie me debe» (acción nadie_me_debe)
 CLAVE_CANAL = "canal_probable"         # `hechos`: {clave: CanalDevolucion} de los deudores con canal aprendido
 MODULO_DEUDAS = "gasto_compartido"
+TIPO_BIZUM_NO_ENCAJA = "bizum_no_encaja"    # `hechos["pregunta"]["tipo"]`: el Bizum de un deudor que no entra en el margen
+CLAVE_DESCARTADOS = "bizum_descartados"     # `hechos`: ids de Bizums que el usuario dijo que eran otra cosa
 
 
 # --- Utilidades --------------------------------------------------------------------------------
@@ -402,12 +404,15 @@ def aplicar_respuesta(caso: Caso, respuesta: str, hoy: date, ahora: datetime | N
     para que el portero prepare una propuesta nueva con los deudores definitivos. Rastro en `historial`. Nunca toca
     cuotas ni mueve dinero. `ValueError` (en español) si no hay pregunta pendiente o la respuesta no es sí o no."""
     pregunta = caso.hechos.get("pregunta")
-    if caso.estado != "dudoso" or not isinstance(pregunta, dict) or pregunta.get("estado") != "pendiente":
+    bizum = isinstance(pregunta, dict) and pregunta.get("tipo") == TIPO_BIZUM_NO_ENCAJA
+    if not isinstance(pregunta, dict) or pregunta.get("estado") != "pendiente" or (caso.estado != "dudoso" and not bizum):
         raise ValueError("Este caso no tiene ninguna pregunta pendiente que responder.")
     texto = "".join(c for c in unicodedata.normalize("NFD", str(respuesta or "").strip().lower()) if unicodedata.category(c) != "Mn")
     if texto not in ("si", "no"):
         raise ValueError("La respuesta debe ser sí o no.")
     cuando = ahora or ahora_por_defecto(hoy)
+    if bizum:
+        return _responder_bizum(caso, pregunta, texto, hoy, cuando, origen)
     nuevo = _copia(caso)
     candidatos = {c for c in (_clave(x) for x in pregunta.get("candidatos", [])) if c}
     nuevo.hechos["pregunta"] = {**pregunta, "estado": "respondida", "respuesta": texto}
@@ -427,6 +432,33 @@ def aplicar_respuesta(caso: Caso, respuesta: str, hoy: date, ahora: datetime | N
     nuevo.propuesta_id = None
     nuevo.hechos.pop("avisado_el", None)
     nuevo.hechos["resuelto_por"] = origen
+    nuevo.hechos["faltan"] = len(pendientes(nuevo))
+    nuevo.hechos["importe_pendiente"] = eur_texto(importe_pendiente(nuevo))
+    return nuevo
+
+
+def _responder_bizum(caso: Caso, pregunta: dict, texto: str, hoy: date, cuando: datetime, origen: OrigenCambio) -> Caso:
+    """Respuesta a «Marcos te ha enviado 25 €: ¿es lo de La Tasca (24 €)?». `si`: ese Bizum salda a esa persona (la cuota
+    sigue siendo la del código; no se mueve dinero). `no`: el deudor sigue como estaba y ese Bizum no se vuelve a
+    preguntar. Un deudor que ya no está pendiente (saldado a mano, fuera del reparto) solo cierra la pregunta."""
+    clave, mov = _clave(pregunta.get("contraparte")), str(pregunta.get("movimiento") or "")
+    nuevo = _copia(caso)
+    nuevo.hechos["pregunta"] = {**pregunta, "estado": "respondida", "respuesta": texto}
+    deudor = next((d for d in nuevo.deudores if d.contraparte == clave and d.estado != "saldada"), None)
+    nombre = nombre_visible(clave or "")
+    if texto == "no":
+        nuevo.hechos[CLAVE_DESCARTADOS] = [*nuevo.hechos.get(CLAVE_DESCARTADOS, []), mov]
+        _anotar(nuevo, origen, f"Respondiste que el Bizum de {nombre} era otra cosa: su deuda sigue como estaba.", cuando)
+        return nuevo
+    if deudor is None:
+        _anotar(nuevo, origen, f"Respondiste que sí, pero {nombre} ya no tenía nada pendiente.", cuando)
+        return nuevo
+    deudor.estado, deudor.saldada, deudor.movimiento_pago = "saldada", _a_fecha(pregunta.get("fecha")) or hoy, mov or None
+    nuevo.hechos["movimientos"] = [*nuevo.hechos.get("movimientos", []), *([mov] if mov else [])]
+    _anotar(nuevo, origen, f"Respondiste que sí: el Bizum de {nombre} salda su parte ({pregunta.get('importe')} €).", cuando)
+    if all(d.estado == "saldada" for d in nuevo.deudores):
+        nuevo.estado = "saldado"
+        _anotar(nuevo, origen, "Caso saldado.", cuando)
     nuevo.hechos["faltan"] = len(pendientes(nuevo))
     nuevo.hechos["importe_pendiente"] = eur_texto(importe_pendiente(nuevo))
     return nuevo
@@ -463,6 +495,9 @@ def listo_para_avisar(caso: Caso, hoy: date) -> bool:
     desde = fecha_aviso(caso)
     if desde > hoy or caso.aviso == "silencioso":   # silencioso: solo se ve en «Mis cuentas», nunca avisa
         return False
+    pregunta = caso.hechos.get("pregunta")
+    if isinstance(pregunta, dict) and pregunta.get("tipo") == TIPO_BIZUM_NO_ENCAJA and pregunta.get("estado") == "pendiente":
+        return False                                # un Bizum sin aclarar: no se recuerda la deuda hasta que responda
     if caso.estado == "dudoso":
         return caso.propuesta_id is None
     if caso.estado != "abierto" or "avisado_el" in caso.hechos:
