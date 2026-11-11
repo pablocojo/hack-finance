@@ -669,7 +669,7 @@ def propuesta_pregunta(caso: Caso, ahora: datetime, nombres: dict[str, str] | No
     sitio = _nombre_comercio(caso.hechos.get("comercio"))
     return Propuesta(
         id=f"prop-preg-{caso.id}", modulo_id=MODULO_DEUDAS, momento_id=caso.momento_id or caso.id,
-        usuario_id=caso.usuario_id, titulo="¿Fuiste con alguien?", mensaje_notificacion=texto,
+        usuario_id=caso.usuario_id, titulo=f"¿Fuiste con alguien a {sitio}?", mensaje_notificacion=texto,
         contexto_llamada=(f"{CABECERA_DATOS} Meisam cree que el usuario pagó por más gente en <datos>{sitio}</datos>. "
                           "Haz solo esta pregunta y no propongas pedir dinero hasta que responda: "
                           f"<datos>{texto}</datos> Si dice que sí, apunta a esas personas con con_personas; si iba "

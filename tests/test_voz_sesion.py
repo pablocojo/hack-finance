@@ -196,7 +196,7 @@ def test_contexto_variables_sin_notas_ni_ingresos():
     assert "<datos>La Tasca</datos>" in v["contexto_llamada"]
     assert "<datos>Marcos R.</datos>" in v["acciones_ofrecidas"] and "máximo 24.00" in v["acciones_ofrecidas"]
     assert v["banco"] == "Banco Aurora"
-    assert contexto.primer_mensaje(v).startswith(f"Hola {v['nombre']}, me has abierto desde el aviso:")
+    assert contexto.primer_mensaje(v).startswith(f"Hola {v['nombre']}, me has abierto desde el aviso «")
 
 
 def test_texto_kit_pedido_no_llama_a_elevenlabs(monkeypatch):

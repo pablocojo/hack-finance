@@ -28,6 +28,7 @@ activacion: 2026-11-01
 hasta: 2026-11-15
 perfil: calcular
 amigos_pagan_tras_solicitud_dias: 1      # solo para la demo: el amigo paga al día siguiente de pedirle el Bizum
+saldo_inicial: 1240.00                    # cuenta corriente el 21/9; la app enseña este saldo más lo procesado
 contactos:     # la agenda inventada de Pablo (teléfonos falsos y enmascarados); la lee el orquestador
   - {contraparte: "RODRIGO P", nombre: "Rodrigo P.", telefono: "+34 6** *** 214", relacion: amigo}
   - {contraparte: "IRENE C", nombre: "Irene C.", telefono: "+34 6** *** 328", relacion: amigo}

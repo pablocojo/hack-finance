@@ -207,7 +207,7 @@ def test_en_las_dos_semanas_solo_hay_dos_notificaciones_el_cine_y_las_pizzas(dem
     avisos = {n["propuesta"]["id"]: n["propuesta"] for n in orq.notificaciones(UID, "ahora")}
     assert len(avisos) == 2
     cine_p, pizzas_p = avisos[ahora[0][1]], avisos[ahora[1][1]]
-    assert cine_p["mensaje_notificacion"] == TEXTO_CINE and cine_p["titulo"] == "¿Fuiste con alguien?"
+    assert cine_p["mensaje_notificacion"] == TEXTO_CINE and cine_p["titulo"] == "¿Fuiste con alguien a Kinepolis Ciudad de la Imagen?"
     assert [a["accion_id"] for a in cine_p["acciones_ofrecidas"]] == ["recordar"]       # solo pregunta: no mueve dinero
     pedir = next(a for a in pizzas_p["acciones_ofrecidas"] if a["accion_id"] == "pedir_bizum")
     assert pedir["parametros"]["contraparte"] == "NACHO G" and Decimal(pedir["parametros"]["importe"]) == Decimal("13.00")
@@ -321,3 +321,16 @@ def test_recorrido_http_cargar_activar_avanzar_pedir_y_saldado(demo, falso):
     movimientos = http.get(f"/usuarios/{UID}/movimientos").json()
     assert any(m["concepto"] == "BIZUM RECIBIDO" and m["importe"] == "13.00" and m["fecha"] == r.json()["hoy"]
                for m in movimientos)
+
+
+def test_la_cuenta_de_pablo_tiene_saldo_y_el_bizum_de_nacho_lo_sube(demo, falso):
+    preparado(falso)
+    avanzar_hasta(pizzas(demo))
+    antes = Decimal(orq.estado_usuario(UID)["saldo"])
+    assert antes > 0                                              # saldo_inicial del escenario + lo procesado
+    pedir_bizum_a_nacho()
+    avanzar_hasta(pizzas(demo) + timedelta(days=1))
+    movimientos = orq._leer(UID, "movimientos", [])
+    despues = Decimal(orq.estado_usuario(UID)["saldo"])
+    assert despues == Decimal("1240.00") + sum((m.importe for m in movimientos), Decimal("0"))
+    assert any(m.id.startswith(banco_sim.PREFIJO_PAGO_SOLICITUD) and m.importe == Decimal("13.00") for m in movimientos)

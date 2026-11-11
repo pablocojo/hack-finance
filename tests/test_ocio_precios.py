@@ -348,7 +348,7 @@ def test_demo_lucia_pregunta_por_el_cine_con_texto_combinaciones_y_fuente_sin_re
     assert cliente.peticiones == []                                      # ni web ni IA: todo de la caché versionada
     [aviso] = [n for n in orq.notificaciones("lucia") if n["propuesta"]["id"].startswith("prop-preg-")]
     assert aviso["propuesta"]["mensaje_notificacion"] == TEXTO_CINE
-    assert aviso["propuesta"]["titulo"] == "¿Fuiste con alguien?"
+    assert aviso["propuesta"]["titulo"] == "¿Fuiste con alguien a Kinepolis Ciudad de la Imagen?"
     motivos = aviso["decision"]["motivos"]
     assert "2 entradas de sábado" in motivos[0] and "80 %" in motivos[0] and "taquilla.com" in motivos[0]
     caso = next(c for c in orq.casos_usuario("lucia") if c["escenario"] == "pago_individual")

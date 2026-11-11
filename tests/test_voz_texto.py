@@ -38,7 +38,7 @@ def test_saludo_fijo_dice_que_es_ia_y_no_llama_a_claude(falso):
     token = abrir().json()["token_sesion"]
     eventos = leer_sse(http.post("/voz/texto", json={"token_sesion": token}))
     assert eventos[0][0] == "texto"
-    assert eventos[0][1]["texto"].startswith("Hola Lucía, me has abierto desde el aviso:")  # neutro; la insignia «IA» va en pantalla
+    assert eventos[0][1]["texto"].startswith("Hola Lucía, me has abierto desde el aviso «")  # neutro; la insignia «IA» va en pantalla
     assert cliente.peticiones == []
 
 

@@ -61,6 +61,7 @@ DIAS_PERFIL = 7
 # Demos (opción del escenario, en el estado del usuario; apagada por defecto): el amigo paga N días después de que el
 # usuario le pida el Bizum con el botón. El simulador de amigos no la usa: ya simula sus propios pagos.
 OPCION_PAGO_AMIGOS = "amigos_pagan_tras_solicitud_dias"
+OPCION_SALDO_INICIAL = "saldo_inicial"      # demos: saldo de la cuenta antes del primer movimiento del escenario
 
 _motor_cargado: set[str] = set()
 
@@ -118,6 +119,15 @@ def _saldo(movimientos: list[Movimiento]) -> Decimal | None:
         if m.saldo is not None:
             return m.saldo
     return None
+
+
+def _saldo_de(estado: dict, movimientos: list[Movimiento]) -> Decimal | None:
+    """Con `saldo_inicial` en el escenario (demos sin saldo en cada movimiento): saldo inicial + lo procesado hasta hoy,
+    así también suma el Bizum que entra tras una solicitud. Si no, el último saldo que trae el banco."""
+    base = estado.get(OPCION_SALDO_INICIAL)
+    if base is None:
+        return _saldo(movimientos)
+    return Decimal(str(base)) + sum((m.importe for m in movimientos), Decimal("0"))
 
 
 def _contadores(uid: str) -> dict[str, int]:
@@ -190,7 +200,10 @@ def cargar_escenario(escenario_id: str) -> dict:
                    for m in _campo(escenario, "movimientos", [])]
     if not uid or activacion is None:
         raise ValueError(f"El escenario {escenario_id!r} no tiene usuario_id o activacion.")
-    opciones = {OPCION_PAGO_AMIGOS: _campo(escenario, OPCION_PAGO_AMIGOS, None)}
+    crudo = escenario if isinstance(escenario, dict) else (_campo(escenario, "crudo", None) or {})
+    saldo_inicial = crudo.get(OPCION_SALDO_INICIAL)
+    opciones = {OPCION_PAGO_AMIGOS: _campo(escenario, OPCION_PAGO_AMIGOS, None),
+                OPCION_SALDO_INICIAL: None if saldo_inicial is None else str(Decimal(str(saldo_inicial)))}
     return _cargar_usuario(uid, activacion, movimientos, _contactos.agenda_de_escenario(_campo(escenario, "contactos", None)),
                            None, escenario_id, opciones)
 
@@ -420,7 +433,7 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         _guardar_motor(uid)
         if pagos_amigos:   # su Bizum ya está en el historial: la solicitud pasa a `aceptada`
             _banco_sim.aceptar_pagadas(uid, [m.id for m in pagos_amigos], hoy)
-        return {"hoy": hoy, "movimientos": nuevos, "saldo": _saldo(historial), "perfil": modelo.perfil if perfil_recalculado else None,
+        return {"hoy": hoy, "movimientos": nuevos, "saldo": _saldo_de(estado, historial), "perfil": modelo.perfil if perfil_recalculado else None,
                 "perfil_recalculado": perfil_recalculado, "items": items, "momentos": momentos_dia,
                 "contadores": _contadores(uid)}
 
@@ -850,7 +863,7 @@ def reproducir(usuario_id: str, dias: int, pausar_en: str | None = None) -> Iter
 def estado_usuario(usuario_id: str) -> dict:
     with alm.candado(usuario_id):
         estado = _estado(usuario_id)
-        saldo = _saldo(_leer(usuario_id, "movimientos", []))
+        saldo = _saldo_de(estado, _leer(usuario_id, "movimientos", []))
         return {"hoy": estado["hoy"], "activado": bool(estado.get("activado")),
                 "saldo": None if saldo is None else format(saldo, "f"), "contadores": _contadores(usuario_id)}
 

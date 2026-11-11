@@ -119,9 +119,9 @@ def test_primer_mensaje_sin_aviso_y_con_aviso():
     general = abrir_general().json()["variables"]
     assert contexto.primer_mensaje(general) == "Hola Lucía, ¿qué quieres repasar de tus cuentas con amigos?"
     con_aviso = abrir().json()["variables"]
-    assert con_aviso["titulo_aviso"] == "me has abierto desde el aviso: Cena en La Tasca: te falta 1 Bizum de 24 €. ¿Lo vemos?"
+    assert con_aviso["titulo_aviso"] == "me has abierto desde el aviso «Cena en La Tasca: te falta 1 Bizum de 24 €». ¿Lo vemos?"
     assert contexto.primer_mensaje(con_aviso) == (
-        "Hola Lucía, me has abierto desde el aviso: Cena en La Tasca: te falta 1 Bizum de 24 €. ¿Lo vemos?")
+        "Hola Lucía, me has abierto desde el aviso «Cena en La Tasca: te falta 1 Bizum de 24 €». ¿Lo vemos?")
 
 
 def test_el_primer_mensaje_del_panel_es_el_de_ElevenLabs_con_las_variables():

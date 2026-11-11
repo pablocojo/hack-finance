@@ -55,6 +55,27 @@ Acciones que puedes ofrecer: {acciones_ofrecidas}
 Cuando la acción esté hecha o rechazada, resume en una frase y despídete."""
 
 
+def _comercio_legible(texto: str | None) -> str | None:
+    """«PIZZERIA MAMMA ROSA» -> «Pizzeria Mamma Rosa» (dato de un tercero, saneado)."""
+    limpio = sanear_dato(texto or "", 40).strip()
+    if not limpio:
+        return None
+    return " ".join(p if (i and p in ("de", "del", "la", "el", "y")) else p.capitalize()
+                    for i, p in enumerate(limpio.lower().split()))
+
+
+def frase_de_apertura(propuesta) -> str:
+    """Lo que dice Meisam tras «Hola {nombre}, » al abrir la llamada o el chat desde un aviso (`titulo_aviso`).
+    Una pregunta de un toque se hace tal cual (ya lleva el importe, el sitio y la pregunta); el resto nombra el aviso
+    y el comercio para que se sepa de qué pago se habla."""
+    if getattr(propuesta, "solo_pregunta", False):
+        return f"sobre tu aviso: {sanear_dato(_quitar_marcas(propuesta.mensaje_notificacion), 200)}"
+    titulo = sanear_dato(_quitar_marcas(propuesta.titulo), 90)
+    sitio = _comercio_legible(propuesta.comercio)
+    de_sitio = f" de {sitio}" if sitio and sitio.lower() not in titulo.lower() else ""
+    return f"me has abierto desde el aviso «{titulo}»{de_sitio}. ¿Lo vemos?"
+
+
 def nombre_de_pila(usuario_id: str) -> str:
     base = usuario_id.strip().replace("_", " ").replace("-", " ").split(" ")[0]
     return _NOMBRES.get(base.lower(), base.capitalize() or "cliente")
@@ -112,7 +133,7 @@ def variables(propuesta: Propuesta, modelo: ModeloUsuario | None, usuario_id: st
     return {
         "nombre": nombre_de_pila(usuario_id),
         "banco": BANCO,
-        "titulo_aviso": f"me has abierto desde el aviso: {sanear_dato(_quitar_marcas(propuesta.titulo), 90)}. ¿Lo vemos?",
+        "titulo_aviso": frase_de_apertura(propuesta),
         "contexto_llamada": contexto,
         "acciones_ofrecidas": " ".join(describir_accion(i, a) for i, a in enumerate(propuesta.acciones_ofrecidas, 1)),
     }
