@@ -6,7 +6,7 @@ import { amigos as pedirAmigos, prepararAccion } from "@/lib/api";
 import type { Amigo, CasoResumen, Notificacion, TarjetaConfirmacion } from "@/lib/api";
 import { casos as pedirCasos, esMaqueta } from "@/lib/cuentasApi";
 import { esPregunta, fraseResumen, resumenSemanal } from "@/lib/preguntas";
-import { eur, textoVisible } from "@/lib/formato";
+import { eur, nombreVisible, textoVisible } from "@/lib/formato";
 import InsigniaIA from "./InsigniaIA";
 import PorQue from "./PorQue";
 import PreguntaConAlguien from "./PreguntaConAlguien";
@@ -93,9 +93,31 @@ export default function Bandeja({ usuarioId, ahora, resumen, hoy = null, alResol
   const hayResumen = fraseResumen(datosResumen).length > 0;
 
   // Acceso rápido: sin llamada, prepara la primera acción ofrecida y pinta la misma tarjeta de confirmación.
-  async function accesoRapido({ propuesta }: Notificacion) {
-    const accion = propuesta.acciones_ofrecidas[0];
+  // Un aviso con varias personas (p. ej. el cine: Rodrigo y Marta) trae un `pedir_bizum` por persona: un botón para cada
+  // una, y se puede pedir a la segunda después de confirmar la primera.
+  type Ofrecida = Notificacion["propuesta"]["acciones_ofrecidas"][number];
+  const [elegidas, setElegidas] = useState<Record<string, Ofrecida>>({});
+  const pedidosDe = (n: Notificacion) => n.propuesta.acciones_ofrecidas.filter((a) => a.accion_id === "pedir_bizum");
+  const BotonesPedir = ({ notificacion }: { notificacion: Notificacion }) => (
+    <div className="aviso-botones">
+      {pedidosDe(notificacion).map((a) => (
+        <button
+          key={String(a.parametros.contraparte)}
+          type="button"
+          className="boton-secundario grande"
+          disabled={preparando === notificacion.propuesta.id}
+          onClick={() => accesoRapido(notificacion, a)}
+        >
+          Pedir {eur(String(a.parametros.importe ?? ""))} a {nombreVisible(String(a.parametros.contraparte ?? ""))}
+        </button>
+      ))}
+    </div>
+  );
+
+  async function accesoRapido({ propuesta }: Notificacion, elegida?: Ofrecida) {
+    const accion = elegida ?? propuesta.acciones_ofrecidas[0];
     if (!accion) return;
+    setElegidas((e) => ({ ...e, [propuesta.id]: accion }));
     setPreparando(propuesta.id);
     setErrores((e) => sin(e, propuesta.id));
     try {
@@ -187,28 +209,35 @@ export default function Bandeja({ usuarioId, ahora, resumen, hoy = null, alResol
               <PorQue usuarioId={usuarioId} propuestaId={propuesta.id} />
               {estado !== "nueva" && <p className="pequeno tenue">Estado: {estado}</p>}
               {tarjeta ? (
-                <TarjetaAccion
-                  tarjeta={tarjeta}
-                  usuarioId={usuarioId}
-                  parametrosBase={primera?.parametros}
-                  alResultado={() => alResolver?.()}
-                  alAhoraNo={() => setTarjetas((ts) => sin(ts, propuesta.id))}
-                  alCambiarTarjeta={(t) => setTarjetas((ts) => ({ ...ts, [propuesta.id]: t }))}
-                />
+                <>
+                  <TarjetaAccion
+                    tarjeta={tarjeta}
+                    usuarioId={usuarioId}
+                    parametrosBase={(elegidas[propuesta.id] ?? primera)?.parametros}
+                    alResultado={() => alResolver?.()}
+                    alAhoraNo={() => setTarjetas((ts) => sin(ts, propuesta.id))}
+                    alCambiarTarjeta={(t) => setTarjetas((ts) => ({ ...ts, [propuesta.id]: t }))}
+                  />
+                  {pedidosDe(notificacion).length > 1 && <BotonesPedir notificacion={notificacion} />}
+                </>
               ) : (
                 <div className="aviso-botones">
                   <Link href={`/app/llamada/${encodeURIComponent(propuesta.id)}`} className="enlace-boton grande">
                     Resolver
                   </Link>
-                  {primera && (
-                    <button
-                      type="button"
-                      className="boton-secundario grande"
-                      disabled={preparando === propuesta.id}
-                      onClick={() => accesoRapido(notificacion)}
-                    >
-                      Hacerlo ya
-                    </button>
+                  {pedidosDe(notificacion).length > 1 ? (
+                    <BotonesPedir notificacion={notificacion} />
+                  ) : (
+                    primera && (
+                      <button
+                        type="button"
+                        className="boton-secundario grande"
+                        disabled={preparando === propuesta.id}
+                        onClick={() => accesoRapido(notificacion)}
+                      >
+                        Hacerlo ya
+                      </button>
+                    )
                   )}
                 </div>
               )}
