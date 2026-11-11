@@ -14,7 +14,8 @@ import type { EstadoUsuario, EventoReloj, Notificacion } from "@/lib/api";
 import { eur } from "@/lib/formato";
 import { CLAVE_USUARIO } from "@/lib/sesion";
 
-const ESCENARIO = "cena-lucia";
+// La demo completa: cena de La Tasca, Streamflix, duplicado de la librería, luz y el cine de Kinepolis.
+const ESCENARIO = "demo-lucia";
 
 export default function PantallaCliente() {
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
@@ -70,10 +71,10 @@ export default function PantallaCliente() {
       await refrescar(demo.usuario_id);
     });
 
-  const avanzar = () =>
+  const avanzar = (dias = 1) =>
     ejecutar(async () => {
       if (!usuarioId) return;
-      await avanzarReloj(usuarioId, 1);
+      await avanzarReloj(usuarioId, dias);
       await refrescar(usuarioId);
     });
 
@@ -139,7 +140,8 @@ export default function PantallaCliente() {
             deshabilitado={ocupado}
             alEvento={alEventoReloj}
             alParar={alPararReloj}
-            alAvanzarUno={avanzar}
+            alAvanzarUno={() => avanzar(1)}
+            alAvanzarDias={(dias) => avanzar(dias)}
           />
 
           {c && c.momentos > 0 && (
