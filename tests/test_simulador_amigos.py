@@ -78,6 +78,52 @@ def test_sin_chat_no_hay_mensajes(tres, vida):
         assert tres["personalizada"].de_tipo("chat")
 
 
+def _hechos(r):
+    return [e for e in r.de_tipo("chat") if e["herramienta"] == "recordar_sobre_mi"]
+
+
+@pytest.fixture(scope="module")
+def con_hechos(tmp_path_factory):
+    """Irene, semilla 0: su chat trae hechos (`recordar_sobre_mi`)."""
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("DATOS_USUARIO_DIR", str(tmp_path_factory.mktemp("datos_previos_irene")))
+        return protocolo.simular_politicas(cargar_vidas()["irene"], 0)
+
+
+def test_los_hechos_del_chat_se_envian_y_no_se_saltan(con_hechos):
+    """Ningún hecho queda `saltado`: con `personalizada` se guardan, con `reglas` el sistema los rechaza por
+    `aprendizaje_apagado` y sin chat no se envía nada."""
+    for r in con_hechos.values():
+        assert "recordar_sobre_mi" not in r.saltado
+        assert r.de_tipo("error") == []
+    hechos = {p: _hechos(r) for p, r in con_hechos.items()}
+    assert hechos["personalizada_sin_chat"] == []
+    assert hechos["personalizada"] and len(hechos["reglas"]) == len(hechos["personalizada"])
+    assert {e["resultado"] for e in hechos["reglas"]} == {"aprendizaje_apagado"}
+    assert {e["resultado"] for e in hechos["personalizada"]} <= {"guardado", "repetido"}
+    assert all({"reintento", "extraccion", "esperado_resultado"} <= set(e) for e in hechos["personalizada"])
+
+
+def test_persona_desconocida_se_repite_confirmando(tmp_path, monkeypatch):
+    """Si el sistema pide confirmar una persona nueva y lo esperado era guardar, se repite una vez confirmando."""
+    from backend.plataforma import chat_casos
+    llamadas = []
+    real = chat_casos.recordar_sobre_mi_usuario
+
+    def falsa(uid, entrada, confirmar_personas_nuevas=False):
+        llamadas.append(confirmar_personas_nuevas)
+        if not confirmar_personas_nuevas:
+            return {"ok": False, "resultado": "persona_desconocida", "error": "no conozco a esa persona"}
+        return real(uid, entrada, confirmar_personas_nuevas)
+
+    monkeypatch.setattr(chat_casos, "recordar_sobre_mi_usuario", falsa)
+    r = protocolo.simular(cargar_vidas()["irene"], 0, "personalizada", dir_datos=tmp_path / "d")
+    hechos = _hechos(r)
+    assert hechos and llamadas.count(False) == len(hechos) == llamadas.count(True)
+    assert all(e["reintento"] for e in hechos)
+    assert r.de_tipo("error") == []
+
+
 def _sistema(r, hasta):
     """Lo que hizo el sistema y el usuario hasta `hasta` (sin los eventos finales ni la marca de ventana)."""
     salida = []

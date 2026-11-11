@@ -12,7 +12,7 @@ Bucle de 8 semanas SOBRE EL SISTEMA REAL con el reloj simulado. Por cada (vida, 
             actualizar_caso_llamada (iba_solo, nadie_me_debe, con_personas, no_me_debe, marcar_saldado)
             registrar_feedback (en persona / lo deja / no recordar / «no me preguntes por este sitio»)
             preparar_accion + confirmar_accion (pedir Bizum confirmado, como el botón)
-            chat_casos.apuntar_gasto_usuario (y recordar_sobre_mi_usuario si existe)
+            chat_casos.apuntar_gasto_usuario y recordar_sobre_mi_usuario
         el amigo paga tras una solicitud según sus rasgos: orquestador.anadir_movimientos (siempre con fecha > hoy)
 
 Sin mirar el futuro: el sistema solo recibe los movimientos día a día (`pendientes` del orquestador) y los Bizums
@@ -826,11 +826,6 @@ class _Simulacion:
                     omitido=None, reintento=reintento, error=error)
             self.toque("chat", salida.caso_id if salida else None, mensaje.pago_id)
         elif herramienta == "recordar_sobre_mi":
-            funcion = getattr(chat_casos, "recordar_sobre_mi_usuario", None)
-            if funcion is None:
-                self.saltar("recordar_sobre_mi", "chat_casos.recordar_sobre_mi_usuario no existe aún (B5)")
-                self.ev("chat", **base, resultado="saltado", caso_id=None, omitido="sin_herramienta", reintento=False)
-                return
             from ....plataforma.tipos import HechoChatEntrada
             try:
                 ent_h = HechoChatEntrada.model_validate({**entrada, "texto": entrada.get("texto") or mensaje.texto[:160]})
@@ -838,9 +833,15 @@ class _Simulacion:
                 self.ev("chat", **base, resultado="entrada_invalida", caso_id=None, omitido=str(error)[:120],
                         reintento=False)
                 return
-            r, error = self.llamar("recordar_sobre_mi", funcion, self.uid, ent_h)
-            self.ev("chat", **base, resultado="ok" if r and r.get("ok") else "rechazado", caso_id=None, omitido=None,
-                    reintento=False, error=error)
+            r, error = self.llamar("recordar_sobre_mi", chat_casos.recordar_sobre_mi_usuario, self.uid, ent_h)
+            reintento = False
+            if r is not None and r.get("resultado") == "persona_desconocida" and esp.get("resultado") in (
+                    None, "guardado", "repetido"):
+                r, error = self.llamar("recordar_sobre_mi", chat_casos.recordar_sobre_mi_usuario, self.uid, ent_h,
+                                       confirmar_personas_nuevas=True)
+                reintento = True
+            self.ev("chat", **base, resultado=r.get("resultado") if r else "error", caso_id=None, omitido=None,
+                    reintento=reintento, error=error or (None if r is None or r.get("ok") else r.get("error")))
             self.toque("chat", None, mensaje.pago_id)
         elif herramienta == "actualizar_caso":
             persona = mensaje.persona or (entrada.get("persona") if isinstance(entrada.get("persona"), str) else None)
