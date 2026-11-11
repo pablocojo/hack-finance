@@ -123,18 +123,22 @@ CERRADOS = ("saldado", "descartado")
 # --- Entorno -----------------------------------------------------------------------------------
 
 @contextmanager
-def entorno_simulacion(dir_datos: str | Path | None = None) -> Iterator[Path]:
+def entorno_simulacion(dir_datos: str | Path | None = None, en_memoria: bool = True) -> Iterator[Path]:
     """`DATOS_USUARIO_DIR` temporal (o `dir_datos`), sin web y sin IA de dudas; restaura el entorno al salir.
-    Si crea la carpeta, la borra al terminar."""
-    claves = ("DATOS_USUARIO_DIR", "BUSQUEDA_WEB", "DUDAS_IA")
+    Si crea la carpeta, la borra al terminar. Por defecto el almacén va en memoria (`ALMACEN_EN_MEMORIA`, ~3x más
+    rápido); `en_memoria=False` lo deja en disco (la carpeta temporal)."""
+    from ....plataforma import almacenamiento
+    claves = ("DATOS_USUARIO_DIR", "BUSQUEDA_WEB", "DUDAS_IA", "ALMACEN_EN_MEMORIA")
     previo = {k: os.environ.get(k) for k in claves}
     propia = dir_datos is None
     carpeta = Path(tempfile.mkdtemp(prefix="sim-amigos-")) if propia else Path(dir_datos)
     carpeta.mkdir(parents=True, exist_ok=True)
-    os.environ.update(DATOS_USUARIO_DIR=str(carpeta), BUSQUEDA_WEB="off", DUDAS_IA="off")
+    os.environ.update(DATOS_USUARIO_DIR=str(carpeta), BUSQUEDA_WEB="off", DUDAS_IA="off",
+                      ALMACEN_EN_MEMORIA="on" if en_memoria else "off")
     try:
         yield carpeta
     finally:
+        almacenamiento.vaciar_memoria()
         for k, v in previo.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -223,6 +227,7 @@ class _Simulacion:
     gen: VidaGenerada
     politica: str
     corte: date | None = None
+    factor_respuesta: float = 1.0
     uid: str = ""
     eventos: list[dict] = field(default_factory=list)
     saltado: Counter = field(default_factory=Counter)
@@ -475,7 +480,7 @@ class _Simulacion:
                 motivo = "harto"
             elif canal == "push" and self._sobre_tolerancia():
                 motivo = "tolerancia"
-            elif u[0] >= (self.m.contesta_notificacion if canal == "push" else self.m.contesta_resumen):
+            elif u[0] >= self._prob_contesta(canal):
                 motivo = "no_contesta"
             horas = int(_elegir(self.m.retraso_respuesta_horas, u[1]))
             if motivo is None and horas > HORAS_IGNORADA:
@@ -485,6 +490,11 @@ class _Simulacion:
                 continue
             self.cola[self.hoy + timedelta(days=horas // 24)].append(
                 ("pregunta", c.id, nivel, inutil, u, horas, comercio))
+
+    def _prob_contesta(self, canal: str) -> float:
+        """Probabilidad de contestar a Meisam por ese canal, por `factor_respuesta` (sensibilidad: 0,5 = la mitad)."""
+        base = self.m.contesta_notificacion if canal == "push" else self.m.contesta_resumen
+        return min(1.0, base * self.factor_respuesta)
 
     def _sobre_tolerancia(self) -> bool:
         semana = self._semana(self.hoy)
@@ -614,7 +624,7 @@ class _Simulacion:
             motivo = None
             if canal == "push" and self._sobre_tolerancia():
                 motivo = "tolerancia"
-            elif u[0] >= (self.m.contesta_notificacion if canal == "push" else self.m.contesta_resumen):
+            elif u[0] >= self._prob_contesta(canal):
                 motivo = "no_contesta"
             horas = int(_elegir(self.m.retraso_respuesta_horas, u[1]))
             if motivo is None and horas > HORAS_IGNORADA:
@@ -911,16 +921,18 @@ class _Simulacion:
 
 def simular(vida: Vida, semilla: int, politica: str, *, corpus: Corpus | None = None,
             generada: VidaGenerada | None = None, corte: date | None = None,
-            dir_datos: str | Path | None = None) -> ResultadoSimulacion:
+            dir_datos: str | Path | None = None, factor_respuesta: float = 1.0) -> ResultadoSimulacion:
     """Una vida × una semilla × una política sobre el sistema real. `generada` evita regenerar (las 3 políticas
     comparten la misma). `corte`: solo para el test de «no mira el futuro» (quita la base posterior y para ahí).
-    Sin `dir_datos`, usa una carpeta temporal propia (y la borra)."""
+    Sin `dir_datos`, usa una carpeta temporal propia (y la borra). `factor_respuesta` (1,0 = la vida tal cual) multiplica
+    la probabilidad de que el usuario conteste a Meisam (sensibilidad de C6: las notificaciones de banca se abren un
+    7-16 %, así que se prueba con 0,5); no cambia nada más."""
     if politica not in MODO or politica == "oraculo":
         raise ValueError(f"Política desconocida o aún sin hacer (oraculo es C10): {politica!r}")
     gen = generada or generar(vida, semilla, corpus)
     t0 = time.perf_counter()
-    with entorno_simulacion(dir_datos):
-        sim = _Simulacion(vida=vida, gen=gen, politica=politica, corte=corte)
+    with entorno_simulacion(dir_datos, en_memoria=dir_datos is None):   # con `dir_datos`, a disco (se puede inspeccionar)
+        sim = _Simulacion(vida=vida, gen=gen, politica=politica, corte=corte, factor_respuesta=factor_respuesta)
         sim.correr()
     duracion = time.perf_counter() - t0
     sim.eventos[-1]["duracion_s"] = round(duracion, 3)
@@ -930,10 +942,48 @@ def simular(vida: Vida, semilla: int, politica: str, *, corpus: Corpus | None = 
 
 
 def simular_politicas(vida: Vida, semilla: int, politicas: tuple[str, ...] = POLITICAS, *,
-                      corpus: Corpus | None = None, dir_datos: str | Path | None = None) -> dict[str, ResultadoSimulacion]:
+                      corpus: Corpus | None = None, dir_datos: str | Path | None = None,
+                      factor_respuesta: float = 1.0) -> dict[str, ResultadoSimulacion]:
     """Las políticas pedidas sobre la MISMA vida generada (misma suerte). Cada una con su `usuario_id`."""
     gen = generar(vida, semilla, corpus)
-    return {p: simular(vida, semilla, p, generada=gen, dir_datos=dir_datos) for p in politicas}
+    return {p: simular(vida, semilla, p, generada=gen, dir_datos=dir_datos, factor_respuesta=factor_respuesta)
+            for p in politicas}
+
+
+# --- En paralelo (C7) --------------------------------------------------------------------------
+
+def _tarea(args: tuple[str, int, tuple[str, ...], float]) -> list[ResultadoSimulacion]:
+    """Un proceso: una vida y una semilla con sus políticas (comparten la vida generada). Cada simulación usa su
+    propia carpeta temporal (`entorno_simulacion`), así que los procesos no se pisan."""
+    vida_id, semilla, politicas, factor = args
+    vida = cargar_vidas()[vida_id]
+    return list(simular_politicas(vida, semilla, politicas, factor_respuesta=factor).values())
+
+
+def simular_en_paralelo(tareas: list[tuple[str, int, tuple[str, ...], float]], procesos: int | None = None,
+                        al_terminar: Callable[[list[ResultadoSimulacion]], None] | None = None
+                        ) -> list[ResultadoSimulacion]:
+    """Ejecuta `tareas` = `(vida_id, semilla, políticas, factor_respuesta)` en procesos (`ProcessPoolExecutor`).
+    Con `procesos <= 1` va en serie en este mismo proceso. El resultado sale ordenado por (vida, semilla, política
+    en el orden pedido), igual que en serie, así que no depende de quién acabe antes."""
+    if not tareas:
+        return []
+    procesos = procesos if procesos is not None else min(len(tareas), max(1, (os.cpu_count() or 2) - 1))
+    hechos: dict[int, list[ResultadoSimulacion]] = {}
+    if procesos <= 1 or len(tareas) == 1:
+        for i, t in enumerate(tareas):
+            hechos[i] = _tarea(t)
+            if al_terminar:
+                al_terminar(hechos[i])
+    else:
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        with ProcessPoolExecutor(max_workers=procesos) as pool:
+            futuros = {pool.submit(_tarea, t): i for i, t in enumerate(tareas)}
+            for futuro in as_completed(futuros):
+                hechos[futuros[futuro]] = futuro.result()
+                if al_terminar:
+                    al_terminar(hechos[futuros[futuro]])
+    return [r for i in sorted(hechos) for r in hechos[i]]
 
 
 def _main() -> None:

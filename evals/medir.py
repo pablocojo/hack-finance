@@ -4,6 +4,9 @@
     python evals/medir.py --parte motor            # detectores sobre los escenarios etiquetados
     python evals/medir.py --parte personalizacion  # curva de aprendizaje con usuarios simulados
     python evals/medir.py --parte todo             # las dos (por defecto)
+    python evals/medir.py --parte amigos           # curva de amigos (C6): lenta (procesos en paralelo); no entra en `todo`
+        --semillas 0-9 --vidas ajuste|evaluacion|todas|alvaro,diego --politicas reglas,personalizada
+        [--procesos N] [--sin-sensibilidad]
 
 Cada parte escribe `evals/resultados/<parte>-<AAAA-MM-DD>.json` (versionados: los lee `/jurado` por
 `GET /metricas/{parte}`) y se compara con la ejecución anterior de esa parte.
@@ -35,7 +38,8 @@ os.environ["BUSQUEDA_WEB"] = "off"
 
 RESULTADOS = DIR_EVALS / "resultados"
 PARTES = ("motor", "personalizacion")
-MODULOS = {"motor": "medir_motor", "personalizacion": "medir_personalizacion"}
+PARTES_APARTE = ("amigos",)     # se piden por su nombre: tardan minutos y no entran en `todo`
+MODULOS = {"motor": "medir_motor", "personalizacion": "medir_personalizacion", "amigos": "medir_amigos"}
 # Si falta alguno de estos módulos, la parte aún no existe (no es un error del código).
 PENDIENTE_SI_FALTA = {"personalizacion": ("medir_personalizacion", "backend.personalizacion.simulacion")}
 
@@ -63,10 +67,11 @@ def _pendiente(parte: str, error: ImportError) -> dict:
     }
 
 
-def medir_parte(parte: str, directorio: Path = RESULTADOS, fecha: date | None = None) -> tuple[Path, dict]:
-    """Mide una parte, la compara con la anterior y guarda `<parte>-<fecha>.json`."""
-    if parte not in PARTES:
-        raise ValueError(f"Parte desconocida: {parte!r}. Elige entre {', '.join(PARTES)} o todo.")
+def medir_parte(parte: str, directorio: Path = RESULTADOS, fecha: date | None = None,
+                opciones: dict | None = None) -> tuple[Path, dict]:
+    """Mide una parte, la compara con la anterior y guarda `<parte>-<fecha>.json`. `opciones` solo para `amigos`."""
+    if parte not in (*PARTES, *PARTES_APARTE):
+        raise ValueError(f"Parte desconocida: {parte!r}. Elige entre {', '.join((*PARTES, *PARTES_APARTE))} o todo.")
     previa = ultimo(parte, directorio)
     anterior = json.loads(previa.read_text(encoding="utf-8")) if previa else None
     try:
@@ -77,18 +82,19 @@ def medir_parte(parte: str, directorio: Path = RESULTADOS, fecha: date | None = 
             raise
         resultado = _pendiente(parte, error)
     else:
-        resultado = modulo.medir(anterior, previa.name if previa else None)
+        resultado = modulo.medir(anterior, previa.name if previa else None, **(opciones or {}))
     directorio.mkdir(parents=True, exist_ok=True)
     ruta = directorio / f"{parte}-{(fecha or date.today()).isoformat()}.json"
     ruta.write_text(json.dumps(resultado, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
     return ruta, resultado
 
 
-def ejecutar(parte: str = "todo", directorio: Path = RESULTADOS, fecha: date | None = None) -> dict[str, Path]:
+def ejecutar(parte: str = "todo", directorio: Path = RESULTADOS, fecha: date | None = None,
+             opciones: dict | None = None) -> dict[str, Path]:
     partes = PARTES if parte == "todo" else (parte,)
     salida = {}
     for p in partes:
-        ruta, resultado = medir_parte(p, directorio, fecha)
+        ruta, resultado = medir_parte(p, directorio, fecha, opciones if p in PARTES_APARTE else None)
         salida[p] = ruta
         print(f"== {p}: {ruta.relative_to(RAIZ) if ruta.is_relative_to(RAIZ) else ruta}")
         modulo = sys.modules.get(MODULOS[p])
@@ -103,10 +109,30 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Métricas del Copiloto sin gastar crédito.")
-    parser.add_argument("--parte", choices=(*PARTES, "todo"), default="todo")
+    parser.add_argument("--parte", choices=(*PARTES, *PARTES_APARTE, "todo"), default="todo")
     parser.add_argument("--salida", type=Path, default=RESULTADOS, help="directorio de resultados")
+    amigos = parser.add_argument_group("solo --parte amigos")
+    amigos.add_argument("--semillas", default="0-9", help="0-9 (ajuste, por defecto) o 100-119 (curva final)")
+    amigos.add_argument("--vidas", default="ajuste", help="ajuste (por defecto), evaluacion, todas o ids: alvaro,diego")
+    amigos.add_argument("--politicas", default="reglas,personalizada",
+                        help="reglas, personalizada y personalizada_sin_chat, separadas por comas")
+    amigos.add_argument("--procesos", type=int, default=None, help="procesos en paralelo (por defecto, CPUs - 2)")
+    amigos.add_argument("--sin-sensibilidad", action="store_true",
+                        help="no repite con las tasas de respuesta a Meisam a la mitad (por defecto sí; tarda otro tanto)")
     args = parser.parse_args(argv)
-    ejecutar(args.parte, args.salida)
+    opciones = None
+    if args.parte == "amigos":
+        import medir_amigos
+        try:
+            opciones = {"semillas": medir_amigos.parse_semillas(args.semillas), "vidas": args.vidas,
+                        "politicas": tuple(p.strip() for p in args.politicas.split(",") if p.strip()),
+                        "procesos": args.procesos, "sensibilidad": not args.sin_sensibilidad}
+        except ValueError as error:
+            parser.error(str(error))
+    try:
+        ejecutar(args.parte, args.salida, opciones=opciones)
+    except ValueError as error:
+        parser.error(str(error))
     return 0
 
 
