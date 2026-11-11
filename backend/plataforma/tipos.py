@@ -560,7 +560,7 @@ class ApuntarGastoEntrada(Base):
     pista: str = Field(min_length=1, max_length=60)    # comercio o descripción («las pizzas», «La Tasca»); dato
     fecha_aprox: date | None = None          # AAAA-MM-DD; se busca ± 3 días. None = los últimos 7 días
     importe_total: Euros | None = None       # si el usuario lo dice; ayuda a elegir el cargo
-    personas: list[PersonaGasto] = Field(default_factory=list, max_length=10)
+    personas: list[PersonaGasto] = Field(default_factory=list, max_length=15)
     incluye_usuario: bool = True             # a partes iguales con el usuario incluido, salvo que diga otra cosa
     efectivo: bool = False                   # «le pagué en efectivo»: deuda sin cargo -> `no_soportado`
     movimiento_id: str | None = None         # segunda llamada: el cargo que eligió el usuario entre los candidatos
@@ -595,7 +595,7 @@ class HechoChatEntrada(Base):
     """Herramienta `recordar_sobre_mi`: una frase que enseña sin crear un caso. Lista cerrada de tipos."""
     tipo: TipoHechoChat
     persona: str | None = Field(default=None, max_length=40)       # nombre como lo dice el usuario
-    personas: list[str] = Field(default_factory=list, max_length=10)
+    personas: list[str] = Field(default_factory=list, max_length=15)
     pista: str | None = Field(default=None, max_length=60)         # sitio o tipo de sitio («la cafeta»); dato
     dia_semana: int | None = Field(default=None, ge=0, le=6)
     texto: str = Field(min_length=1, max_length=160)               # la frase del usuario, para mostrarla; dato
