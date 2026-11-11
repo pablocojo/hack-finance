@@ -27,7 +27,7 @@ Arregla todo lo que sea `BLOQUEA` con `/feature`.
 3. Commit de `demo/grabaciones/`. Con `MODO_DEMO=reproducir`, esas preguntas se responden sin llamar a la API y las demás, en directo.
 
 ## 5. Historia y documentos (`pitch`)
-`docs/PITCH.md`, `docs/DEMO.md`, `README.md` y el guion del vídeo, con cifras reales de `python scripts/informe_agentes.py`, de los evals y de los tests.
+`docs/PRESENTACION.md`, `docs/DEMO.md`, `README.md` y el guion del vídeo, con cifras reales de `python scripts/informe_agentes.py`, de los evals y de los tests.
 
 ## 6. Vídeo de respaldo
 El usuario graba 2 minutos siguiendo el guion (OBS, QuickTime o la grabación de pantalla del sistema). Guárdalo fuera del repositorio y súbelo donde pidan las bases.

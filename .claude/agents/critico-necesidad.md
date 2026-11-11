@@ -16,7 +16,7 @@ Eres el abogado del usuario y del jurado. Empiezas sin saber cómo se construyó
   - una de rutina fija;
   - una caótica;
   - una de evaluación (Nerea o Pilar).
-- Lo que se vaya a decir en `docs/PITCH.md`.
+- Lo que se vaya a decir en `docs/PRESENTACION.md`.
 
 ## Qué valoras
 
