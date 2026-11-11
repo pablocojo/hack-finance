@@ -1,0 +1,274 @@
+# Vida oculta: Javier (ajuste). Ficha y porqués: FICHAS.md §8. Fuentes [F#]: FUENTES.md.
+# Todo inventado. Las cifras con [F#] salen de esa fuente; el resto es supuesto.
+id: javier
+version: 1
+uso: ajuste
+nombre_visible: "Javier"
+edad: 44
+quien_es: "Jefe de turno en logística; vive en Vicálvaro con su pareja y dos hijos; delegado del equipo de fútbol de su hijo mayor"
+pone_a_prueba: "Cenas con otras familias (reparto por familia), pareja a la que nunca se recuerda, padres del equipo fuera de la agenda e invitaciones que no son deuda"
+rutina: 0.8
+fuentes:
+  - "[F24] no hay tarifas publicadas de clubes de fútbol base en Madrid: la cuota es supuesto"
+  - "[F1] efectivo entre particulares (más habitual en adultos)"
+  - "[F22] Todos los Santos (domingo 1 nov)"
+supuestos:
+  - "Nómina neta de 2.480 € el día 28"
+  - "Cada familia es una «persona» en el reparto: el Bizum siempre lo manda el mismo miembro (simplificación del esquema)"
+  - "Inscripción del torneo a 20 € por niño"
+  - "Tasas de respuesta a Meisam (sin datos: ver F25)"
+
+visible:
+  saldo_inicial: "3100.00"
+  ingresos:
+    - {tipo: sueldo, concepto: "NOMINA LOGISTICA DEL HENARES SA", canal: transferencia, importe: "2480.00", dia_mes: 28}    # supuesto
+    - {tipo: otro, concepto: "BIZUM RECIBIDO", contraparte: "MERCEDES L", canal: bizum, importe: "390.00", dia_mes: 4}      # su pareja: mitad de la hipoteca (nunca se recuerda)
+  comercios_habituales: ["HIPERMERCADO LA DEHESA", "ESTACION DE SERVICIO LA RONDA", "RESTAURANTE LA ALQUERIA", "CANTINA CLUB LOS OLMOS"]
+  fondo:
+    - {comercio: "PRESTAMO HIPOTECARIO", categoria: vivienda, canal: recibo, dia_mes: 5, importe: "780.00"}
+    - {comercio: "COLEGIO SAN BLAS COMEDOR", categoria: otros, canal: recibo, dia_mes: 3, importe: "230.00"}
+    - {comercio: "CLUB DEPORTIVO LOS OLMOS CUOTA", categoria: ocio, canal: recibo, dia_mes: 10, importe: "38.00"}             # [F24] supuesto
+    - {comercio: "ELECTRICA DEL ESTE", categoria: suministros, canal: recibo, dia_mes: 15, importe: "68.00"}
+    - {comercio: "CANAL AGUAS MADRID", categoria: suministros, canal: recibo, dia_mes: 20, importe: "31.00"}
+    - {comercio: "HIPERMERCADO LA DEHESA", categoria: supermercado, canal: tarjeta, veces_semana: 2.0, rango: {min: "40.00", max: "120.00"}}
+    - {comercio: "ESTACION DE SERVICIO LA RONDA", categoria: transporte, canal: tarjeta, veces_semana: 1.0, rango: {min: "45.00", max: "70.00"}}
+
+amigos:
+  "MERCEDES L":                          # su pareja: nunca está en un reparto ni se le recuerda nada
+    nombre: "Merche L."
+    nombre_pila: "Merche"
+    relacion: pareja
+    en_agenda: true
+    retraso_dias: {0: 1.0}
+    prob_paga_solo: 1.0
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["hipoteca", ""]
+  "MONICA F":                            # Monica Ferrer Ruiz: familia del equipo (manda el Bizum de su familia)
+    nombre: "Monica F."
+    nombre_pila: "Mónica"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.5, 1: 0.3, 2: 0.2}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.6, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["cena familias", "lo nuestro", ""]
+  "ALBERTO G":                           # Alberto Gil Navas
+    nombre: "Alberto G."
+    nombre_pila: "Alberto"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {1: 0.3, 2: 0.4, 4: 0.3}
+    prob_paga_solo: 0.85
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.5, a: "5.00"}
+    no_paga: 0.0
+    notas_bizum: ["cena", "torneo", ""]
+  "RAFAEL M":                            # Rafael Medina Soto: le llama Rafa
+    nombre: "Rafa M."
+    nombre_pila: "Rafa"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.3, 3: 0.4, 7: 0.3}
+    prob_paga_solo: 0.7
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 0.8, efectivo: 0.2}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+  "LORENA B":                            # Lorena Blanco Cid: paga también lo de su hermana Silvia (sobrino en el equipo)
+    nombre: "Lorena B."
+    nombre_pila: "Lorena"
+    relacion: otro
+    en_agenda: true
+    retraso_dias: {0: 0.5, 1: 0.5}
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    paga_por_dos: {prob: 0.7, con: "SILVIA N"}
+    no_paga: 0.0
+    notas_bizum: ["torneo x2", ""]
+  "FRANCISCO H":                         # Francisco Hidalgo Mora: le llaman Paco; fuera de la agenda
+    nombre: "Paco H."
+    nombre_pila: "Paco"
+    relacion: otro
+    en_agenda: false
+    retraso_dias: {2: 0.4, 5: 0.6}
+    prob_paga_solo: 0.6
+    retraso_tras_pedir_dias: {0: 0.5, 2: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["torneo"]
+  "SILVIA N":                            # Silvia Nunez Prado: fuera de la agenda
+    nombre: "Silvia N."
+    nombre_pila: "Silvia"
+    relacion: otro
+    en_agenda: false
+    retraso_dias: {1: 1.0}
+    prob_paga_solo: 0.8
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+  "ESTHER C":                            # Esther Campos Vidal: fuera de la agenda
+    nombre: "Esther C."
+    nombre_pila: "Esther"
+    relacion: otro
+    en_agenda: false
+    retraso_dias: {0: 0.6, 1: 0.4}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["inscripcion torneo"]
+  "ROBERTO V":                           # Roberto Vidal Sanz: fuera de la agenda; tarda
+    nombre: "Roberto V."
+    nombre_pila: "Roberto"
+    relacion: otro
+    en_agenda: false
+    retraso_dias: {3: 0.3, 7: 0.4, 14: 0.3}
+    prob_paga_solo: 0.5
+    retraso_tras_pedir_dias: {1: 0.5, 3: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.1
+    notas_bizum: [""]
+  "OLGA D":                              # Olga Duran Pena: fuera de la agenda; le da el efectivo en el partido
+    nombre: "Olga D."
+    nombre_pila: "Olga"
+    relacion: otro
+    en_agenda: false
+    retraso_dias: {0: 0.5, 2: 0.5}
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 0.6, efectivo: 0.4}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["torneo peques"]
+  "JOSE L":                              # José Luis Prieto Gómez: el motor coge la L de Luis
+    nombre: "José Luis P."
+    nombre_pila: "José Luis"
+    relacion: otro
+    en_agenda: false
+    retraso_dias: {1: 0.5, 4: 0.5}
+    prob_paga_solo: 0.85
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+
+planes_recurrentes:
+  - id: cena_familias
+    descripcion: "Cena con otras familias del equipo (reparto por familia)"
+    tipo: rutina
+    dias: [4, 5]
+    prob_semanal: 0.4
+    franja: cena
+    sitios:
+      - {comercio: "RESTAURANTE LA ALQUERIA", categoria: restaurantes, peso: 2, coloquial: ["la cena con los del equipo", "la alqueria"], tipo_esperado: restaurante}
+      - {comercio: "ASADOR EL PORTALON", categoria: restaurantes, peso: 1, coloquial: ["el asador"], tipo_esperado: restaurante}
+      - {comercio: "BRASERIA LOS OLMOS", categoria: restaurantes, peso: 1, coloquial: ["la braseria"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["MONICA F", "ALBERTO G"]
+      opcionales: [{amigo: "RAFAEL M", prob: 0.6}]
+    paga: {usuario: 0.35, "MONICA F": 0.35, "ALBERTO G": 0.3}
+    reparto: iguales
+    importe_por_persona: {min: "40.00", max: "58.00"}       # por familia (2 adultos y 1-2 niños); supuesto
+    meisam_rutina_4: true
+  - id: aperitivo_partido
+    descripcion: "Aperitivo de los padres después del partido de los niños"
+    tipo: deporte
+    dias: [5]
+    prob_semanal: 0.5
+    franja: comida
+    sitios:
+      - {comercio: "CANTINA CLUB LOS OLMOS", categoria: restaurantes, peso: 1, coloquial: ["el aperitivo", "la cantina"], tipo_esperado: bar}
+    grupo:
+      fijos: ["MONICA F"]
+      opcionales: [{amigo: "ALBERTO G", prob: 0.5}]
+    paga: {cada_uno: 0.5, usuario: 0.25, "MONICA F": 0.25}
+    reparto: iguales
+    importe_por_persona: {min: "6.00", max: "11.00"}
+    meisam_rutina_4: false
+
+planes_esporadicos:
+  - id: torneo_inscripcion
+    descripcion: "Como delegado, paga la inscripción del torneo: 20 € por niño, 11 familias"
+    tipo: deporte
+    cuando: [{semana: 4, dia: 1}]
+    franja: tarde
+    sitios:
+      - {comercio: "CLUB DEPORTIVO LOS OLMOS TORNEO", categoria: ocio, peso: 1, coloquial: ["lo del torneo", "la inscripcion"], tipo_esperado: otro}
+    grupo:
+      fijos: ["MONICA F", "ALBERTO G", "RAFAEL M", "LORENA B", "FRANCISCO H", "SILVIA N", "ESTHER C", "ROBERTO V", "OLGA D", "JOSE L"]
+      opcionales: []
+    paga: {usuario: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "20.00", max: "20.00"}       # supuesto
+    meisam_rutina_4: false
+  - id: cumple_hijo
+    descripcion: "Cumpleaños de su hijo en un centro de ocio: invita él, nadie le debe"
+    tipo: cumpleanos
+    cuando: [{semana: 7, dia: 5}]
+    franja: tarde
+    sitios:
+      - {comercio: "CENTRO DE OCIO PEQUEPLANET", categoria: ocio, peso: 1, coloquial: ["el cumple del niño"], tipo_esperado: ocio}
+    grupo:
+      fijos: []
+      opcionales: []
+      desconocidos: {min: 8, max: 12}
+    paga: {usuario: 1.0}
+    reparto: invita
+    importe_por_persona: {min: "12.00", max: "15.00"}
+    meisam_rutina_4: false
+
+gastos_solo:                             # «nadie le debe»: incluye la comida de domingo con su propia familia
+  - id: comida_familiar_domingo
+    comercio: "MESON EL CRUCE DE VICALVARO"
+    categoria: restaurantes
+    coloquial: ["la comida del domingo"]
+    tipo_esperado: restaurante
+    dias: [6]
+    prob_dia: 0.45
+    importe: {min: "55.00", max: "85.00"}
+  - id: desayuno_trabajo
+    comercio: "CAFETERIA POLIGONO LAS MERCEDES"
+    categoria: restaurantes
+    coloquial: ["el cafe"]
+    tipo_esperado: bar
+    dias: [0, 1, 2, 3, 4]
+    prob_dia: 0.6
+    importe: {min: "2.00", max: "4.00"}
+
+cambios_rutina:
+  - id: todos_los_santos
+    semanas: [4]
+    planes: {cena_familias: 0.0, aperitivo_partido: 0.0}
+    gastos_solo: {comida_familiar_domingo: 0.0}
+    nota: "Puente de Todos los Santos en el pueblo"
+
+meisam:                                  # todo supuesto (ver F25)
+  contesta_resumen: 0.5
+  contesta_notificacion: 0.65
+  retraso_respuesta_horas: {2: 0.3, 8: 0.3, 20: 0.3, 50: 0.1}
+  acierta_respuesta: 0.95
+  acepta_sugerencia_correcta: 0.9
+  usa_chat: 0.2
+  chat_hechos: 0.1
+  tolerancia_avisos_semana: 3
+  silencia_tras_inutiles: 3
+  no_recordar: ["MERCEDES L"]
+  si_no_pagan: {se_lo_dice_en_persona: 0.5, pide_bizum: 0.3, lo_deja: 0.2}
+  declara_efectivo: 0.4
+  acepta_nivel_4: true

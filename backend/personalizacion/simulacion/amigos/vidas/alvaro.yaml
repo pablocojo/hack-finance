@@ -1,0 +1,238 @@
+# Vida oculta: Álvaro (ajuste). Ficha y porqués: FICHAS.md §1. Fuentes [F#]: FUENTES.md.
+# Todo inventado. Las cifras con [F#] salen de esa fuente; el resto es supuesto.
+id: alvaro
+version: 1
+uso: ajuste
+nombre_visible: "Álvaro"
+edad: 20
+quien_es: "2.º de Informática en una universidad pública de Madrid; es de Talavera y comparte piso en Argüelles con tres"
+pone_a_prueba: "Rutina muy fija: jueves de pizzas en el piso (paga él, las reglas no lo ven) y sábados con Laura y Marcos; Rodrigo tarda 2 o 3 días"
+rutina: 0.85
+fuentes:
+  - "[F8] menú del día en Madrid 14,5 € (2025): ancla de las cenas"
+  - "[F11] pizza mediana a domicilio en oferta 6-11 €"
+  - "[F13][F14][F15] cuánto se tarda en devolver (referencias extranjeras)"
+  - "[F17] la beca del Ministerio se cobra de una vez y tarde: no es ingreso mensual"
+  - "[F20] Abono Joven 10 €/mes"
+supuestos:
+  - "Retrasos, probabilidades de pagar solo y redondeos de cada amigo"
+  - "Iker deja el efectivo en la mesa del salón y Álvaro casi nunca lo marca"
+  - "Parciales en las semanas 7-8"
+  - "Tasas de respuesta a Meisam (sin datos: ver F25)"
+
+visible:
+  saldo_inicial: "640.00"                # supuesto
+  ingresos:
+    - {tipo: paga, concepto: "TRANSFERENCIA FERNANDO DIAZ MORENO MENSUALIDAD", contraparte: "FERNANDO D", canal: transferencia, importe: "700.00", dia_mes: 1}   # supuesto: paga de los padres (sin beca: F17)
+  comercios_habituales: ["SUPERMERCADOS EL ALMENDRO", "PIZZERIA VESUBIO ARGUELLES", "LA TASCA DE ARGUELLES", "CAFETERIA FACULTAD INFORMATICA"]
+  fondo:
+    - {comercio: "ALQUILER HABITACION ARGUELLES", categoria: vivienda, canal: recibo, dia_mes: 2, importe: "380.00"}            # supuesto: habitación en piso compartido
+    - {comercio: "SUPERMERCADOS EL ALMENDRO", categoria: supermercado, canal: tarjeta, veces_semana: 1.5, rango: {min: "10.00", max: "35.00"}}   # supuesto
+    - {comercio: "CRTM RECARGA ABONO JOVEN", categoria: transporte, canal: tarjeta, dia_mes: 1, importe: "10.00"}              # [F20]
+    - {comercio: "TELEFONIA MOVIL LUNA", categoria: suministros, canal: recibo, dia_mes: 8, importe: "10.00"}                  # supuesto
+
+amigos:
+  "RODRIGO S":                           # Rodrigo Serrano Gil
+    nombre: "Rodrigo S."
+    nombre_pila: "Rodrigo"
+    relacion: companero
+    en_agenda: true
+    retraso_dias: {2: 0.5, 3: 0.35, 5: 0.15}   # supuesto: suele pagar el fin de semana (2-3 días tras el jueves)
+    prob_paga_solo: 0.85                       # supuesto
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}  # supuesto
+    canal: {bizum: 1.0}                        # [F3] jóvenes: móvil
+    redondea: {prob: 0.1, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["pizzas", "lo del jueves", "sorry tarde", ""]
+  "MARCOS B":                            # Marcos Benito Lara
+    nombre: "Marcos B."
+    nombre_pila: "Marcos"
+    relacion: companero
+    en_agenda: true
+    retraso_dias: {0: 0.65, 1: 0.35}           # supuesto; [F13] la mayoría devuelve en 24 h
+    prob_paga_solo: 0.97
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.5, a: "1.00"}           # supuesto
+    no_paga: 0.0
+    notas_bizum: ["pizza", "tasca", ""]
+  "IKER G":                              # Iker Gomez Arrieta
+    nombre: "Iker G."
+    nombre_pila: "Iker"
+    relacion: companero
+    en_agenda: true
+    retraso_dias: {0: 0.4, 1: 0.3, 2: 0.3}     # supuesto
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 0.6, efectivo: 0.4}         # [F1] el efectivo sigue siendo lo más habitual entre particulares
+    redondea: {prob: 0.4, a: "5.00"}
+    no_paga: 0.0
+    notas_bizum: ["toma", ""]
+  "LAURA V":                             # Laura Vidal Ortega
+    nombre: "Laura V."
+    nombre_pila: "Laura"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.3, 1: 0.5, 2: 0.2}     # supuesto
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.3, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["tasca", "gracias!", ""]
+  "IGNACIO P":                           # Ignacio Pardo Ruiz: Álvaro le llama Nacho (la clave no se parece)
+    nombre: "Nacho P."
+    nombre_pila: "Nacho"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {3: 0.3, 6: 0.4, 10: 0.3}    # supuesto; [F15] hay quien se retrasa por sistema
+    prob_paga_solo: 0.5
+    retraso_tras_pedir_dias: {1: 0.6, 3: 0.4}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.5, a: "5.00"}
+    no_paga: 0.05
+    notas_bizum: ["cumple laura", ""]
+  "CARLA F":                             # Carla Fuentes Mora: amiga de Laura, no está en la agenda
+    nombre: "Carla F."
+    nombre_pila: "Carla"
+    relacion: amigo
+    en_agenda: false
+    retraso_dias: {1: 0.5, 2: 0.5}
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["cena cumple laura"]
+
+planes_recurrentes:
+  - id: pizzas_jueves
+    descripcion: "Jueves de pizzas en el piso: pide Álvaro desde su móvil"
+    tipo: rutina
+    dias: [3]
+    prob_semanal: 0.85                         # supuesto (rutina muy fija)
+    franja: cena
+    sitios:
+      - {comercio: "PIZZERIA VESUBIO ARGUELLES", categoria: restaurantes, peso: 3, coloquial: ["las pizzas", "el Vesubio"], tipo_esperado: comida_domicilio}
+      - {comercio: "PIZZERIA DA TONI", categoria: restaurantes, peso: 1, coloquial: ["las pizzas", "lo de Toni"], tipo_esperado: comida_domicilio}
+    grupo:
+      fijos: ["RODRIGO S", "MARCOS B"]
+      opcionales: [{amigo: "IKER G", prob: 0.3}]   # supuesto: los jueves suele irse a su pueblo
+    paga: {usuario: 0.85, "MARCOS B": 0.15}
+    reparto: iguales
+    importe_por_persona: {min: "8.50", max: "11.50"}   # [F11] mediana en oferta + bebida
+    meisam_rutina_4: true
+  - id: sabado_tasca
+    descripcion: "Sábado de raciones y cañas con Laura y Marcos"
+    tipo: rutina
+    dias: [5]
+    prob_semanal: 0.7
+    franja: noche
+    sitios:
+      - {comercio: "LA TASCA DE ARGUELLES", categoria: restaurantes, peso: 3, coloquial: ["La Tasca", "las raciones"], tipo_esperado: bar}
+      - {comercio: "TABERNA EL CANDIL", categoria: restaurantes, peso: 1, coloquial: ["el Candil"], tipo_esperado: bar}
+      - {comercio: "CERVECERIA EL TRANVIA", categoria: restaurantes, peso: 1, coloquial: ["el Tranvia", "las cañas"], tipo_esperado: bar}
+    grupo:
+      fijos: ["LAURA V", "MARCOS B"]
+      opcionales: [{amigo: "RODRIGO S", prob: 0.35}]
+    paga: {usuario: 0.5, "LAURA V": 0.25, "MARCOS B": 0.25}
+    reparto: iguales
+    importe_por_persona: {min: "13.00", max: "19.00"}  # supuesto: 3-4 cañas [F9] + raciones; el ejemplo del pitch es 48/3
+    meisam_rutina_4: false
+
+planes_esporadicos:
+  - id: inicio_curso
+    descripcion: "Cena de inicio de curso: paga Laura y Álvaro le manda su parte"
+    tipo: cena_clase
+    cuando: [{semana: -2, dia: 3}]
+    franja: cena
+    sitios:
+      - {comercio: "TABERNA EL CANDIL", categoria: restaurantes, peso: 1, coloquial: ["la cena de inicio de curso"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["LAURA V", "MARCOS B", "IGNACIO P"]
+      opcionales: []
+    paga: {"LAURA V": 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "14.00", max: "18.00"}
+    meisam_rutina_4: false
+  - id: entradas_halloween
+    descripcion: "Compra en línea 4 entradas para la fiesta de Halloween"
+    tipo: otro
+    cuando: [{semana: 4, dia: 2}]
+    franja: tarde
+    sitios:
+      - {comercio: "SALA BOREAL ENTRADAS", categoria: ocio, peso: 1, coloquial: ["las entradas de halloween", "las entradas"], tipo_esperado: ocio}
+    grupo:
+      fijos: ["RODRIGO S", "MARCOS B", "IKER G"]
+      opcionales: []
+    paga: {usuario: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "15.00", max: "15.00"}   # supuesto: entrada con consumición
+    meisam_rutina_4: false
+  - id: cumple_laura
+    descripcion: "Cena de cumpleaños de Laura: está invitada; los demás pagan su parte"
+    tipo: cumpleanos
+    cuando: [{semana: 4, dia: 4}]
+    franja: cena
+    sitios:
+      - {comercio: "RESTAURANTE LA PARRILLA DE MONCLOA", categoria: restaurantes, peso: 1, coloquial: ["la cena del cumple", "la Parrilla"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["MARCOS B", "RODRIGO S", "IGNACIO P", "IKER G", "CARLA F"]
+      opcionales: []
+    paga: {usuario: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "24.00", max: "28.00"}   # supuesto: ~22 € por cubierto × 7/6 (Laura invitada)
+    meisam_rutina_4: false
+
+gastos_solo:
+  - id: cafeteria_facultad
+    comercio: "CAFETERIA FACULTAD INFORMATICA"
+    categoria: restaurantes
+    coloquial: ["la cafeta"]
+    tipo_esperado: bar
+    dias: [0, 1, 2, 3, 4]
+    prob_dia: 0.55
+    importe: {min: "2.50", max: "6.50"}        # [F27] supuesto
+  - id: kebab_sabado
+    comercio: "KEBAB EL SULTAN"
+    categoria: restaurantes
+    coloquial: ["el kebab"]
+    tipo_esperado: restaurante
+    dias: [5]
+    prob_dia: 0.35
+    importe: {min: "5.00", max: "8.00"}
+  - id: hamburguesa_domingo
+    comercio: "HAMBURGUESERIA LA ESQUINA"
+    categoria: restaurantes
+    coloquial: ["la burger"]
+    tipo_esperado: restaurante
+    dias: [6]
+    prob_dia: 0.2
+    importe: {min: "11.00", max: "15.00"}
+
+cambios_rutina:
+  - id: puente_pilar
+    semanas: [1]
+    planes: {sabado_tasca: 0.3}
+    gastos_solo: {kebab_sabado: 0.3}
+    nota: "Puente del Pilar: se va a Talavera el sábado 10"
+  - id: parciales
+    semanas: [7, 8]
+    planes: {pizzas_jueves: 0.6, sabado_tasca: 0.35}
+    gastos_solo: {cafeteria_facultad: 1.3}
+    nota: "Parciales: sale menos y come más en la facultad"
+
+meisam:                                  # todo supuesto (ver F25)
+  contesta_resumen: 0.6
+  contesta_notificacion: 0.75
+  retraso_respuesta_horas: {1: 0.4, 3: 0.3, 10: 0.2, 30: 0.1}
+  acierta_respuesta: 0.97
+  acepta_sugerencia_correcta: 0.95
+  usa_chat: 0.3
+  chat_hechos: 0.1
+  tolerancia_avisos_semana: 4
+  silencia_tras_inutiles: 4
+  no_recordar: []
+  si_no_pagan: {pide_bizum: 0.7, se_lo_dice_en_persona: 0.25, lo_deja: 0.05}
+  declara_efectivo: 0.4
+  acepta_nivel_4: true

@@ -1,0 +1,169 @@
+# Vida oculta: Diego (ajuste). Ficha y porqués: FICHAS.md §5. Fuentes [F#]: FUENTES.md.
+# Todo inventado. Las cifras con [F#] salen de esa fuente; el resto es supuesto.
+id: diego
+version: 1
+uso: ajuste
+nombre_visible: "Diego"
+edad: 20
+quien_es: "3.º de Ingeniería Industrial; vive con sus padres en Alcobendas, da clases particulares y va a una academia de inglés los sábados"
+pone_a_prueba: "Come solo casi siempre (el valor está en no preguntar el ramen de cada sábado), Bizums entrantes que no son devoluciones y la excepción del ramen para tres"
+rutina: 0.9
+fuentes:
+  - "[F16] 7 de cada 10 universitarios viven con sus padres"
+  - "[F27] menú de cafetería universitaria (tabla oficial sin leer: rango supuesto)"
+  - "[F10] entrada de cine"
+  - "[F20] Abono Joven 10 €/mes"
+supuestos:
+  - "Clases particulares a 15 €/h, 2 h a la semana, cobradas por Bizum cada jueves"
+  - "Ramen de 20-26 € solo, en sábado, después de la academia"
+  - "Tasas de respuesta a Meisam (sin datos: ver F25)"
+
+visible:
+  saldo_inicial: "560.00"
+  ingresos:
+    - {tipo: paga, concepto: "TRANSFERENCIA JULIAN PRADO GIL", contraparte: "JULIAN P", canal: transferencia, importe: "120.00", dia_mes: 1}
+    - {tipo: otro, concepto: "BIZUM RECIBIDO", contraparte: "ROSARIO V", canal: bizum, importe: "25.00", dia_mes: 15, variacion: "5.00"}     # su madre
+    - {tipo: otro, concepto: "BIZUM RECIBIDO", contraparte: "ELENA T", canal: bizum, importe: "30.00", dia_mes: 4}      # clases particulares (madre del alumno)
+    - {tipo: otro, concepto: "BIZUM RECIBIDO", contraparte: "ELENA T", canal: bizum, importe: "30.00", dia_mes: 11}
+    - {tipo: otro, concepto: "BIZUM RECIBIDO", contraparte: "ELENA T", canal: bizum, importe: "30.00", dia_mes: 18}
+    - {tipo: otro, concepto: "BIZUM RECIBIDO", contraparte: "ELENA T", canal: bizum, importe: "30.00", dia_mes: 25}
+  comercios_habituales: ["CAFETERIA ESCUELA INGENIEROS", "RAMEN SHIKI", "CINES ESTRELLA"]
+  fondo:
+    - {comercio: "CRTM RECARGA ABONO JOVEN", categoria: transporte, canal: tarjeta, dia_mes: 1, importe: "10.00"}             # [F20]
+    - {comercio: "TELEFONIA MOVIL LUNA", categoria: suministros, canal: recibo, dia_mes: 6, importe: "10.00"}
+    - {comercio: "TIENDA ONLINE ELECTRONICA VOLTIO", categoria: compras, canal: tarjeta, veces_semana: 0.2, rango: {min: "9.00", max: "40.00"}}
+    - {comercio: "SUPERMERCADO EL TRIGAL", categoria: supermercado, canal: tarjeta, veces_semana: 0.3, rango: {min: "3.00", max: "12.00"}}
+
+amigos:
+  "GUILLERMO N":                         # Guillermo Navarro Paz: le llama Guille
+    nombre: "Guille N."
+    nombre_pila: "Guille"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {1: 0.5, 2: 0.3, 3: 0.2}
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.2, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["ramen", ""]
+  "ALBA R":                              # Alba Rey Montes: compañera de la academia, se olvida
+    nombre: "Alba R."
+    nombre_pila: "Alba"
+    relacion: companero
+    en_agenda: true
+    retraso_dias: {2: 0.4, 5: 0.6}
+    prob_paga_solo: 0.4
+    retraso_tras_pedir_dias: {0: 0.4, 1: 0.3, 2: 0.3}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["perdonaaa", ""]
+  "ROSARIO V":                           # su madre: nunca debe nada y no se le recuerda nada
+    nombre: "Mamá"
+    nombre_pila: "mi madre"
+    relacion: familia
+    en_agenda: true
+    retraso_dias: {0: 1.0}
+    prob_paga_solo: 1.0
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["para el finde", ""]
+
+planes_recurrentes: []
+
+planes_esporadicos:
+  - id: cumple_guille
+    descripcion: "Cumpleaños de Guille: paga Guille y Diego le manda su parte"
+    tipo: cumpleanos
+    cuando: [{semana: -1, dia: 5}]
+    franja: cena
+    sitios:
+      - {comercio: "TABERNA LOS ARCOS", categoria: restaurantes, peso: 1, coloquial: ["el cumple de guille"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["GUILLERMO N"]
+      opcionales: []
+      desconocidos: {min: 3, max: 5}
+    paga: {"GUILLERMO N": 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "16.00", max: "22.00"}
+    meisam_rutina_4: false
+  - id: ramen_academia
+    descripcion: "Ramen con dos compañeros de la academia: mismo sitio y día que siempre, pero paga los tres"
+    tipo: otro
+    cuando: [{semana: 5, dia: 5}]
+    franja: comida
+    sitios:
+      - {comercio: "RAMEN SHIKI", categoria: restaurantes, peso: 1, coloquial: ["el ramen"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["GUILLERMO N", "ALBA R"]
+      opcionales: []
+    paga: {usuario: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "21.00", max: "26.00"}
+    meisam_rutina_4: false
+  - id: cena_clase
+    descripcion: "Cena de clase: acompañado, pero cada uno paga lo suyo"
+    tipo: cena_clase
+    cuando: [{semana: 6, dia: 4}]
+    franja: cena
+    sitios:
+      - {comercio: "RESTAURANTE EL PATIO DE ALCOBENDAS", categoria: restaurantes, peso: 1, coloquial: ["la cena de clase"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["GUILLERMO N"]
+      opcionales: []
+      desconocidos: {min: 6, max: 10}
+    paga: {cada_uno: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "18.00", max: "24.00"}
+    meisam_rutina_4: false
+
+gastos_solo:
+  - id: cafeteria_escuela
+    comercio: "CAFETERIA ESCUELA INGENIEROS"
+    categoria: restaurantes
+    coloquial: ["la cafeta", "el menu"]
+    tipo_esperado: bar
+    dias: [0, 1, 2, 3, 4]
+    prob_dia: 0.8
+    importe: {min: "4.50", max: "7.50"}          # [F27] supuesto
+  - id: ramen_sabado
+    comercio: "RAMEN SHIKI"
+    categoria: restaurantes
+    coloquial: ["el ramen"]
+    tipo_esperado: restaurante
+    dias: [5]
+    prob_dia: 0.75
+    importe: {min: "20.00", max: "26.00"}        # supuesto: ramen + bebida + gyozas
+  - id: cine_domingo
+    comercio: "CINES ESTRELLA"
+    categoria: ocio
+    coloquial: ["el cine"]
+    tipo_esperado: ocio
+    dias: [6]
+    prob_dia: 0.35
+    importe: {min: "8.50", max: "11.50"}         # [F10]
+
+cambios_rutina:
+  - id: parciales
+    semanas: [7, 8]
+    planes: {}
+    gastos_solo: {ramen_sabado: 0.6, cine_domingo: 0.3}
+    nota: "Parciales: estudia los fines de semana"
+
+meisam:                                  # todo supuesto (ver F25)
+  contesta_resumen: 0.75
+  contesta_notificacion: 0.85
+  retraso_respuesta_horas: {1: 0.6, 3: 0.3, 8: 0.1}
+  acierta_respuesta: 0.98
+  acepta_sugerencia_correcta: 0.95
+  usa_chat: 0.05
+  chat_hechos: 0.05
+  tolerancia_avisos_semana: 2
+  silencia_tras_inutiles: 3
+  no_recordar: ["ROSARIO V"]
+  si_no_pagan: {pide_bizum: 0.8, se_lo_dice_en_persona: 0.2, lo_deja: 0.0}
+  declara_efectivo: 0.8
+  acepta_nivel_4: false

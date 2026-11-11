@@ -1,0 +1,175 @@
+# Vida oculta: Pilar (SOLO EVALUACIÓN: no se usa para ajustar). Ficha: FICHAS.md §10. Fuentes [F#]: FUENTES.md.
+# Todo inventado. Las cifras con [F#] salen de esa fuente; el resto es supuesto.
+id: pilar
+version: 1
+uso: evaluacion
+nombre_visible: "Pilar"
+edad: 66
+quien_es: "Jubilada; vive sola en Usera; come una vez al mes con sus amigas y los domingos con su hija y sus nietos"
+pone_a_prueba: "Amigas que le devuelven en efectivo (aprender «suele pagarte en efectivo» y no pedir nunca Bizum), una rutina mensual con pocas observaciones e invitar a la familia"
+rutina: 0.95
+fuentes:
+  - "[F19] pensión media de jubilación: 1.572 €/mes (mayo 2026)"
+  - "[F1] el 78 % de los mayores de 65 paga en metálico; entre particulares, el efectivo es lo más habitual"
+  - "[F8] menú en Madrid (la comida mensual es un menú especial)"
+  - "[F22] Todos los Santos (domingo 1 nov)"
+supuestos:
+  - "Pensión de 1.495 € el día 25; en noviembre cobraría también la paga extra (el esquema no lo permite)"
+  - "Pilar paga la comida mensual con tarjeta porque el restaurante quiere un solo pago"
+  - "Tasas de respuesta a Meisam (sin datos: ver F25)"
+
+visible:
+  saldo_inicial: "4200.00"
+  ingresos:
+    - {tipo: pension, concepto: "PENSION JUBILACION INSS", canal: transferencia, importe: "1495.00", dia_mes: 25}           # [F19] supuesto
+  comercios_habituales: ["SUPERMERCADO LA PLAZA DE USERA", "HORNO SAN JOSE", "CAFETERIA LA ROSALEDA", "RESTAURANTE EL ROBLE"]
+  fondo:
+    - {comercio: "COMUNIDAD PROPIETARIOS CALLE OLVIDO", categoria: vivienda, canal: recibo, dia_mes: 5, importe: "85.00"}
+    - {comercio: "ELECTRICA DEL ESTE", categoria: suministros, canal: recibo, dia_mes: 14, importe: "52.00"}
+    - {comercio: "GAS NATURAL DEL SUR", categoria: suministros, canal: recibo, dia_mes: 18, importe: "38.00"}
+    - {comercio: "TELEFONIA FIJO Y MOVIL LUNA", categoria: suministros, canal: recibo, dia_mes: 9, importe: "29.00"}
+    - {comercio: "SUPERMERCADO LA PLAZA DE USERA", categoria: supermercado, canal: tarjeta, veces_semana: 2.5, rango: {min: "12.00", max: "45.00"}}
+    - {comercio: "HORNO SAN JOSE", categoria: supermercado, canal: tarjeta, veces_semana: 4.0, rango: {min: "1.20", max: "3.50"}}
+
+amigos:
+  "AMPARO S":                            # Amparo Salinas Ruiz: Bizum que le instaló su nieta
+    nombre: "Amparo S."
+    nombre_pila: "Amparo"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.5, 1: 0.3, 3: 0.2}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 0.6, efectivo: 0.4}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["Comida del martes", "Gracias Pilar", ""]
+  "CONCEPCION M":                        # Concepción Marín Lago: le llama Concha; paga en la mesa, en efectivo
+    nombre: "Concha M."
+    nombre_pila: "Concha"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.9, 1: 0.1}
+    prob_paga_solo: 0.98
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {efectivo: 1.0}                     # [F1] mayores de 65: efectivo
+    redondea: {prob: 0.3, a: "5.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+  "MARIA T":                             # María Teresa Rubio Sanz: le llama Maite; el motor coge la T de Teresa
+    nombre: "Maite R."
+    nombre_pila: "Maite"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.4, 7: 0.3, 28: 0.3}    # a veces se lo trae a la comida siguiente
+    prob_paga_solo: 0.75
+    retraso_tras_pedir_dias: {0: 0.5, 2: 0.5}
+    canal: {efectivo: 0.9, bizum: 0.1}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+  "ROSA F":                              # Rosa Fernández Gil: le llama Rosi
+    nombre: "Rosi F."
+    nombre_pila: "Rosi"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.6, 2: 0.2, 5: 0.2}
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {efectivo: 0.7, transferencia: 0.3}
+    redondea: {prob: 0.6, a: "5.00"}
+    no_paga: 0.0
+    notas_bizum: ["comida amigas"]
+  "NOELIA P":                            # su hija: nunca debe nada (Pilar invita)
+    nombre: "Noelia P."
+    nombre_pila: "mi hija"
+    relacion: familia
+    en_agenda: true
+    retraso_dias: {0: 1.0}
+    prob_paga_solo: 1.0
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+
+planes_recurrentes:
+  - id: merienda_jueves
+    descripcion: "Merienda de los jueves: pagan por turnos, casi siempre en efectivo"
+    tipo: rutina
+    dias: [3]
+    prob_semanal: 0.8
+    franja: tarde
+    sitios:
+      - {comercio: "CAFETERIA LA ROSALEDA", categoria: restaurantes, peso: 1, coloquial: ["la merienda", "la rosaleda"], tipo_esperado: bar}
+    grupo:
+      fijos: ["CONCEPCION M"]
+      opcionales: [{amigo: "AMPARO S", prob: 0.5}]
+    paga: {efectivo: 0.45, usuario: 0.35, cada_uno: 0.2}
+    reparto: iguales
+    importe_por_persona: {min: "4.50", max: "7.50"}
+    meisam_rutina_4: false
+  - id: comida_hija
+    descripcion: "Comida del domingo con su hija y su familia: invita Pilar (o su hija)"
+    tipo: familia
+    dias: [6]
+    prob_semanal: 0.5
+    franja: comida
+    sitios:
+      - {comercio: "MESON LOS ALAMOS", categoria: restaurantes, peso: 1, coloquial: ["la comida del domingo", "el meson"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["NOELIA P"]
+      opcionales: []
+      desconocidos: {min: 2, max: 3}
+    paga: {usuario: 0.7, efectivo: 0.3}        # «efectivo» aquí = paga su hija y no queda nada en la cuenta de Pilar
+    reparto: invita
+    importe_por_persona: {min: "14.00", max: "20.00"}
+    meisam_rutina_4: false
+
+planes_esporadicos:
+  - id: comida_amigas
+    descripcion: "Comida mensual con las amigas (2.º martes): paga Pilar y le devuelven casi todo en efectivo"
+    tipo: rutina
+    cuando: [{semana: -3, dia: 1}, {semana: 2, dia: 1}, {semana: 6, dia: 1}]   # 8 sep, 13 oct y 10 nov
+    franja: comida
+    sitios:
+      - {comercio: "RESTAURANTE EL ROBLE", categoria: restaurantes, peso: 1, coloquial: ["la comida de las amigas", "el roble"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["AMPARO S", "CONCEPCION M", "MARIA T", "ROSA F"]
+      opcionales: []
+    paga: {usuario: 0.85, efectivo: 0.15}
+    reparto: iguales
+    importe_por_persona: {min: "24.00", max: "32.00"}       # [F8] menú especial
+    meisam_rutina_4: false
+
+gastos_solo:
+  - id: desayuno_cafeteria
+    comercio: "CAFETERIA LA ROSALEDA"
+    categoria: restaurantes
+    coloquial: ["el desayuno"]
+    tipo_esperado: bar
+    dias: [0, 2, 4]
+    prob_dia: 0.3
+    importe: {min: "2.20", max: "4.50"}
+
+cambios_rutina:
+  - id: todos_los_santos
+    semanas: [4]
+    planes: {comida_hija: 0.0, merienda_jueves: 0.5}
+    gastos_solo: {desayuno_cafeteria: 0.5}
+    nota: "Todos los Santos en el pueblo"
+
+meisam:                                  # todo supuesto (ver F25)
+  contesta_resumen: 0.4
+  contesta_notificacion: 0.5
+  retraso_respuesta_horas: {6: 0.3, 20: 0.4, 40: 0.2, 70: 0.1}
+  acierta_respuesta: 0.9
+  acepta_sugerencia_correcta: 0.85
+  usa_chat: 0.05
+  chat_hechos: 0.05
+  tolerancia_avisos_semana: 2
+  silencia_tras_inutiles: 2
+  no_recordar: ["NOELIA P"]
+  si_no_pagan: {se_lo_dice_en_persona: 0.6, lo_deja: 0.4, pide_bizum: 0.0}
+  declara_efectivo: 0.55
+  acepta_nivel_4: false

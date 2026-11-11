@@ -1,0 +1,189 @@
+# Vida oculta: Sergio (ajuste). Ficha y porqués: FICHAS.md §6. Fuentes [F#]: FUENTES.md.
+# Todo inventado. Las cifras con [F#] salen de esa fuente; el resto es supuesto.
+id: sergio
+version: 1
+uso: ajuste
+nombre_visible: "Sergio"
+edad: 21
+quien_es: "2.º de Derecho; vive con sus padres en Chamberí y a veces trabaja de azafato en eventos"
+pone_a_prueba: "Casi nunca contesta ni usa el chat: lo que Meisam aprende solo de los Bizums que llegan, y el dinero que se escapa porque no reclama (el límite honesto)"
+rutina: 0.5
+fuentes:
+  - "[F16] 7 de cada 10 universitarios viven con sus padres; un tercio trabaja"
+  - "[F25] las notificaciones de banca se abren poco (cota baja de su tasa de respuesta)"
+  - "[F13][F14][F15] cuánto se tarda en devolver (referencias extranjeras)"
+supuestos:
+  - "Contesta el 8 % del Resumen y el 15 % de los avisos"
+  - "Carlos solo paga si se lo piden la mitad de las veces"
+  - "Tasas de respuesta a Meisam (sin datos: ver F25)"
+
+visible:
+  saldo_inicial: "430.00"
+  ingresos:
+    - {tipo: paga, concepto: "TRANSFERENCIA MANUEL SORIA VEGA", contraparte: "MANUEL S", canal: transferencia, importe: "300.00", dia_mes: 1}
+    - {tipo: sueldo, concepto: "TRANSFERENCIA AZAFATAS EVENTOS CIBELES SL", canal: transferencia, importe: "95.00", dia_mes: 20, variacion: "40.00"}   # supuesto
+  comercios_habituales: ["TABERNA EL ALAMBIQUE", "BAR EL MOLINO", "CAFETERIA FACULTAD DERECHO", "GIMNASIO PULSO"]
+  fondo:
+    - {comercio: "CRTM RECARGA ABONO JOVEN", categoria: transporte, canal: tarjeta, dia_mes: 1, importe: "10.00"}             # [F20]
+    - {comercio: "TELEFONIA MOVIL LUNA", categoria: suministros, canal: recibo, dia_mes: 10, importe: "12.00"}
+    - {comercio: "GIMNASIO PULSO", categoria: ocio, canal: recibo, dia_mes: 3, importe: "24.99"}
+    - {comercio: "SUPERMERCADO EL TRIGAL CHAMBERI", categoria: supermercado, canal: tarjeta, veces_semana: 0.5, rango: {min: "3.00", max: "15.00"}}
+
+amigos:
+  "ALEJANDRO T":                         # Alejandro Toledo Rius: le llama Álex
+    nombre: "Alex T."
+    nombre_pila: "Álex"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {1: 0.5, 2: 0.3, 3: 0.2}
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.3, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["cena", ""]
+  "CARLOS V":                            # Carlos Vega Montero: solo paga si se lo piden la mitad de las veces
+    nombre: "Carlos V."
+    nombre_pila: "Carlos"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {3: 0.3, 7: 0.4, 12: 0.3}
+    prob_paga_solo: 0.45
+    retraso_tras_pedir_dias: {0: 0.6, 2: 0.4}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.05
+    notas_bizum: ["lo del viernes", ""]
+  "TERESA B":                            # Teresa Bravo Sanz: paga lo de Jorge (su pareja)
+    nombre: "Teresa B."
+    nombre_pila: "Tere"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.5, 1: 0.5}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.4, a: "1.00"}
+    paga_por_dos: {prob: 0.7, con: "JORGE M"}
+    no_paga: 0.0
+    notas_bizum: ["lo nuestro", "cena", ""]
+  "JORGE M":                             # Jorge Munoz Lara
+    nombre: "Jorge M."
+    nombre_pila: "Jorge"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {2: 0.5, 5: 0.5}
+    prob_paga_solo: 0.6
+    retraso_tras_pedir_dias: {1: 0.5, 3: 0.5}
+    canal: {bizum: 0.7, efectivo: 0.3}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+  "MIRIAM P":                            # Miriam Peral Gomez: no está en la agenda
+    nombre: "Miriam P."
+    nombre_pila: "Miriam"
+    relacion: amigo
+    en_agenda: false
+    retraso_dias: {0: 0.5, 2: 0.5}
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["regalo tere"]
+
+planes_recurrentes:
+  - id: viernes_cena
+    descripcion: "Viernes de cena con los de clase"
+    tipo: rutina
+    dias: [4]
+    prob_semanal: 0.6
+    franja: cena
+    sitios:
+      - {comercio: "TABERNA EL ALAMBIQUE", categoria: restaurantes, peso: 2, coloquial: ["el alambique", "la cena del viernes"], tipo_esperado: restaurante}
+      - {comercio: "PIZZERIA DONATELLA", categoria: restaurantes, peso: 1, coloquial: ["la pizzeria"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["ALEJANDRO T", "CARLOS V"]
+      opcionales: [{amigo: "TERESA B", prob: 0.6}, {amigo: "JORGE M", prob: 0.55}]
+    paga: {usuario: 0.35, "ALEJANDRO T": 0.3, "CARLOS V": 0.15, cada_uno: 0.2}
+    reparto: iguales
+    importe_por_persona: {min: "12.00", max: "19.00"}
+    meisam_rutina_4: false
+  - id: futbol_bar
+    descripcion: "Ver el partido del domingo en el bar"
+    tipo: rutina
+    dias: [6]
+    prob_semanal: 0.45
+    franja: tarde
+    sitios:
+      - {comercio: "BAR EL MOLINO", categoria: restaurantes, peso: 1, coloquial: ["el molino", "el futbol"], tipo_esperado: bar}
+    grupo:
+      fijos: ["ALEJANDRO T"]
+      opcionales: [{amigo: "CARLOS V", prob: 0.5}]
+    paga: {cada_uno: 0.4, usuario: 0.3, "ALEJANDRO T": 0.3}
+    reparto: iguales
+    importe_por_persona: {min: "8.00", max: "14.00"}         # [F9]
+    meisam_rutina_4: false
+
+planes_esporadicos:
+  - id: regalo_teresa
+    descripcion: "Regalo de cumpleaños de Teresa entre cinco: lo compra Sergio en línea"
+    tipo: cumpleanos
+    cuando: [{semana: 3, dia: 2}]
+    franja: tarde
+    sitios:
+      - {comercio: "LIBRERIA EL OLMO ONLINE", categoria: compras, peso: 1, coloquial: ["el regalo de tere"], tipo_esperado: otro}
+    grupo:
+      fijos: ["ALEJANDRO T", "CARLOS V", "JORGE M", "MIRIAM P"]
+      opcionales: []
+    paga: {usuario: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "12.00", max: "12.00"}
+    meisam_rutina_4: false
+  - id: cena_clase
+    descripcion: "Cena de clase: cada uno lo suyo"
+    tipo: cena_clase
+    cuando: [{semana: 4, dia: 3}]
+    franja: cena
+    sitios:
+      - {comercio: "RESTAURANTE LA TOGA", categoria: restaurantes, peso: 1, coloquial: ["la cena de clase"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["ALEJANDRO T", "TERESA B"]
+      opcionales: []
+      desconocidos: {min: 8, max: 14}
+    paga: {cada_uno: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "18.00", max: "25.00"}
+    meisam_rutina_4: false
+
+gastos_solo:
+  - id: cafeteria_facultad
+    comercio: "CAFETERIA FACULTAD DERECHO"
+    categoria: restaurantes
+    coloquial: ["la cafeta"]
+    tipo_esperado: bar
+    dias: [0, 1, 2, 3, 4]
+    prob_dia: 0.4
+    importe: {min: "2.00", max: "5.00"}          # [F27] supuesto
+
+cambios_rutina:
+  - id: parciales
+    semanas: [7, 8]
+    planes: {viernes_cena: 0.5}
+    gastos_solo: {}
+    nota: "Parciales de Derecho"
+
+meisam:                                  # todo supuesto (ver F25): el límite honesto
+  contesta_resumen: 0.08
+  contesta_notificacion: 0.15
+  retraso_respuesta_horas: {30: 0.4, 48: 0.3, 70: 0.3}
+  acierta_respuesta: 0.9
+  acepta_sugerencia_correcta: 0.8
+  usa_chat: 0.02
+  chat_hechos: 0.0
+  tolerancia_avisos_semana: 1
+  silencia_tras_inutiles: 2
+  no_recordar: []
+  si_no_pagan: {lo_deja: 0.7, se_lo_dice_en_persona: 0.25, pide_bizum: 0.05}
+  declara_efectivo: 0.05
+  acepta_nivel_4: false

@@ -1,0 +1,355 @@
+# Vida oculta: Carmen (ajuste). Ficha y porqués: FICHAS.md §7. Fuentes [F#]: FUENTES.md.
+# Todo inventado. Las cifras con [F#] salen de esa fuente; el resto es supuesto.
+id: carmen
+version: 1
+uso: ajuste
+nombre_visible: "Carmen"
+edad: 29
+quien_es: "Consultora junior en su primer trabajo fijo; comparte piso en Malasaña con Lola"
+pone_a_prueba: "Compañeros que devuelven por transferencia, comidas de trabajo que no son deuda, cumpleaños de 9 con gente nueva y una escapada que se devuelve a lo largo de semanas"
+rutina: 0.5
+fuentes:
+  - "[F23] consultor junior en Madrid: 25-27 k€ brutos al año"
+  - "[F8] menú del día en Madrid 14,5 € (2025)"
+  - "[F22] puente de la Almudena (lunes 9 nov)"
+  - "[F1] efectivo entre particulares"
+  - "[F13][F14][F15] cuánto se tarda en devolver (referencias extranjeras)"
+supuestos:
+  - "Nómina neta de 1.745 € el día 27 y liquidación de gastos de unos 95 € hacia el 12"
+  - "Abono zona A con la tarifa adulta bonificada (32,70 €)"
+  - "La comida con el cliente la paga ella y se la devuelve la empresa: nadie le debe"
+  - "Tasas de respuesta a Meisam (sin datos: ver F25)"
+
+visible:
+  saldo_inicial: "2350.00"
+  ingresos:
+    - {tipo: sueldo, concepto: "NOMINA CONSULTORIA ATALAYA SL", canal: transferencia, importe: "1745.00", dia_mes: 27}   # [F23] supuesto (neto)
+    - {tipo: otro, concepto: "TRANSFERENCIA CONSULTORIA ATALAYA SL LIQUIDACION GASTOS", canal: transferencia, importe: "95.00", dia_mes: 12, variacion: "45.00"}
+  comercios_habituales: ["RESTAURANTE LA MANZANA", "BRUNCH CLUB MALASANA", "CERVECERIA LA ESTACION", "SUPERMERCADO LA DESPENSA DE NOVICIADO"]
+  fondo:
+    - {comercio: "ALQUILER HABITACION MALASANA", categoria: vivienda, canal: recibo, dia_mes: 1, importe: "650.00"}
+    - {comercio: "CRTM RECARGA ABONO ZONA A", categoria: transporte, canal: tarjeta, dia_mes: 1, importe: "32.70"}             # supuesto (tarifa bonificada; ver F20)
+    - {comercio: "GIMNASIO FORMA CENTRO", categoria: ocio, canal: recibo, dia_mes: 5, importe: "39.90"}
+    - {comercio: "STREAMFLIX", categoria: suscripciones, canal: recibo, dia_mes: 14, importe: "12.99"}                         # comercio ficticio del catálogo
+    - {comercio: "TELEFONIA MOVIL LUNA", categoria: suministros, canal: recibo, dia_mes: 9, importe: "15.00"}
+    - {comercio: "SUPERMERCADO LA DESPENSA DE NOVICIADO", categoria: supermercado, canal: tarjeta, veces_semana: 1.5, rango: {min: "15.00", max: "45.00"}}
+
+amigos:
+  "DOLORES V":                           # Dolores Vera Ibanez: le llama Lola (la clave no se parece)
+    nombre: "Lola V."
+    nombre_pila: "Lola"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.6, 1: 0.3, 3: 0.1}
+    prob_paga_solo: 0.92
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 0.8, efectivo: 0.2}
+    redondea: {prob: 0.2, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["brunch", "lo de hoy", ""]
+  "BELEN R":                             # Belen Ramos Ortiz
+    nombre: "Belen R."
+    nombre_pila: "Belén"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.5, 1: 0.5}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["casa rural", "cena pueblo", ""]
+  "ELENA P":                             # Elena Pastor Gil: compañera; a menudo por transferencia
+    nombre: "Elena P."
+    nombre_pila: "Elena"
+    relacion: companero
+    en_agenda: true
+    retraso_dias: {0: 0.3, 1: 0.4, 3: 0.3}
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 0.5, transferencia: 0.5}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["menu", "comida martes", ""]
+  "VICTOR A":                            # Victor Alonso Mena: compañero; transferencia al cerrar la semana
+    nombre: "Victor A."
+    nombre_pila: "Víctor"
+    relacion: companero
+    en_agenda: true
+    retraso_dias: {1: 0.3, 3: 0.4, 6: 0.3}
+    prob_paga_solo: 0.7
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {transferencia: 0.6, bizum: 0.4}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["comida", ""]
+  "MARINA S":                            # Marina Soler Cruz
+    nombre: "Marina S."
+    nombre_pila: "Marina"
+    relacion: companero
+    en_agenda: true
+    retraso_dias: {0: 0.7, 1: 0.3}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+  "ANA C":                               # Ana Cortes Leon
+    nombre: "Ana C."
+    nombre_pila: "Ana"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.4, 1: 0.4, 2: 0.2}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.5, a: "5.00"}
+    no_paga: 0.0
+    notas_bizum: ["cumple belen", ""]
+  "RAQUEL D":                            # Raquel Dominguez Saez
+    nombre: "Raquel D."
+    nombre_pila: "Raquel"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {1: 0.3, 3: 0.4, 7: 0.3}
+    prob_paga_solo: 0.75
+    retraso_tras_pedir_dias: {0: 0.5, 2: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+  "ISMAEL G":                            # Ismael Garcia Rubio: le llama Isma; paga lo de Paula (su pareja)
+    nombre: "Isma G."
+    nombre_pila: "Isma"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.5, 2: 0.5}
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    paga_por_dos: {prob: 0.6, con: "PAULA E"}
+    no_paga: 0.0
+    notas_bizum: ["paula y yo", ""]
+  "PAULA E":                             # Paula Estevez Rey: no está en la agenda
+    nombre: "Paula E."
+    nombre_pila: "Paula"
+    relacion: amigo
+    en_agenda: false
+    retraso_dias: {1: 0.5, 2: 0.5}
+    prob_paga_solo: 0.8
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+  "ANTONIO F":                           # Antonio Ferrer Lago: le llaman Toni; amigo de Belén, no está en la agenda
+    nombre: "Toni F."
+    nombre_pila: "Toni"
+    relacion: amigo
+    en_agenda: false
+    retraso_dias: {2: 0.3, 5: 0.4, 10: 0.3}
+    prob_paga_solo: 0.55
+    retraso_tras_pedir_dias: {1: 0.5, 3: 0.5}
+    canal: {bizum: 0.8, efectivo: 0.2}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.1
+    notas_bizum: [""]
+  "MARTIN Z":                            # Martin Zamora Gil: amigo de Belén, no está en la agenda
+    nombre: "Martin Z."
+    nombre_pila: "Martín"
+    relacion: amigo
+    en_agenda: false
+    retraso_dias: {0: 0.6, 1: 0.4}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["cumple"]
+  "JUDITH O":                            # Judith Ortega Pons: tarda; a veces paga en mano en el viaje
+    nombre: "Judith O."
+    nombre_pila: "Judith"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {4: 0.3, 9: 0.4, 15: 0.3}
+    prob_paga_solo: 0.6
+    retraso_tras_pedir_dias: {1: 0.5, 4: 0.5}
+    canal: {bizum: 0.6, efectivo: 0.4}
+    redondea: {prob: 0.5, a: "5.00"}
+    no_paga: 0.0
+    notas_bizum: ["casa", ""]
+
+planes_recurrentes:
+  - id: menu_equipo
+    descripcion: "Menú del día con los del equipo cerca de la oficina"
+    tipo: trabajo
+    dias: [1, 3]
+    prob_semanal: 0.55
+    franja: comida
+    sitios:
+      - {comercio: "RESTAURANTE LA MANZANA", categoria: restaurantes, peso: 2, coloquial: ["el menu", "la manzana"], tipo_esperado: restaurante}
+      - {comercio: "TABERNA DEL PASAJE", categoria: restaurantes, peso: 1, coloquial: ["el pasaje", "el menu"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["ELENA P"]
+      opcionales: [{amigo: "VICTOR A", prob: 0.6}, {amigo: "MARINA S", prob: 0.5}]
+    paga: {cada_uno: 0.4, usuario: 0.3, "ELENA P": 0.3}
+    reparto: iguales
+    importe_por_persona: {min: "13.50", max: "16.50"}        # [F8]
+    meisam_rutina_4: false
+  - id: comida_cliente
+    descripcion: "Comida con un cliente: paga ella y se lo devuelve la empresa (nadie le debe)"
+    tipo: trabajo
+    dias: [2]
+    prob_semanal: 0.25
+    franja: comida
+    sitios:
+      - {comercio: "RESTAURANTE EL MIRADOR DEL CASTELLANA", categoria: restaurantes, peso: 1, coloquial: ["la comida con el cliente"], tipo_esperado: restaurante}
+    grupo:
+      fijos: []
+      opcionales: []
+      desconocidos: {min: 2, max: 3}
+    paga: {usuario: 1.0}
+    reparto: invita
+    importe_por_persona: {min: "25.00", max: "35.00"}
+    meisam_rutina_4: false
+  - id: brunch_lola
+    descripcion: "Brunch del domingo con Lola: pagan por turnos"
+    tipo: rutina
+    dias: [6]
+    prob_semanal: 0.45
+    franja: comida
+    sitios:
+      - {comercio: "BRUNCH CLUB MALASANA", categoria: restaurantes, peso: 1, coloquial: ["el brunch"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["DOLORES V"]
+      opcionales: []
+    paga: {usuario: 0.5, "DOLORES V": 0.5}
+    reparto: iguales
+    importe_por_persona: {min: "14.00", max: "22.00"}
+    meisam_rutina_4: true
+  - id: canas_curro
+    descripcion: "Cañas después del trabajo"
+    tipo: trabajo
+    dias: [3]
+    prob_semanal: 0.35
+    franja: tarde
+    sitios:
+      - {comercio: "CERVECERIA LA ESTACION", categoria: restaurantes, peso: 1, coloquial: ["las cañas", "la estacion"], tipo_esperado: bar}
+    grupo:
+      fijos: ["VICTOR A"]
+      opcionales: [{amigo: "MARINA S", prob: 0.5}]
+    paga: {cada_uno: 0.6, usuario: 0.2, "VICTOR A": 0.2}
+    reparto: iguales
+    importe_por_persona: {min: "9.00", max: "16.00"}         # [F9]
+    meisam_rutina_4: false
+
+planes_esporadicos:
+  - id: regalo_belen
+    descripcion: "Regalo de Belén entre cinco: lo compra Carmen por pasarela"
+    tipo: cumpleanos
+    cuando: [{semana: 3, dia: 2}]
+    franja: tarde
+    sitios:
+      - {comercio: "PAYPAL *TALLERCERAMICAROMERO", categoria: compras, peso: 1, coloquial: ["el regalo de belen", "la ceramica"], tipo_esperado: otro}
+    grupo:
+      fijos: ["ANA C", "RAQUEL D", "DOLORES V", "JUDITH O"]
+      opcionales: []
+    paga: {usuario: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "14.00", max: "16.00"}
+    meisam_rutina_4: false
+  - id: cumple_belen
+    descripcion: "Cena de cumpleaños de Belén (invitada): paga Carmen y le deben 8"
+    tipo: cumpleanos
+    cuando: [{semana: 3, dia: 5}]
+    franja: cena
+    sitios:
+      - {comercio: "RESTAURANTE LA CANDELA DE CHUECA", categoria: restaurantes, peso: 1, coloquial: ["la cena del cumple", "la candela"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["ANA C", "RAQUEL D", "ISMAEL G", "PAULA E", "ANTONIO F", "MARTIN Z", "JUDITH O", "DOLORES V"]
+      opcionales: []
+    paga: {usuario: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "33.00", max: "40.00"}       # supuesto: ~32 € por cubierto × 10/9 (Belén invitada)
+    meisam_rutina_4: false
+  - id: reserva_casa_rural
+    descripcion: "Reserva de la casa rural para el puente de la Almudena (4 personas)"
+    tipo: viaje
+    cuando: [{semana: 3, dia: 3}]
+    franja: tarde
+    sitios:
+      - {comercio: "CASA RURAL EL ENEBRAL", categoria: ocio, peso: 1, coloquial: ["la casa rural", "la casa", "lo de la escapada"], tipo_esperado: otro}
+    grupo:
+      fijos: ["DOLORES V", "BELEN R", "JUDITH O"]
+      opcionales: []
+    paga: {usuario: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "85.00", max: "95.00"}       # supuesto: 2 noches en casa rural para 4
+    meisam_rutina_4: false
+  - id: gasolina_escapada
+    descripcion: "Gasolina de la escapada: paga Belén (conduce) y Carmen le manda su parte"
+    tipo: viaje
+    cuando: [{semana: 5, dia: 5}]
+    franja: comida
+    sitios:
+      - {comercio: "ESTACION DE SERVICIO EL CRUCE", categoria: transporte, peso: 1, coloquial: ["la gasolina"], tipo_esperado: otro}
+    grupo:
+      fijos: ["BELEN R", "DOLORES V", "JUDITH O"]
+      opcionales: []
+    paga: {"BELEN R": 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "12.00", max: "15.00"}
+    meisam_rutina_4: false
+  - id: cena_pueblo
+    descripcion: "Cena en el pueblo durante la escapada"
+    tipo: viaje
+    cuando: [{semana: 5, dia: 6}]
+    franja: cena
+    sitios:
+      - {comercio: "ASADOR LA SERRANA", categoria: restaurantes, peso: 1, coloquial: ["la cena del pueblo", "el asador"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["BELEN R", "DOLORES V", "JUDITH O"]
+      opcionales: []
+    paga: {usuario: 0.4, "DOLORES V": 0.3, "BELEN R": 0.3}
+    reparto: iguales
+    importe_por_persona: {min: "28.00", max: "36.00"}
+    meisam_rutina_4: false
+
+gastos_solo:
+  - id: desayuno_oficina
+    comercio: "CAFETERIA TORRE CASTELLANA"
+    categoria: restaurantes
+    coloquial: ["el desayuno"]
+    tipo_esperado: bar
+    dias: [0, 1, 2, 3, 4]
+    prob_dia: 0.6
+    importe: {min: "2.00", max: "4.50"}
+
+cambios_rutina:
+  - id: escapada
+    semanas: [5]
+    planes: {brunch_lola: 0.0}
+    gastos_solo: {}
+    nota: "Escapada rural en el puente de la Almudena"
+  - id: cierre_proyecto
+    semanas: [7]
+    planes: {menu_equipo: 1.3, canas_curro: 0.5}
+    gastos_solo: {desayuno_oficina: 1.2}
+    nota: "Cierre de proyecto: come con el equipo, sale menos"
+
+meisam:                                  # todo supuesto (ver F25)
+  contesta_resumen: 0.65
+  contesta_notificacion: 0.8
+  retraso_respuesta_horas: {1: 0.4, 4: 0.3, 10: 0.2, 30: 0.1}
+  acierta_respuesta: 0.97
+  acepta_sugerencia_correcta: 0.95
+  usa_chat: 0.35
+  chat_hechos: 0.15
+  tolerancia_avisos_semana: 4
+  silencia_tras_inutiles: 4
+  no_recordar: []
+  si_no_pagan: {pide_bizum: 0.6, se_lo_dice_en_persona: 0.35, lo_deja: 0.05}
+  declara_efectivo: 0.7
+  acepta_nivel_4: true

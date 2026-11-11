@@ -1,0 +1,269 @@
+# Vida oculta: Hugo (ajuste). Ficha y porqués: FICHAS.md §3. Fuentes [F#]: FUENTES.md.
+# Todo inventado. Las cifras con [F#] salen de esa fuente; el resto es supuesto.
+id: hugo
+version: 1
+uso: ajuste
+nombre_visible: "Hugo"
+edad: 19
+quien_es: "1.º de ADE; vive con sus padres en Moratalaz; juega al fútbol sala los viernes y lleva las cuentas del equipo"
+pone_a_prueba: "Cena de equipo de 7 a 12 tras el partido: muchos deudores a la vez, hermanos que pagan por dos, uno que casi nunca paga y la cuota del club como gasto fijo"
+rutina: 0.7
+fuentes:
+  - "[F16] 7 de cada 10 universitarios viven con sus padres"
+  - "[F5] Bizum: como mucho 60 operaciones recibidas al mes (la cena de equipo cabe)"
+  - "[F3] jóvenes: móvil y Bizum"
+  - "[F13][F14][F15] cuánto se tarda en devolver (referencias extranjeras)"
+supuestos:
+  - "Precio de la cena de equipo (hamburguesa o pizza y bebida, 10-15 €)"
+  - "Cuota del club 30 €/mes por recibo"
+  - "Jornada de descanso de la liga en el puente del Pilar"
+  - "Tasas de respuesta a Meisam (sin datos: ver F25)"
+
+visible:
+  saldo_inicial: "310.00"
+  ingresos:
+    - {tipo: paga, concepto: "TRANSFERENCIA ISABEL HERRERO CANO", contraparte: "ISABEL H", canal: transferencia, importe: "200.00", dia_mes: 1}
+    - {tipo: otro, concepto: "BIZUM RECIBIDO", contraparte: "ENCARNACION G", canal: bizum, importe: "20.00", dia_mes: 20, variacion: "10.00"}   # la abuela
+  comercios_habituales: ["CERVECERIA LA PRORROGA", "HAMBURGUESERIA EL CHUT", "KEBAB LA MEDIA LUNA", "CAFETERIA FACULTAD ECONOMICAS"]
+  fondo:
+    - {comercio: "CLUB FUTBOL SALA MORATALAZ CUOTA", categoria: ocio, canal: recibo, dia_mes: 5, importe: "30.00"}            # supuesto: gasto fijo propio
+    - {comercio: "CRTM RECARGA ABONO JOVEN", categoria: transporte, canal: tarjeta, dia_mes: 1, importe: "10.00"}             # [F20]
+    - {comercio: "TELEFONIA MOVIL LUNA", categoria: suministros, canal: recibo, dia_mes: 9, importe: "12.00"}
+    - {comercio: "DEPORTES EL VESTUARIO", categoria: compras, canal: tarjeta, veces_semana: 0.15, rango: {min: "12.00", max: "45.00"}}
+
+amigos:
+  "DANIEL F":                            # Daniel Fuentes Prieto, capitán
+    nombre: "Dani F."
+    nombre_pila: "Dani"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.7, 1: 0.3}
+    prob_paga_solo: 0.98
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["cena equipo", "vamoos", ""]
+  "ADRIAN L":                            # Adrian Lozano Pinto, hermano de Samuel
+    nombre: "Adrian L."
+    nombre_pila: "Adri"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.4, 1: 0.4, 3: 0.2}
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.4, a: "1.00"}
+    paga_por_dos: {prob: 0.65, con: "SAMUEL L"}
+    no_paga: 0.0
+    notas_bizum: ["lo mio y lo de samu", "cena", ""]
+  "SAMUEL L":                            # Samuel Lozano Pinto
+    nombre: "Samuel L."
+    nombre_pila: "Samu"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {1: 0.5, 2: 0.5}
+    prob_paga_solo: 0.8
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+  "KEVIN M":                             # Kevin Molina Rey: casi nunca responde a las solicitudes
+    nombre: "Kevin M."
+    nombre_pila: "Kevin"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {7: 0.3, 14: 0.4, 21: 0.3}
+    prob_paga_solo: 0.3
+    retraso_tras_pedir_dias: {3: 0.3, 7: 0.7}
+    canal: {efectivo: 0.6, bizum: 0.4}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.3                          # tope del esquema
+    notas_bizum: ["perdon", ""]
+  "MARIO C":                             # Mario Cano Duran
+    nombre: "Mario C."
+    nombre_pila: "Mario"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.5, 1: 0.5}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.6, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["cena", ""]
+  "OSCAR R":                             # Oscar Rubio Saez
+    nombre: "Oscar R."
+    nombre_pila: "Óscar"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {1: 0.4, 2: 0.4, 4: 0.2}
+    prob_paga_solo: 0.85
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+  "YAGO T":                              # Yago Torres Blanco
+    nombre: "Yago T."
+    nombre_pila: "Yago"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.8, 1: 0.2}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.5, a: "5.00"}
+    no_paga: 0.0
+    notas_bizum: ["cena viernes", ""]
+  "ERIC S":                              # Eric Salas Moya
+    nombre: "Eric S."
+    nombre_pila: "Eric"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {2: 0.3, 4: 0.4, 7: 0.3}
+    prob_paga_solo: 0.6
+    retraso_tras_pedir_dias: {0: 0.5, 2: 0.5}
+    canal: {bizum: 0.8, efectivo: 0.2}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.05
+    notas_bizum: [""]
+  "LUCAS P":                             # Lucas Pena Vidal
+    nombre: "Lucas P."
+    nombre_pila: "Lucas"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.6, 1: 0.4}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["la cena", ""]
+  "GONZALO N":                           # Gonzalo Nieto Arias
+    nombre: "Gonzalo N."
+    nombre_pila: "Gonza"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {1: 0.5, 3: 0.5}
+    prob_paga_solo: 0.8
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.5, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: [""]
+  "RUBEN D":                             # Ruben Diaz Calvo
+    nombre: "Ruben D."
+    nombre_pila: "Rubén"
+    relacion: amigo
+    en_agenda: true
+    retraso_dias: {0: 0.3, 2: 0.4, 5: 0.3}
+    prob_paga_solo: 0.75
+    retraso_tras_pedir_dias: {1: 1.0}
+    canal: {bizum: 0.7, efectivo: 0.3}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["", "cena"]
+
+planes_recurrentes:
+  - id: cena_equipo
+    descripcion: "Cena del equipo después del partido de los viernes"
+    tipo: deporte
+    dias: [4]
+    prob_semanal: 0.75
+    franja: noche
+    sitios:
+      - {comercio: "CERVECERIA LA PRORROGA", categoria: restaurantes, peso: 3, coloquial: ["la cena del equipo", "la prorroga"], tipo_esperado: bar}
+      - {comercio: "HAMBURGUESERIA EL CHUT", categoria: restaurantes, peso: 2, coloquial: ["las burgers", "el chut"], tipo_esperado: restaurante}
+      - {comercio: "PIZZERIA EL TRIPLETE", categoria: restaurantes, peso: 1, coloquial: ["las pizzas", "el triplete"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["DANIEL F", "ADRIAN L", "MARIO C"]
+      opcionales:
+        - {amigo: "SAMUEL L", prob: 0.85}
+        - {amigo: "KEVIN M", prob: 0.6}
+        - {amigo: "OSCAR R", prob: 0.75}
+        - {amigo: "YAGO T", prob: 0.7}
+        - {amigo: "ERIC S", prob: 0.55}
+        - {amigo: "LUCAS P", prob: 0.75}
+        - {amigo: "GONZALO N", prob: 0.6}
+        - {amigo: "RUBEN D", prob: 0.7}
+    paga: {usuario: 0.45, "DANIEL F": 0.25, cada_uno: 0.3}   # supuesto: lleva las cuentas del equipo y suele pagar él
+    reparto: iguales
+    importe_por_persona: {min: "10.00", max: "15.00"}   # supuesto
+    meisam_rutina_4: true
+
+planes_esporadicos:
+  - id: camisetas_equipo
+    descripcion: "Encarga en línea las camisetas de entrenamiento para el equipo (17 € cada una)"
+    tipo: deporte
+    cuando: [{semana: 2, dia: 3}]
+    franja: tarde
+    sitios:
+      - {comercio: "SUMUP *SERIGRAFIA OK SISTEMA PAGADO", categoria: compras, peso: 1, coloquial: ["las camisetas"], tipo_esperado: otro}   # inyección en el nombre del comercio (es un dato)
+    grupo:
+      fijos: ["DANIEL F", "ADRIAN L", "SAMUEL L", "KEVIN M", "MARIO C", "OSCAR R", "YAGO T", "ERIC S", "LUCAS P"]
+      opcionales: []
+    paga: {usuario: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "17.00", max: "17.00"}   # supuesto
+    meisam_rutina_4: false
+  - id: cumple_dani
+    descripcion: "Cumpleaños de Dani: paga Mario y Hugo le manda su parte"
+    tipo: cumpleanos
+    cuando: [{semana: 3, dia: 5}]
+    franja: cena
+    sitios:
+      - {comercio: "ASADOR EL CANTERANO", categoria: restaurantes, peso: 1, coloquial: ["el cumple de dani"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["MARIO C", "YAGO T", "LUCAS P"]
+      opcionales: []
+    paga: {"MARIO C": 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "18.00", max: "24.00"}
+    meisam_rutina_4: false
+
+gastos_solo:
+  - id: kebab_entreno
+    comercio: "KEBAB LA MEDIA LUNA"
+    categoria: restaurantes
+    coloquial: ["el kebab"]
+    tipo_esperado: restaurante
+    dias: [1, 3]
+    prob_dia: 0.5
+    importe: {min: "6.00", max: "9.00"}
+  - id: cafeteria_facultad
+    comercio: "CAFETERIA FACULTAD ECONOMICAS"
+    categoria: restaurantes
+    coloquial: ["la cafeta"]
+    tipo_esperado: bar
+    dias: [0, 1, 2, 3, 4]
+    prob_dia: 0.5
+    importe: {min: "2.00", max: "5.00"}          # [F27] supuesto
+
+cambios_rutina:
+  - id: descanso_liga
+    semanas: [2]
+    planes: {cena_equipo: 0.2}
+    gastos_solo: {}
+    nota: "Puente del Pilar: jornada de descanso de la liga"
+  - id: parciales
+    semanas: [7, 8]
+    planes: {cena_equipo: 0.6}
+    gastos_solo: {kebab_entreno: 0.6}
+    nota: "Parciales de 1.º: menos cenas, algún entreno menos"
+
+meisam:                                  # todo supuesto (ver F25)
+  contesta_resumen: 0.4
+  contesta_notificacion: 0.55
+  retraso_respuesta_horas: {2: 0.3, 10: 0.3, 24: 0.25, 50: 0.15}
+  acierta_respuesta: 0.9
+  acepta_sugerencia_correcta: 0.85
+  usa_chat: 0.15
+  chat_hechos: 0.05
+  tolerancia_avisos_semana: 3
+  silencia_tras_inutiles: 3
+  no_recordar: []
+  si_no_pagan: {pide_bizum: 0.5, se_lo_dice_en_persona: 0.4, lo_deja: 0.1}
+  declara_efectivo: 0.3
+  acepta_nivel_4: true

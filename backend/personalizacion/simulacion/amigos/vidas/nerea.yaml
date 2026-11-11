@@ -1,0 +1,193 @@
+# Vida oculta: Nerea (SOLO EVALUACIÓN: no se usa para ajustar). Ficha: FICHAS.md §9. Fuentes [F#]: FUENTES.md.
+# Todo inventado. Las cifras con [F#] salen de esa fuente; el resto es supuesto.
+id: nerea
+version: 1
+uso: evaluacion
+nombre_visible: "Nerea"
+edad: 23
+quien_es: "Estudiante de máster con beca de colaboración; vive con su pareja en Tetuán y comparte casi todo con él"
+pone_a_prueba: "No recordar nunca a la pareja (aunque le deba) y sí al resto; Bizums de la pareja que no cuadran con ningún pago"
+rutina: 0.75
+fuentes:
+  - "[F8] menú y cenas en Madrid"
+  - "[F9] cañas"
+  - "[F20] Abono Joven 10 €/mes (menor de 26)"
+  - "[F13][F14][F15] cuánto se tarda en devolver (referencias extranjeras)"
+supuestos:
+  - "Beca de colaboración de 650 € el día 10 y 250 € de sus padres el día 1"
+  - "David le devuelve «lo de la semana» de golpe, redondeado a 5 €"
+  - "Tasas de respuesta a Meisam (sin datos: ver F25)"
+
+visible:
+  saldo_inicial: "980.00"
+  ingresos:
+    - {tipo: beca, concepto: "TRANSFERENCIA FUNDACION INVESTIGA BECA COLABORACION", canal: transferencia, importe: "650.00", dia_mes: 10}
+    - {tipo: paga, concepto: "TRANSFERENCIA FELIPE ARANDA LOZA", contraparte: "FELIPE A", canal: transferencia, importe: "250.00", dia_mes: 1}
+    - {tipo: otro, concepto: "BIZUM RECIBIDO", contraparte: "DAVID S", canal: bizum, importe: "450.00", dia_mes: 3}     # su pareja: mitad del alquiler (nunca se recuerda)
+  comercios_habituales: ["SUPERMERCADO LA DESPENSA", "CERVECERIA EL MATRAZ", "CAFETERIA FACULTAD BIOLOGIA"]
+  fondo:
+    - {comercio: "ALQUILER PISO TETUAN", categoria: vivienda, canal: recibo, dia_mes: 1, importe: "900.00"}
+    - {comercio: "CRTM RECARGA ABONO JOVEN", categoria: transporte, canal: tarjeta, dia_mes: 1, importe: "10.00"}             # [F20]
+    - {comercio: "TELEFONIA MOVIL LUNA", categoria: suministros, canal: recibo, dia_mes: 8, importe: "12.00"}
+    - {comercio: "ELECTRICA DEL ESTE", categoria: suministros, canal: recibo, dia_mes: 16, importe: "46.00"}
+
+amigos:
+  "DAVID S":                             # David Sanz Ortiz: su pareja; nunca se le recuerda
+    nombre: "David S."
+    nombre_pila: "David"
+    relacion: pareja
+    en_agenda: true
+    retraso_dias: {2: 0.2, 4: 0.3, 7: 0.3, 10: 0.2}
+    prob_paga_solo: 0.85
+    retraso_tras_pedir_dias: {0: 0.6, 1: 0.4}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.7, a: "5.00"}
+    no_paga: 0.1                          # a veces se compensa y no lo devuelve
+    notas_bizum: ["lo de la semana", "super + cena", "te debo mas? jaja", ""]
+  "ROCIO V":                             # Rocio Varela Pino
+    nombre: "Rocio V."
+    nombre_pila: "Rocío"
+    relacion: companero
+    en_agenda: true
+    retraso_dias: {0: 0.5, 1: 0.4, 2: 0.1}
+    prob_paga_solo: 0.95
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["cañas", ""]
+  "HECTOR G":                            # Hector Gallego Ruiz: tarda; a veces solo si se lo piden
+    nombre: "Hector G."
+    nombre_pila: "Héctor"
+    relacion: companero
+    en_agenda: true
+    retraso_dias: {2: 0.3, 5: 0.4, 9: 0.3}
+    prob_paga_solo: 0.6
+    retraso_tras_pedir_dias: {0: 0.5, 1: 0.5}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.0, a: "1.00"}
+    no_paga: 0.05
+    notas_bizum: ["sorry", ""]
+  "AITANA B":                            # Aitana Benitez Mora
+    nombre: "Aitana B."
+    nombre_pila: "Aitana"
+    relacion: companero
+    en_agenda: true
+    retraso_dias: {0: 0.4, 1: 0.6}
+    prob_paga_solo: 0.9
+    retraso_tras_pedir_dias: {0: 1.0}
+    canal: {bizum: 1.0}
+    redondea: {prob: 0.6, a: "1.00"}
+    no_paga: 0.0
+    notas_bizum: ["concierto", "halloween", ""]
+
+planes_recurrentes:
+  - id: compra_pareja
+    descripcion: "Compra grande del sábado con David"
+    tipo: rutina
+    dias: [5]
+    prob_semanal: 0.9
+    franja: comida
+    sitios:
+      - {comercio: "SUPERMERCADO LA DESPENSA", categoria: supermercado, peso: 1, coloquial: ["la compra", "el super"], tipo_esperado: supermercado}
+    grupo:
+      fijos: ["DAVID S"]
+      opcionales: []
+    paga: {usuario: 0.6, "DAVID S": 0.4}
+    reparto: iguales
+    importe_por_persona: {min: "22.00", max: "40.00"}
+    meisam_rutina_4: false
+  - id: cena_pareja
+    descripcion: "Cena con David el fin de semana"
+    tipo: rutina
+    dias: [4, 5]
+    prob_semanal: 0.6
+    franja: cena
+    sitios:
+      - {comercio: "RESTAURANTE EL BUHO", categoria: restaurantes, peso: 1, coloquial: ["el buho", "la cena"], tipo_esperado: restaurante}
+      - {comercio: "TABERNA LA PARRA", categoria: restaurantes, peso: 1, coloquial: ["la parra"], tipo_esperado: restaurante}
+      - {comercio: "PIZZERIA ORTIGIA", categoria: restaurantes, peso: 1, coloquial: ["la pizzeria"], tipo_esperado: restaurante}
+    grupo:
+      fijos: ["DAVID S"]
+      opcionales: []
+    paga: {usuario: 0.5, "DAVID S": 0.5}
+    reparto: iguales
+    importe_por_persona: {min: "16.00", max: "26.00"}
+    meisam_rutina_4: false
+  - id: canas_master
+    descripcion: "Cañas del jueves con los del máster"
+    tipo: rutina
+    dias: [3]
+    prob_semanal: 0.5
+    franja: tarde
+    sitios:
+      - {comercio: "CERVECERIA EL MATRAZ", categoria: restaurantes, peso: 1, coloquial: ["las cañas", "el matraz"], tipo_esperado: bar}
+    grupo:
+      fijos: ["ROCIO V", "HECTOR G"]
+      opcionales: [{amigo: "AITANA B", prob: 0.7}, {amigo: "DAVID S", prob: 0.2}]
+    paga: {usuario: 0.35, "ROCIO V": 0.25, "HECTOR G": 0.15, cada_uno: 0.25}
+    reparto: iguales
+    importe_por_persona: {min: "12.00", max: "18.00"}       # [F9]
+    meisam_rutina_4: true
+
+planes_esporadicos:
+  - id: halloween_casa
+    descripcion: "Bebida y picoteo del súper para Halloween en casa de Rocío"
+    tipo: otro
+    cuando: [{semana: 4, dia: 5}]
+    franja: tarde
+    sitios:
+      - {comercio: "SUPERMERCADO LA DESPENSA", categoria: supermercado, peso: 1, coloquial: ["lo de halloween", "la compra de halloween"], tipo_esperado: supermercado}
+    grupo:
+      fijos: ["ROCIO V", "HECTOR G", "AITANA B", "DAVID S"]
+      opcionales: []
+    paga: {usuario: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "8.00", max: "12.00"}
+    meisam_rutina_4: false
+  - id: concierto
+    descripcion: "Tres entradas de concierto para ella, David y Aitana"
+    tipo: concierto
+    cuando: [{semana: 7, dia: 4}]
+    franja: noche
+    sitios:
+      - {comercio: "TAQUILLA SALA EL SOTANO", categoria: ocio, peso: 1, coloquial: ["las entradas", "el concierto"], tipo_esperado: ocio}
+    grupo:
+      fijos: ["DAVID S", "AITANA B"]
+      opcionales: []
+    paga: {usuario: 1.0}
+    reparto: iguales
+    importe_por_persona: {min: "24.00", max: "28.00"}
+    meisam_rutina_4: false
+
+gastos_solo:
+  - id: cafeteria_facultad
+    comercio: "CAFETERIA FACULTAD BIOLOGIA"
+    categoria: restaurantes
+    coloquial: ["la cafeta"]
+    tipo_esperado: bar
+    dias: [0, 1, 2, 3, 4]
+    prob_dia: 0.5
+    importe: {min: "2.50", max: "6.00"}          # [F27] supuesto
+
+cambios_rutina:
+  - id: entrega_tfm
+    semanas: [8]
+    planes: {canas_master: 0.4}
+    gastos_solo: {cafeteria_facultad: 1.2}
+    nota: "Entrega parcial del TFM"
+
+meisam:                                  # todo supuesto (ver F25)
+  contesta_resumen: 0.65
+  contesta_notificacion: 0.8
+  retraso_respuesta_horas: {1: 0.5, 5: 0.3, 20: 0.2}
+  acierta_respuesta: 0.97
+  acepta_sugerencia_correcta: 0.95
+  usa_chat: 0.4
+  chat_hechos: 0.2
+  tolerancia_avisos_semana: 3
+  silencia_tras_inutiles: 3
+  no_recordar: ["DAVID S"]
+  si_no_pagan: {pide_bizum: 0.6, se_lo_dice_en_persona: 0.3, lo_deja: 0.1}
+  declara_efectivo: 0.6
+  acepta_nivel_4: true
