@@ -151,6 +151,9 @@ a:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-
 .urgencia { font-size: 0.72rem; font-weight: 700; color: var(--ambar); background: var(--ambar-suave); padding: 2px 8px; border-radius: 999px; }
 .urgencia-alta.urgencia { color: #8f1d14; background: #fdecea; }
 .aviso-tarjeta h3 { font-size: 1.02rem; color: var(--texto); margin: 0; }
+.aviso-tarjeta.aviso-cerrado { border-left-color: #16a34a; background: #f6fbf7; opacity: 0.9; padding: 10px 16px; }
+.aviso-cerrado h3 { color: var(--texto-suave, #555); font-weight: 500; }
+.aviso-resuelto { margin: 0; font-weight: 600; color: #15803d; }
 .aviso-mensaje { line-height: 1.45; }
 .aviso-valor strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; color: var(--aurora); }
 .aviso-valor span { color: var(--tenue); font-size: 0.85rem; }

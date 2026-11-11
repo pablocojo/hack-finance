@@ -39,7 +39,12 @@ export default function Bandeja({ usuarioId, ahora, resumen, hoy = null, alResol
   const [tarjetas, setTarjetas] = useState<Record<string, TarjetaConfirmacion>>({});
   const [preparando, setPreparando] = useState<string | null>(null);
   const [errores, setErrores] = useState<Record<string, string>>({});
-  const lista = pestana === "ahora" ? ahora : resumen;
+  // Un aviso resuelto (el amigo pagó, lo saldaste o lo descartaste) no se queda con sus botones: baja al final como
+  // «✓ Resuelto» y no cuenta en «Ahora». Sigue en la campana, en «Resueltas».
+  const cerrado = (n: Notificacion) => n.estado === "resuelta" || n.estado === "rechazada";
+  const ordenar = (ns: Notificacion[]) => [...ns.filter((n) => !cerrado(n)), ...ns.filter(cerrado)];
+  const lista = ordenar(pestana === "ahora" ? ahora : resumen);
+  const abiertasAhora = ahora.filter((n) => !cerrado(n)).length;
 
   // Preguntas de Meisam (¿fuiste con alguien?, ¿con Laura y Marcos?, dudas): casos con aviso `resumen`. Solo viven en esta
   // pestaña, nunca como notificación. Una pregunta ya contestada se conserva en pantalla (con su «Deshacer») hasta la
@@ -118,7 +123,7 @@ export default function Bandeja({ usuarioId, ahora, resumen, hoy = null, alResol
             onClick={() => setPestana(p)}
           >
             {p === "ahora" ? "Ahora" : "Resumen"}
-            <span className="contador">{p === "ahora" ? ahora.length : resumen.length + pendientes.length}</span>
+            <span className="contador">{p === "ahora" ? abiertasAhora : resumen.length + pendientes.length}</span>
           </button>
         ))}
       </div>
@@ -148,6 +153,19 @@ export default function Bandeja({ usuarioId, ahora, resumen, hoy = null, alResol
           const { propuesta, decision, estado } = notificacion;
           const tarjeta = tarjetas[propuesta.id];
           const primera = propuesta.acciones_ofrecidas[0];
+          if (cerrado(notificacion)) {
+            return (
+              <article key={propuesta.id} className="aviso-tarjeta aviso-cerrado">
+                <p className="aviso-resuelto">
+                  {estado === "resuelta" ? "✓ Resuelto" : "Descartado"}
+                  <span className="pequeno tenue">
+                    {estado === "resuelta" ? " · caso cerrado, lo tienes en Mis cuentas" : " · no hace falta hacer nada"}
+                  </span>
+                </p>
+                <h3>{textoVisible(propuesta.titulo)}</h3>
+              </article>
+            );
+          }
           return (
             <article key={propuesta.id} className={`aviso-tarjeta urgencia-${propuesta.urgencia}`}>
               <header className="aviso-cab">
