@@ -82,12 +82,48 @@ export function fallaPorMicrofono(fallo: unknown): boolean {
 // Campos planos de las herramientas de consulta y cambio (experiencia.md, «Herramientas de la llamada») -> cuerpo de la
 // petición. Solo pasan los campos conocidos y con su tipo: el agente no puede colar otros (p. ej. un `usuario_id`;
 // además, el servidor los rechaza y el usuario sale siempre del token de sesión).
-const CAMPOS_HERRAMIENTAS: Record<NombreHerramientaVoz, { texto?: readonly string[]; numero?: readonly string[]; entero?: readonly string[] }> = {
+// `apuntar_gasto`: `personas` llega como texto con nombres separados por comas (o como lista, si el panel la admite) y los
+// booleanos pueden llegar como «true»/«false» (el panel puede crearlos como String).
+const CAMPOS_HERRAMIENTAS: Record<
+  NombreHerramientaVoz,
+  { texto?: readonly string[]; numero?: readonly string[]; entero?: readonly string[]; booleano?: readonly string[]; nombres?: readonly string[] }
+> = {
   consultar_cuentas: { texto: ["persona", "estado"] },
   buscar_movimientos: { texto: ["texto", "desde", "hasta"], numero: ["importe_min", "importe_max"], entero: ["limite"] },
   lo_que_sabes_de_mi: {},
   actualizar_caso: { texto: ["caso_id", "accion", "persona", "via", "motivo", "escenario", "respuesta"], numero: ["importe"], entero: ["dias"] },
+  apuntar_gasto: {
+    texto: ["pista", "fecha_aprox", "movimiento_id"],
+    numero: ["importe_total"],
+    booleano: ["incluye_usuario", "efectivo", "confirmar_personas_nuevas"],
+    nombres: ["personas"],
+  },
 };
+
+function comoBooleano(v: unknown): boolean | null {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") {
+    const t = v.trim().toLowerCase();
+    if (["true", "si", "sí", "verdadero"].includes(t)) return true;
+    if (["false", "no", "falso"].includes(t)) return false;
+  }
+  return null;
+}
+
+// «Marcos, Rodrigo y Laura» o ["Marcos", {nombre: "Rodrigo", importe: 12}] -> [{nombre}, ...] (máximo 10, 40 caracteres).
+function comoPersonas(v: unknown): { nombre: string; importe?: number }[] {
+  const bruto: unknown[] = Array.isArray(v) ? v : typeof v === "string" ? v.split(/\s*(?:,|;|\sy\s|\se\s)\s*/i) : [];
+  const personas: { nombre: string; importe?: number }[] = [];
+  for (const e of bruto) {
+    const nombre = typeof e === "string" ? e : e && typeof e === "object" && typeof (e as { nombre?: unknown }).nombre === "string" ? (e as { nombre: string }).nombre : "";
+    const limpio = nombre.trim().slice(0, 40);
+    if (!limpio) continue;
+    const importe = e && typeof e === "object" ? Number((e as { importe?: unknown }).importe) : NaN;
+    personas.push(Number.isFinite(importe) && importe > 0 ? { nombre: limpio, importe } : { nombre: limpio });
+    if (personas.length >= 10) break;
+  }
+  return personas;
+}
 
 export function camposDeHerramienta(nombre: NombreHerramientaVoz, p: Record<string, unknown> | null | undefined): Record<string, unknown> {
   const entrada = p ?? {};
@@ -108,6 +144,14 @@ export function camposDeHerramienta(nombre: NombreHerramientaVoz, p: Record<stri
   for (const c of grupos.entero ?? []) {
     const n = comoNumero(entrada[c]);
     if (n !== null && Number.isInteger(n)) campos[c] = n;
+  }
+  for (const c of grupos.booleano ?? []) {
+    const b = comoBooleano(entrada[c]);
+    if (b !== null) campos[c] = b;
+  }
+  for (const c of grupos.nombres ?? []) {
+    const lista = comoPersonas(entrada[c]);
+    if (lista.length) campos[c] = lista;
   }
   return campos;
 }

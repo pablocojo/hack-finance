@@ -106,3 +106,13 @@ def test_kit_no_ve_las_herramientas_de_la_llamada():
     texto_error, es_error, _ = registro.ejecutar("preparar_accion", {"accion_id": "recordar"}, ctx=None,
                                                  permitidas={h.nombre for h in registro.disponibles()})
     assert es_error
+
+
+def test_el_prompt_lleva_las_reglas_de_apuntar_gasto():
+    from backend.voz import contexto
+    s = contexto.sistema_texto({"nombre": "Lucía", "banco": "Banco Aurora", "titulo_aviso": "x", "contexto_llamada": "y",
+                                "acciones_ofrecidas": "z"})
+    for clave in ("apuntar_gasto", "varios_candidatos", "persona_desconocida", "no_soportado", "efectivo", "movimiento_id",
+                  "confirmar_personas_nuevas", "Nunca calcules las cuotas", "Nunca digas que has movido dinero"):
+        assert clave in s
+    assert "solo si te lo preguntan expresamente" in s and "no hagas cuentas ni sumas" in s
