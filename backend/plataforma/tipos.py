@@ -106,7 +106,8 @@ FuenteAprendizaje = Literal["respuesta", "boton", "chat", "bizum", "cierre", "ig
 # `oraculo` de la simulación); `reglas` = ni aprende ni usa nada: el comportamiento de antes del 11 nov.
 ModoAprendizaje = Literal["aprende", "fijo", "reglas"]
 # Frases del chat que enseñan sin crear un caso (lista cerrada).
-TipoHechoChat = Literal["va_solo", "grupo_habitual", "paga_en_efectivo", "no_recordar", "plan_recurrente"]
+TipoHechoChat = Literal["va_solo", "grupo_habitual", "paga_en_efectivo", "no_recordar", "plan_recurrente",
+                        "paga_por_otro", "nadie_debe_aqui", "no_es_devolucion"]   # 3 últimos: experto-usuarios
 ResultadoApuntar = Literal[
     "creado",                # caso nuevo sobre el cargo encontrado
     "convertido",            # ya había un caso de ese cargo (p. ej. `pago_individual`): se convierte con rastro
