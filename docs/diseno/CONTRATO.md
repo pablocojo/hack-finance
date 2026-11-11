@@ -293,3 +293,106 @@ El reto exige usar la voz y las herramientas de ElevenLabs por la API. La **llam
 Diseño completo, tabla de transiciones y API en `docs/diseno/deudas-casos.md` («Escenarios, transiciones y cuentas con personas»). Cambios de tipos: `EscenarioDeuda` = `pago_individual | pago_por_otro | gasto_compartido | gasto_fijo_compartido | viaje | prestamo_amigo | bizum_recibido_sin_pagar` (`gasto_compartido_puntual` pasa a `gasto_compartido`); `Deudor.via_saldado` y `Deudor.motivo_saldado`; `Caso.aviso` (`notificar | resumen | silencioso`); `Contacto` con `nombre`, `telefono` y `relacion`. El módulo de catálogo `cena_compartida` pasa a `gasto_compartido`.
 - **Hecho en la tanda 3** (API en `rutas_copiloto.py`/`rutas_voz.py`): `GET /usuarios/{id}/casos` (con `escenario`, `aviso`, `movimiento_origen` como objeto `{id, comercio, importe, fecha}`, deudores con `pedida`, `saldada`, `via_saldado`, `motivo_saldado`, `historial`); `POST /usuarios/{id}/casos`; `POST …/casos/{id}/saldar`, `…/descartar` (con `contraparte?`) y `…/escenario`; `GET /usuarios/{id}/movimientos?limite=60`; `GET`/`PATCH`/`DELETE /usuarios/{id}/contactos[/{clave}]`. Claves nuevas de `Momento.datos` (motor): `origen` (`pago_individual`), `senal` (`media`|`debil`), `tipo_comercio`, `recurrente`. Un `pago_individual` nace como caso abierto sin deudores: `senal=media` → `aviso=resumen`; `debil` → `silencioso`. El agente post-llamada admite `cambiar_escenario` y `marcar_saldado` con una cita literal del usuario.
 - **Herramientas de la llamada para consultar y cambiar casos (11 nov)**: `POST /voz/herramientas/{consultar_cuentas, buscar_movimientos, lo_que_sabes_de_mi, actualizar_caso, deshacer}` (demo key; `token_sesion` en el cuerpo; el usuario sale de la sesión y un campo `usuario_id` se rechaza con 422). Resultado `{ok, ...}` o `{ok: false, error}` en español; todo texto libre va entre `<datos>`. `actualizar_caso` `{caso_id, accion, persona?, importe?, via?, motivo?, dias?, escenario?, respuesta?}` con `accion` en `iba_solo | con_personas | no_me_debe | marcar_saldado | posponer | responder_duda | proponer_cambio_de_escenario` (`backend/casos/llamada.py`, `orquestador.actualizar_caso_llamada`; rastro `origen="llamada"` y auditoría `caso_llamada`); `deshacer` `{cambio_id}` restaura el caso si no ha cambiado después (`caso_deshecho`). `proponer_cambio_de_escenario` solo deja `Caso.hechos["cambio_propuesto"] = {escenario, motivo, persona, propuesto}`; el agente post-llamada lo confirma al colgar (con cita literal del usuario) y lo borra. Nuevo: `casos.aplicar_respuesta` (responde la pregunta pendiente de un caso dudoso), evento SSE `cambio {hecho, cambio_id}` en el nivel 3 y la herramienta del plan B `buscar_movimientos_llamada` (el chat del kit ya tiene `buscar_movimientos`). Detalle y textos del panel en `experiencia.md` §6.7.
+
+### Curva de amigos: lo que aprende Meisam y el chat que crea casos (11 nov; encargo `docs/diseno/curva-amigos.md`). Manda sobre todo lo anterior donde choque
+
+Manda el encargo. Esquema de las vidas ocultas y del corpus: `backend/personalizacion/simulacion/amigos/ESQUEMA.md`. Tareas e hilos: `docs/PLAN.md`, «11 nov: curva de amigos (C, A, B)».
+
+**Regla de compatibilidad.** Todo campo nuevo es opcional y con valor por defecto: los modelos guardados y los tests de antes cargan igual. Con `ModeloUsuario.aprendizaje` vacío (o `modo = "reglas"`) el sistema se comporta **exactamente** como antes del 11 nov: misma escalera (`senal media` → resumen, `debil` → silencio, nunca push), mismo `avisar_desde` (2 días) y el motor recibe `compania=None`.
+
+**Tipos nuevos** (`backend/plataforma/tipos.py`):
+
+| Tipo | Campos |
+|---|---|
+| `Franja` | `laborable \| viernes \| finde` (del día de la semana: el banco no da la hora) |
+| `FormaReparto` | `iguales \| por_consumo \| redondeo \| cada_uno_lo_suyo` |
+| `CanalDevolucion` | `bizum \| efectivo \| transferencia \| invitacion` |
+| `FuenteAprendizaje` | `respuesta \| boton \| chat \| bizum \| cierre \| ignorada \| llamada` |
+| `ModoAprendizaje` | `aprende` (por defecto) `\| fijo` (usa, no aprende: el `oraculo`) `\| reglas` (ni aprende ni usa: lo de antes) |
+| `GrupoHabitual` | `miembros` (claves), `veces` (float, con decaimiento), `ultima`, `repartos` (`FormaReparto` → peso) |
+| `Acompanamiento` | `con_alguien`, `solo` (pseudo-cuentas Beta con decaimiento), `n`, `ultima`, `ignoradas`, `aceptadas_seguidas`, `rutina_aceptada` (nivel 4), `grupos` (≤ 5) |
+| `HabitoPersona` | `contraparte`, `retrasos_dias` (últimas 10), `retrasos_tras_pedir` (últimas 10), `retraso_p75_dias` (solo con ≥ 2), `paga_solo`, `paga_tras_pedir`, `canales` (`CanalDevolucion` → veces), `redondea`, `ultima`, `fijado_por_usuario` |
+| `AprendizajeAmigos` | `version` (`amigos-v1`), `modo`, `por_comercio` (comercio normalizado → `Acompanamiento`), `por_tipo_franja` (`"<tipo>\|<franja>"` → `Acompanamiento`), `personas` (clave → `HabitoPersona`), `eventos_vistos` (idempotencia, ≤ 500), `actualizado` |
+| `SugerenciaReparto` | `personas`, `forma`, `cuotas` (clave → Euros, del código; vacío en el nivel 2), `confianza`, `ambito` |
+| `DecisionPregunta` | `nivel` (0-4), `aviso` (`AvisoCaso`: 0 y 4 → `silencioso`, 1 y 2 → `resumen`, 3 → `notificar`), `sugerencia?`, `p_acompanado`, `n`, `motivos` |
+| `EventoAmigos` | `id` (idempotente), `fuente`, `fecha`, `fecha_pago?`, `comercio?`, `tipo_comercio?`, `franja?`, `acompanado?`, `personas`, `forma?`, `nivel?`, `sugerencia_aceptada?`, `contraparte?`, `retraso_dias?`, `tras_pedir`, `canal?`, `redondeado` |
+| `PersonaGasto` | `nombre` (dato, 1-40), `importe?` |
+| `ApuntarGastoEntrada` | `pista` (dato, 1-60), `fecha_aprox?`, `importe_total?`, `personas` (≤ 10), `incluye_usuario` (true), `efectivo` (false), `movimiento_id?`, `confirmar_personas_nuevas` (false) |
+| `CargoCandidato` | `movimiento_id`, `fecha`, `comercio` (visible), `importe` (positivo) |
+| `CuotaPersona` | `contraparte`, `nombre` (enmascarado), `cuota` |
+| `ApuntarGastoSalida` | `ok`, `resultado` (`ResultadoApuntar`), `mensaje`, `caso_id?`, `candidatos` (≤ 5), `deudores`, `personas_sin_resolver`, `cambio_id?` |
+| `ResultadoApuntar` | `creado \| convertido \| varios_candidatos \| sin_cargo \| persona_desconocida \| persona_ambigua \| importe_invalido \| sin_personas \| no_soportado` |
+| `HechoChatEntrada` | `tipo` (`TipoHechoChat`: `va_solo \| grupo_habitual \| paga_en_efectivo \| no_recordar \| plan_recurrente`), `persona?`, `personas`, `pista?`, `dia_semana?` (0-6), `texto` (dato, ≤ 160) |
+
+**Campos nuevos en tipos que ya existían** (todos opcionales): `ModeloUsuario.aprendizaje: AprendizajeAmigos` (vacío por defecto) · `Caso.origen` (`motor \| boton \| chat`) · `Caso.pregunta_nivel` (0-4) · `Caso.sugerencia: SugerenciaReparto` · `Deudor.avisar_desde` (por persona; None = el del caso) · `HechoAprendido.origen` admite `chat` · `HechoAprendido.tipo` (`TipoHechoChat`) · `HechoAprendido.contraparte` (se borra con el contacto) · `HechoAprendido.datos`. Claves nuevas de `Caso.hechos`: `canal_probable` (`CanalDevolucion` más frecuente del deudor; la app ofrece primero «Ya me lo dio» si es `efectivo`). Clave nueva de `Momento.datos` en `pago_individual`: `senal = "aprendida"` (el motor lo abrió por lo aprendido, no por las reglas fijas).
+
+**Salvaguardas de los hechos por persona** (decisión de Pablo, ver `DECISIONES.md`): frases neutras y de hechos («suele devolvértelo a los 2 o 3 días»), nunca juicios; solo para los recordatorios del propio usuario (no van a `memoria_para_agente` del banco ni a otros módulos, ni a `Propuesta.contexto_llamada` como valoración); se ven, se editan y se borran; `borrar_contacto` borra su `HabitoPersona` y sus hechos (`HechoAprendido.contraparte`).
+
+#### Interfaces entre hilos (firmas; todas puras salvo las del orquestador)
+
+```python
+# backend/personalizacion/aprende_amigos.py (H2). Puras: devuelven copias, no guardan.
+def franja_de(fecha: date) -> Franja: ...
+def eventos_de_caso(antes: Caso | None, despues: Caso, fuente: FuenteAprendizaje, hoy: date,
+                    tipo_comercio: str | None = None) -> list[EventoAmigos]: ...   # respuesta, botón, chat, cierre
+def eventos_de_bizum(caso: Caso, deudor_antes: Deudor, deudor_despues: Deudor, hoy: date) -> list[EventoAmigos]: ...
+def aprender_evento(apr: AprendizajeAmigos, ev: EventoAmigos) -> AprendizajeAmigos: ...  # no-op si modo != "aprende" o ev.id visto
+def aprender_eventos(modelo: ModeloUsuario, eventos: list[EventoAmigos]) -> ModeloUsuario: ...
+def decaer(apr: AprendizajeAmigos, hoy: date) -> AprendizajeAmigos: ...
+def retraso_persona(apr: AprendizajeAmigos, contraparte: str, grupo: list[str] | None = None,
+                    perfil: PerfilUsuario | None = None) -> tuple[int, str]: ...   # (días, "persona" | "grupo" | "general")
+def avisar_desde(apr: AprendizajeAmigos, contraparte: str, fecha_pago: date, hoy: date,
+                 grupo: list[str] | None = None, perfil: PerfilUsuario | None = None) -> date: ...  # nunca antes de hoy
+def canal_probable(apr: AprendizajeAmigos, contraparte: str) -> CanalDevolucion | None: ...
+def compania_para_motor(apr: AprendizajeAmigos) -> dict[str, float] | None: ...  # None si modo == "reglas" o vacío
+def frases_amigos(apr: AprendizajeAmigos, contactos: dict[str, Contacto]) -> list[FrasePerfil]: ...
+def borrar_persona(apr: AprendizajeAmigos, contraparte: str) -> AprendizajeAmigos: ...
+def editar_persona(apr: AprendizajeAmigos, contraparte: str, campo: str, valor: Any) -> AprendizajeAmigos: ...
+
+# backend/personalizacion/escalera.py (H2). Pura y rápida (< 1 ms).
+def sugerir(apr: AprendizajeAmigos, comercio: str | None, tipo_comercio: str | None, fecha: date,
+            importe: Decimal) -> SugerenciaReparto | None: ...   # cuotas con Decimal, usuario incluido
+def nivel_pregunta(apr: AprendizajeAmigos, *, comercio: str | None, tipo_comercio: str | None, fecha: date,
+                   importe: Decimal, senal: str | None, umbral: Decimal) -> DecisionPregunta: ...
+
+# backend/motor (H2, ingeniero-deteccion). Solo añade un argumento opcional; con None, idéntico.
+def procesar(usuario_id, nuevos, hoy, perfil=None, compania: dict[str, float] | None = None) -> list[Momento]: ...
+#   compania: "c:<COMERCIO>" o "t:<tipo>|<franja>" -> p(acompañado), solo ámbitos con n suficiente.
+#   `pago_individual` abre con `senal="aprendida"` donde p es alta (aunque sea entre semana o por debajo de IMPORTE_MIN,
+#   con un mínimo propio en `PagoIndividual`). Nunca lee el modelo del usuario ni importa `personalizacion`.
+
+# backend/casos/apuntar.py (H3). Puro.
+def buscar_cargos(historial: list[Movimiento], entrada: ApuntarGastoEntrada, hoy: date) -> list[CargoCandidato]: ...
+def cuotas_de(movimiento: Movimiento, entrada: ApuntarGastoEntrada, claves: list[str]) -> dict[str, Decimal]: ...  # ValueError si inválidas
+
+# backend/plataforma/chat_casos.py (H3). Con candado y auditoría; lo llaman la herramienta y el simulador.
+def apuntar_gasto_usuario(usuario_id: str, entrada: ApuntarGastoEntrada) -> ApuntarGastoSalida: ...
+def recordar_sobre_mi_usuario(usuario_id: str, entrada: HechoChatEntrada) -> dict: ...   # {ok, hecho} | {ok: False, error}
+
+# backend/plataforma/orquestador.py (H2, tarea A0: ganchos que necesitan H1 y H3; se integra en main lo primero)
+def crear_caso_usuario(usuario_id, movimiento_id, deudores, escenario=None, origen: OrigenCaso = "boton") -> dict: ...
+def cargar_simulacion(usuario_id: str, movimientos: list[Movimiento], activacion: date,
+                      contactos: dict[str, Contacto] | None = None, modelo: ModeloUsuario | None = None) -> dict: ...
+#   como `cargar_escenario`, pero desde memoria (comparten el cuerpo; no se duplica). `modelo` fija p. ej. `aprendizaje.modo`.
+def anadir_movimientos(usuario_id: str, movimientos: list[Movimiento]) -> int: ...
+#   añade a `pendientes` movimientos con fecha > hoy (rechaza el pasado: nadie mira el futuro ni reescribe el pasado).
+```
+
+**Qué llama el simulador** (`backend/personalizacion/simulacion/amigos/`, H1), siempre las funciones del sistema real, sin duplicarlas: `orquestador.cargar_simulacion` → `orquestador.activar` → cada día `orquestador.anadir_movimientos` (Bizums reactivos de los amigos) y `orquestador.avanzar_dia`; para leer, `orquestador.notificaciones`, `orquestador.casos_usuario` y `casos.cargar`; las reacciones del usuario con `orquestador.actualizar_caso_llamada` (`iba_solo`, `con_personas`, `marcar_saldado`, `no_me_debe`, `responder_duda`), `orquestador.registrar_feedback` (ignoradas, «no me avises»), `orquestador.preparar_accion` + `orquestador.confirmar_accion` (pedir Bizum confirmado, como el botón) y `chat_casos.apuntar_gasto_usuario` / `recordar_sobre_mi_usuario` (el chat). Todo con `DATOS_USUARIO_DIR` temporal, `BUSQUEDA_WEB=off` y `DUDAS_IA=off`. Si una ejecución completa no baja de 2 minutos, primero procesos en paralelo (cada uno con su `DATOS_USUARIO_DIR`); después, `almacenamiento` en memoria (tarea C7).
+
+**Cómo elige el simulador la política sin que la política lo importe.** La política solo lee `ModeloUsuario.aprendizaje.modo`, que el simulador fija al crear el modelo con `cargar_simulacion(..., modelo=...)`:
+
+| Política de la simulación | `aprendizaje.modo` | Chat | Estado inicial |
+|---|---|---|---|
+| `reglas` | `reglas` | sí (el chat crea casos igual; no aprende de ellos) | vacío |
+| `personalizada` | `aprende` | sí | vacío (valores por defecto) |
+| `personalizada_sin_chat` | `aprende` | el simulador no envía mensajes de chat | vacío |
+| `oraculo` (opcional) | `fijo` | sí | el simulador rellena `AprendizajeAmigos` desde la verdad oculta |
+
+El sistema nunca sabe qué política es: no hay parámetros por nombre de vida ni de comercio. Un test (como `verificar_aislamiento` de U3) comprueba que ningún archivo de `backend/personalizacion/*.py`, `backend/motor/`, `backend/casos/` ni `backend/plataforma/` importa `simulacion`.
+
+**API nueva** (demo key en las que cambian estado):
+- `POST /voz/herramientas/apuntar_gasto` `{token_sesion, ...ApuntarGastoEntrada}` → `ApuntarGastoSalida` (todo texto libre del resultado entre `<datos>`; `usuario_id` en el cuerpo → 422). Rastro `origen="chat"` y auditoría `caso_chat`. «Deshacer» con el `POST /voz/herramientas/deshacer` de siempre.
+- `POST /voz/herramientas/recordar_sobre_mi` `{token_sesion, ...HechoChatEntrada}` → `{ok, hecho}`.
+- `GET /usuarios/{id}/aprendido` añade `amigos: FrasePerfil[]` (frases por persona y por sitio); `DELETE /usuarios/{id}/aprendido/amigos/{contraparte}` borra lo aprendido de esa persona; `DELETE /usuarios/{id}/aprendido/sitios/{clave}` borra un ámbito de `Acompanamiento`.
+- El cliente de ElevenLabs registra `apuntar_gasto` y `recordar_sobre_mi` como herramientas de cliente (textos del panel en `experiencia.md` §6.7, los deja H3).
