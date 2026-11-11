@@ -65,6 +65,30 @@ def test_el_resumen_lleva_la_pregunta_pendiente_como_dato():
     assert "Pregunta pendiente al usuario (caso caso-duda): <datos>¿Daniel pagó también lo de Marcos?</datos>" in c
 
 
+def abrir_enfocada(caso_id: str, uid: str = UID):
+    return http.post("/voz/sesion", json={"usuario_id": uid, "modo_preferido": "texto_kit", "caso_id": caso_id})
+
+
+def test_otra_respuesta_enfoca_la_conversacion_en_la_pregunta_del_caso_como_dato():
+    montar(caso("caso-solo", "pago_individual", (), "m-solo", "45.00", comercio="EL PINO"), duda())
+    s = abrir_enfocada("caso-solo").json()
+    v = s["variables"]
+    assert set(v) == CLAVES and sesiones.obtener(s["token_sesion"]).propuesta_id == ""
+    assert "(caso caso-solo): <datos>¿Fuiste con alguien a EL PINO?</datos>" in v["contexto_llamada"]
+    assert v["titulo_aviso"] == "te preguntaba por un pago. ¿Qué me quieres contar?"
+    assert v["acciones_ofrecidas"].startswith("Ninguna en esta conversación")          # sigue sin acciones de dinero
+    d = abrir_enfocada("caso-duda").json()["variables"]["contexto_llamada"]
+    assert "(caso caso-duda): <datos>¿Daniel pagó también lo de Marcos?</datos> Deja que" in d
+    assert d.count("<datos>") == d.count("</datos>")
+
+
+def test_otra_respuesta_con_un_caso_ajeno_o_inexistente_cae_en_la_conversacion_general():
+    montar()
+    v = abrir_enfocada("caso-que-no-es-mio").json()["variables"]
+    assert v["titulo_aviso"] == "¿qué quieres repasar de tus cuentas con amigos?" and "Otra respuesta" not in v["contexto_llamada"]
+    assert http.post("/voz/sesion", json={"usuario_id": UID, "caso_id": ""}).status_code == 422
+
+
 def test_sin_cuentas_el_resumen_lo_dice_y_no_inventa():
     montar()
     casos.guardar(UID, [])

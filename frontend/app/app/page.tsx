@@ -154,6 +154,7 @@ export default function PantallaCliente() {
             usuarioId={usuarioId}
             ahora={ahora}
             resumen={resumen}
+            hoy={hoy}
             alResolver={() => void refrescar(usuarioId).catch(() => undefined)}
           />
 

@@ -1,19 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { prepararAccion } from "@/lib/api";
-import type { CasoResumen, Notificacion, TarjetaConfirmacion } from "@/lib/api";
-import { casoAbierto } from "@/lib/cuentas";
-import { casos as pedirCasos } from "@/lib/cuentasApi";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { amigos as pedirAmigos, prepararAccion } from "@/lib/api";
+import type { Amigo, CasoResumen, Notificacion, TarjetaConfirmacion } from "@/lib/api";
+import { casos as pedirCasos, esMaqueta } from "@/lib/cuentasApi";
+import { esPregunta, fraseResumen, resumenSemanal } from "@/lib/preguntas";
 import { eur, textoVisible } from "@/lib/formato";
 import InsigniaIA from "./InsigniaIA";
 import PorQue from "./PorQue";
 import PreguntaConAlguien from "./PreguntaConAlguien";
+import ResumenSemanal from "./ResumenSemanal";
 import TarjetaAccion from "./TarjetaAccion";
 
 type Pestana = "ahora" | "resumen";
-type Props = { usuarioId: string; ahora: Notificacion[]; resumen: Notificacion[]; alResolver?: () => void };
+// `hoy`: fecha del reloj simulado, para «quién te pagó esta semana».
+type Props = { usuarioId: string; ahora: Notificacion[]; resumen: Notificacion[]; hoy?: string | null; alResolver?: () => void };
 
 const URGENCIA: Record<string, string> = { alta: "Urgente", media: "Importante", baja: "Sin prisa" };
 
@@ -32,33 +34,58 @@ function sin<T>(registro: Record<string, T>, clave: string): Record<string, T> {
   return copia;
 }
 
-export default function Bandeja({ usuarioId, ahora, resumen, alResolver }: Props) {
+export default function Bandeja({ usuarioId, ahora, resumen, hoy = null, alResolver }: Props) {
   const [pestana, setPestana] = useState<Pestana>("ahora");
   const [tarjetas, setTarjetas] = useState<Record<string, TarjetaConfirmacion>>({});
   const [preparando, setPreparando] = useState<string | null>(null);
   const [errores, setErrores] = useState<Record<string, string>>({});
   const lista = pestana === "ahora" ? ahora : resumen;
 
-  // «¿Fuiste con alguien a …?»: casos `pago_individual` con aviso `resumen`. Solo viven en esta pestaña, nunca como notificación.
+  // Preguntas de Meisam (¿fuiste con alguien?, ¿con Laura y Marcos?, dudas): casos con aviso `resumen`. Solo viven en esta
+  // pestaña, nunca como notificación. Una pregunta ya contestada se conserva en pantalla (con su «Deshacer») hasta la
+  // próxima visita aunque el caso ya esté cerrado.
   const [preguntas, setPreguntas] = useState<CasoResumen[]>([]);
+  const [todosLosCasos, setTodosLosCasos] = useState<CasoResumen[]>([]);
+  const [amigosLista, setAmigosLista] = useState<Amigo[] | null>(null);
   const [ahoraNo, setAhoraNo] = useState<string[]>([]);
+  const [respondidas, setRespondidas] = useState<string[]>([]);
+  const respondidasRef = useRef<string[]>([]);
   const cargarPreguntas = useCallback(() => {
-    pedirCasos(usuarioId)
-      .then((c) => setPreguntas(c.filter((k) => k.escenario === "pago_individual" && k.aviso === "resumen" && k.deudores.length === 0 && casoAbierto(k))))
-      .catch(() => setPreguntas([])); // sin la ruta de casos, el Resumen sigue como antes
+    Promise.all([pedirCasos(usuarioId), esMaqueta() ? Promise.resolve(null) : pedirAmigos(usuarioId).catch(() => null)])
+      .then(([c, a]) => {
+        setTodosLosCasos(c);
+        setAmigosLista(a);
+        const abiertas = c.filter(esPregunta);
+        setPreguntas((previas) => {
+          const sigue = (id: string) => abiertas.find((k) => k.id === id) ?? (respondidasRef.current.includes(id) ? previas.find((p) => p.id === id) : undefined);
+          const mantenidas = previas.map((p) => sigue(p.id)).filter((p): p is CasoResumen => !!p);
+          return [...mantenidas, ...abiertas.filter((k) => !previas.some((p) => p.id === k.id))];
+        });
+      })
+      .catch(() => {
+        setPreguntas([]); // sin la ruta de casos, el Resumen sigue como antes
+        setTodosLosCasos([]);
+      });
   }, [usuarioId]);
   useEffect(() => {
     setAhoraNo(leerAhoraNo());
   }, []);
   useEffect(() => {
     cargarPreguntas();
-  }, [cargarPreguntas, ahora, resumen]);
+  }, [cargarPreguntas, ahora, resumen, hoy]);
   const visibles = preguntas.filter((k) => !ahoraNo.includes(k.id));
+  const pendientes = visibles.filter((k) => !respondidas.includes(k.id));
+  const marcarRespondida = (id: string, si: boolean) => {
+    respondidasRef.current = si ? [...respondidasRef.current, id] : respondidasRef.current.filter((x) => x !== id);
+    setRespondidas(respondidasRef.current);
+  };
   const posponer = (id: string) => {
     const nuevo = [...ahoraNo, id];
     window.sessionStorage.setItem(CLAVE_AHORA_NO, JSON.stringify(nuevo));
     setAhoraNo(nuevo);
   };
+  const datosResumen = resumenSemanal(amigosLista, todosLosCasos, hoy, pendientes.length);
+  const hayResumen = fraseResumen(datosResumen).length > 0;
 
   // Acceso rápido: sin llamada, prepara la primera acción ofrecida y pinta la misma tarjeta de confirmación.
   async function accesoRapido({ propuesta }: Notificacion) {
@@ -91,22 +118,31 @@ export default function Bandeja({ usuarioId, ahora, resumen, alResolver }: Props
             onClick={() => setPestana(p)}
           >
             {p === "ahora" ? "Ahora" : "Resumen"}
-            <span className="contador">{p === "ahora" ? ahora.length : resumen.length + visibles.length}</span>
+            <span className="contador">{p === "ahora" ? ahora.length : resumen.length + pendientes.length}</span>
           </button>
         ))}
       </div>
 
       <div id="panel-bandeja" role="tabpanel" aria-live="polite" aria-labelledby={`pestana-${pestana}`} className="lista-avisos">
-        {lista.length === 0 && (pestana === "ahora" || visibles.length === 0) && (
+        {lista.length === 0 && (pestana === "ahora" || (visibles.length === 0 && !hayResumen)) && (
           <p className="vacio-bandeja">
             {pestana === "ahora"
               ? "Nada que resolver ahora. Meisam solo te avisa cuando ahorra o protege."
               : "Todavía no hay nada en el resumen."}
           </p>
         )}
+        {pestana === "resumen" && <ResumenSemanal datos={datosResumen} />}
         {pestana === "resumen" &&
           visibles.map((caso) => (
-            <PreguntaConAlguien key={caso.id} usuarioId={usuarioId} caso={caso} alAhoraNo={() => posponer(caso.id)} alCambiar={cargarPreguntas} />
+            <PreguntaConAlguien
+              key={caso.id}
+              usuarioId={usuarioId}
+              caso={caso}
+              alAhoraNo={() => posponer(caso.id)}
+              alResponder={() => marcarRespondida(caso.id, true)}
+              alDeshacer={() => marcarRespondida(caso.id, false)}
+              alCambiar={cargarPreguntas}
+            />
           ))}
         {lista.map((notificacion) => {
           const { propuesta, decision, estado } = notificacion;

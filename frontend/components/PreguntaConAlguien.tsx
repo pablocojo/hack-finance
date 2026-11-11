@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { rutaNoDisponible } from "@/lib/api";
 import type { CasoResumen, Movimiento } from "@/lib/api";
-import { pagoDeCaso, preguntaDeCaso } from "@/lib/cuentas";
-import { descartarCaso } from "@/lib/cuentasApi";
-import { eur, fechaLarga, textoVisible } from "@/lib/formato";
+import { centimosAbs, comoEuros, pagoDeCaso, preguntaDeCaso } from "@/lib/cuentas";
+import { eur, fechaLarga, nombreVisible } from "@/lib/formato";
+import { tipoPregunta } from "@/lib/preguntas";
+import type { TipoPregunta } from "@/lib/preguntas";
+import { aplicarRespuesta } from "@/lib/respuestasCaso";
 import FlujoReparto from "./FlujoReparto";
+import PreguntaMeisam from "./PreguntaMeisam";
+import type { RespuestaFija } from "./PreguntaMeisam";
 
 type Props = {
   usuarioId: string;
@@ -16,78 +19,91 @@ type Props = {
   // Si se pasa, aparece «Ahora no» (el Resumen lo usa; «Mis cuentas» no lo necesita).
   alAhoraNo?: () => void;
   alCambiar: () => void;
+  // Se contestó con una respuesta fija / se deshizo (el Resumen conserva la tarjeta para mostrar el «Deshacer»).
+  alResponder?: () => void;
+  alDeshacer?: () => void;
 };
 
-// «¿Fuiste con alguien a …?»: pregunta del Resumen para un pago que quizá fue compartido. Nunca es una notificación.
-export default function PreguntaConAlguien({ usuarioId, caso, movimientos, alAhoraNo, alCambiar }: Props) {
+// «Fuiste con Laura y Marcos» a partir de la sugerencia (claves de personas -> nombres de pila).
+function listaDeNombres(claves: string[]): string {
+  const n = claves.map((c) => nombreVisible(c).split(" ")[0]);
+  return n.length <= 1 ? (n[0] ?? "") : `${n.slice(0, -1).join(", ")} y ${n[n.length - 1]}`;
+}
+
+// Cuotas iguales -> un solo importe por persona para `con_personas`; si no son iguales, no se puede decir con una acción.
+function cuotaUnica(cuotas: Record<string, string> | undefined, claves: string[]): number | null | "desigual" {
+  const valores = claves.map((c) => cuotas?.[c]).filter((v): v is string => !!v);
+  if (valores.length === 0) return null; // nivel 2: las pone el servidor (a partes iguales)
+  const centimos = valores.map(centimosAbs);
+  return valores.length === claves.length && centimos.every((c) => c === centimos[0]) ? Number(comoEuros(centimos[0])) : "desigual";
+}
+
+// Pregunta del Resumen sobre un caso: «¿Fuiste con alguien?» (nivel 1), «¿Fuiste con Laura y Marcos?» (nivel 2) o la
+// duda pendiente de un caso dudoso. Cada una con 2-4 respuestas fijas y «Otra respuesta» (el chat con ese caso como contexto).
+export default function PreguntaConAlguien({ usuarioId, caso, movimientos, alAhoraNo, alCambiar, alResponder, alDeshacer }: Props) {
   const [reparto, setReparto] = useState(false);
-  const [ocupado, setOcupado] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hecho, setHecho] = useState<string | null>(null);
-
   const pago = pagoDeCaso(caso, movimientos);
+  const tipo: TipoPregunta = tipoPregunta(caso) ?? (caso.estado === "dudoso" ? "duda" : "individual");
+  const sugerencia = tipo === "sugerida" ? caso.sugerencia : null;
 
-  async function ibaSolo() {
-    setOcupado(true);
-    setError(null);
-    try {
-      await descartarCaso(usuarioId, caso.id, "Iba solo");
-      // La nota se queda en el sitio de la pregunta; la lista se actualiza en la próxima carga.
-      setHecho("Anotado. Gracias, Meisam lo tendrá en cuenta.");
-    } catch (fallo) {
-      setError(rutaNoDisponible(fallo) ? "Esta función todavía no está disponible en el servidor." : fallo instanceof Error ? fallo.message : String(fallo));
-    } finally {
-      setOcupado(false);
-    }
+  const accion = (id: string, etiqueta: string, a: Parameters<typeof aplicarRespuesta>[2], campos: Parameters<typeof aplicarRespuesta>[3], principal = false): RespuestaFija => ({
+    id,
+    etiqueta,
+    principal,
+    alElegir: () => aplicarRespuesta(usuarioId, caso.id, a, campos),
+  });
+  const abrirReparto: RespuestaFija = { id: "con", etiqueta: tipo === "sugerida" ? "Otros" : "Sí, con…", principal: tipo !== "sugerida", alElegir: async () => (setReparto(true), null) };
+  const ibaSolo = accion("solo", "Iba solo", "iba_solo", {});
+  const nadie = accion("nadie", "Nadie me debe", "nadie_me_debe", {});
+
+  let respuestas: RespuestaFija[];
+  if (tipo === "duda") {
+    respuestas = [accion("si", "Sí", "responder_duda", { respuesta: "si" }, true), accion("no", "No", "responder_duda", { respuesta: "no" })];
+  } else if (sugerencia) {
+    const cuota = cuotaUnica(sugerencia.cuotas, sugerencia.personas);
+    const si: RespuestaFija =
+      cuota === "desigual"
+        ? { id: "si", etiqueta: "Sí", principal: true, alElegir: async () => (setReparto(true), null) } // cuotas distintas: se revisan en el reparto
+        : accion("si", "Sí", "con_personas", { persona: sugerencia.personas.map(nombreVisible).join(", "), ...(cuota ? { importe: cuota } : {}) }, true);
+    respuestas = [si, abrirReparto, ibaSolo, nadie];
+  } else {
+    respuestas = [abrirReparto, ibaSolo, nadie];
   }
 
-  if (hecho) {
-    return (
-      <p className="tarjeta-accion-nota" role="status">
-        {hecho}
-      </p>
-    );
-  }
+  const detalle = pago && (pago.importe || pago.fecha) ? [pago.importe && eur(pago.importe), pago.fecha && fechaLarga(pago.fecha)].filter(Boolean).join(" · ") : null;
+  const pregunta = sugerencia ? `¿Fuiste con ${listaDeNombres(sugerencia.personas)}?` : preguntaDeCaso(caso, pago);
 
   return (
-    <article className="pregunta-tarjeta" aria-label="Pregunta del resumen">
-      <h3>{textoVisible(preguntaDeCaso(caso, pago))}</h3>
-      {pago && (pago.importe || pago.fecha) && (
-        <p className="pequeno tenue">
-          {pago.importe && eur(pago.importe)}
-          {pago.importe && pago.fecha && " · "}
-          {pago.fecha && fechaLarga(pago.fecha)}
-        </p>
-      )}
-      {reparto && pago ? (
-        <FlujoReparto
-          usuarioId={usuarioId}
-          pago={pago}
-          alCerrar={() => {
-            setReparto(false);
-            alCambiar();
-          }}
-        />
-      ) : (
-        <div className="fila-botones">
-          <button type="button" className="boton-secundario grande" disabled={ocupado} onClick={ibaSolo}>
-            Iba solo
-          </button>
-          <button type="button" className="boton-principal grande" disabled={ocupado || !pago} onClick={() => setReparto(true)}>
-            Sí, con…
-          </button>
-          {alAhoraNo && (
-            <button type="button" className="boton-texto" disabled={ocupado} onClick={alAhoraNo}>
-              Ahora no
-            </button>
-          )}
-        </div>
-      )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-    </article>
+    <PreguntaMeisam
+      pregunta={pregunta}
+      detalle={sugerencia && pago ? [pago.comercio !== "este pago" && nombreVisible(pago.comercio), detalle].filter(Boolean).join(" · ") : detalle}
+      respuestas={respuestas}
+      otraRespuestaHref={`/app/hablar?caso=${encodeURIComponent(caso.id)}`}
+      flujo={
+        reparto && pago ? (
+          <FlujoReparto
+            usuarioId={usuarioId}
+            pago={pago}
+            elegidosIniciales={sugerencia?.personas}
+            alCerrar={() => {
+              setReparto(false);
+              alCambiar();
+            }}
+          />
+        ) : undefined
+      }
+      alAhoraNo={alAhoraNo}
+      // Con `alResponder` (el Resumen) la tarjeta se conserva con su «Deshacer» y se refrescan saldos y resumen.
+      // Sin él («Mis cuentas») la lista se actualiza en la próxima carga, como siempre.
+      alResponder={() => {
+        if (!alResponder) return;
+        alResponder();
+        alCambiar();
+      }}
+      alDeshacer={() => {
+        alDeshacer?.();
+        if (alResponder) alCambiar();
+      }}
+    />
   );
 }

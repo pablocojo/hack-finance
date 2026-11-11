@@ -397,3 +397,15 @@ legend { padding: 0; font-weight: 600; margin-bottom: 6px; }
 .estado-aviso-vista { background: #eef0fa; color: var(--aurora); }
 .estado-aviso-resuelta { background: var(--acento-suave); color: #115e59; }
 .linea-caso { gap: 6px; }
+
+/* ---- K4: resumen semanal y preguntas con respuestas fijas ---- */
+.resumen-semanal { background: #eef0fa; border: 1px solid #d5daf0; border-radius: var(--radio); padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.resumen-semanal header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.resumen-semanal h3 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--aurora); }
+.resumen-semanal ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 0; font-weight: 600; color: var(--aurora); line-height: 1.4; }
+.resumen-semanal li + li::before { content: "·"; margin: 0 8px; color: var(--tenue); font-weight: 700; }
+.respuestas-fijas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.respuestas-fijas .grande { padding: 8px 10px; line-height: 1.2; }
+.pregunta-tarjeta.respondida { border-left-color: var(--acento); }
+.pregunta-tarjeta a.boton-texto { display: inline-flex; align-items: center; }
+.pregunta-contexto { background: #eef0fa; color: var(--aurora); border-radius: 10px; padding: 10px 14px; font-size: 0.92rem; line-height: 1.4; }

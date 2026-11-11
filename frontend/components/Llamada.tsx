@@ -37,7 +37,19 @@ const TEXTO_CAIDA_KIT = "La voz de Meisam no está disponible ahora: seguimos po
 
 // Con `propuestaId` es la llamada de un aviso; sin él («Hablar con Meisam») es una conversación general: se pregunta por
 // las cuentas y se piden cambios con las herramientas de consulta y de cambio, pero no hay acciones que confirmar.
-export default function Llamada({ propuestaId, usuarioId }: { propuestaId: string | null; usuarioId: string }) {
+// `casoId` (solo sin aviso): «Otra respuesta» a una pregunta del Resumen; la conversación se enfoca en ese caso.
+// `pregunta` es el texto de esa pregunta, solo para recordarla en pantalla.
+export default function Llamada({
+  propuestaId,
+  usuarioId,
+  casoId,
+  pregunta,
+}: {
+  propuestaId: string | null;
+  usuarioId: string;
+  casoId?: string | null;
+  pregunta?: string | null;
+}) {
   const general = !propuestaId;
   const [propuesta, setPropuesta] = useState<Propuesta | null>(null);
   const [turnos, setTurnos] = useState<Turno[]>([]);
@@ -334,7 +346,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
       setNota(null);
       setConectando(true);
       try {
-        const s = await sesionVoz(propuestaId, usuarioId, preferido);
+        const s = await sesionVoz(propuestaId, usuarioId, preferido, casoId);
         ultimoToken.current = s.token_sesion;
         if (terminadaRef.current || !montado.current) return;
         if (s.modo === "voz" && s.token) {
@@ -360,7 +372,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
           await abrirCanal("texto_el", aviso);
         } else {
           try {
-            const k = await sesionVoz(propuestaId, usuarioId, "texto_kit");
+            const k = await sesionVoz(propuestaId, usuarioId, "texto_kit", casoId);
             ultimoToken.current = k.token_sesion;
             tokenKit.current = k.token_sesion;
             fijarCanal("kit");
@@ -374,7 +386,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
         setConectando(false);
       }
     },
-    [propuestaId, usuarioId, conectarEleven, hablarKit, cerrarEleven],
+    [propuestaId, usuarioId, casoId, conectarEleven, hablarKit, cerrarEleven],
   );
 
   useEffect(() => {
@@ -513,6 +525,11 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
 
   return (
     <div className="movil llamada">
+      {pregunta && (
+        <p className="pregunta-contexto" role="note">
+          Tu pregunta: <strong>{textoVisible(pregunta)}</strong> Cuéntale con tus palabras qué pasó.
+        </p>
+      )}
       <header className="llamada-cab">
         <div>
           <p className="llamada-nombre">Meisam</p>

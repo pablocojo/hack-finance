@@ -291,7 +291,7 @@ FIRMAS = {
     "acciones.preparar": ["accion_id", "parametros", "propuesta_id", "usuario_id"],
     "acciones.ejecutar": ["token_confirmacion", "usuario_id"],
     "acciones.deshacer": ["resultado_id", "usuario_id"],
-    "voz.sesion": ["propuesta_id", "usuario_id", "modo_preferido"],
+    "voz.sesion": ["propuesta_id", "usuario_id", "modo_preferido", "caso_id"],
 }
 
 

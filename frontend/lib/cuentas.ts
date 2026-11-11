@@ -84,6 +84,7 @@ export function pagoDeCaso(caso: CasoResumen, conocidos: Movimiento[] = []): Pag
 
 // Pregunta del Resumen: la del backend si llega; si no, se compone con el comercio del pago.
 export function preguntaDeCaso(caso: CasoResumen, pago: PagoRepartible | null): string {
-  if (caso.pregunta) return caso.pregunta;
+  const dicha = typeof caso.pregunta === "string" ? caso.pregunta : caso.pregunta?.texto;
+  if (dicha) return dicha;
   return pago && pago.comercio !== "este pago" ? `¿Fuiste con alguien a ${nombreVisible(pago.comercio)}?` : "¿Fuiste con alguien a este pago?";
 }

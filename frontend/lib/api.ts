@@ -435,9 +435,20 @@ export type DeudorCaso = {
   estado: EstadoDeudor | string;
   via_saldado?: ViaSaldado | null;
   motivo_saldado?: string | null;
+  nombre?: string | null; // nombre enmascarado («Marcos R.»)
   pedida?: string | null; // opcionales: se muestran si el backend los envía
   saldada?: string | null;
 };
+// Lo que propone Meisam en los niveles 2 y 3 de la escalera (`SugerenciaReparto`): claves de personas y cuotas como texto decimal.
+export type SugerenciaReparto = {
+  personas: string[];
+  forma?: string;
+  cuotas?: Record<string, Euros>;
+  confianza?: number;
+  ambito?: string | null;
+};
+// La pregunta pendiente de un caso dudoso (`hechos.pregunta`); `casos_usuario` la manda como objeto.
+export type PreguntaCaso = { texto?: string | null; estado?: string | null; candidatos?: string[] };
 // `movimiento_origen`: el backend aún no fija su forma; se acepta el id o el movimiento (enmascarado).
 export type MovimientoOrigen = string | Partial<Movimiento>;
 export type CasoResumen = {
@@ -447,7 +458,9 @@ export type CasoResumen = {
   aviso?: AvisoCaso;
   creado: string;
   avisar_desde?: string | null;
-  pregunta?: string | null;
+  pregunta?: string | PreguntaCaso | null;
+  pregunta_nivel?: number | null; // nivel de la escalera con que se preguntó (1-4); aún no sale en GET /casos
+  sugerencia?: SugerenciaReparto | null; // idem: sin ella no hay pregunta de nivel 2
   movimiento_origen?: MovimientoOrigen | null;
   acuerdos?: string[];
   deudores: DeudorCaso[];
@@ -693,9 +706,11 @@ export const movimientosUsuario = (usuarioId: string, limite = 60) =>
   enviar<Movimiento[]>(`${usuario(usuarioId)}/movimientos?limite=${limite}`, "GET");
 
 // Sin `propuestaId` es una conversación general («Hablar con Meisam»): ligada solo al usuario y sin acciones ofrecidas.
-export const sesionVoz = (propuestaId: string | null, usuarioId: string, modoPreferido: "voz" | "texto_el" | "texto_kit") =>
+// `casoId` (solo sin aviso): «Otra respuesta» de una pregunta del Resumen; el servidor enfoca la conversación en ese caso.
+export const sesionVoz = (propuestaId: string | null, usuarioId: string, modoPreferido: "voz" | "texto_el" | "texto_kit", casoId?: string | null) =>
   enviar<SesionVoz>("/voz/sesion", "POST", {
     ...(propuestaId ? { propuesta_id: propuestaId } : {}),
+    ...(!propuestaId && casoId ? { caso_id: casoId } : {}),
     usuario_id: usuarioId,
     modo_preferido: modoPreferido,
   });

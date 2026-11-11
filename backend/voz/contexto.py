@@ -10,6 +10,7 @@ import re
 
 from .. import personalizacion
 from ..modulos.plantillas import CABECERA_DATOS, formatear_eur, sanear_dato
+from ..casos import ciclo
 from ..plataforma.privacidad import enmascarar_texto
 from ..plataforma.tipos import AccionOfrecida, Caso, ModeloUsuario, Propuesta
 from . import consultas
@@ -145,17 +146,40 @@ def resumen_cuentas(usuario_id: str) -> str:
     return " ".join(frases)
 
 
-def variables_generales(usuario_id: str, modelo: ModeloUsuario | None) -> dict[str, str]:
+def pregunta_de_caso(caso: Caso) -> str:
+    """La pregunta que la app le hizo al usuario sobre este caso: la pendiente de un caso dudoso o, en un pago individual,
+    «¿Fuiste con alguien a X?» (con la sugerencia de Meisam si la hubo). Todo como DATO, enmascarado."""
+    pregunta = caso.hechos.get("pregunta")
+    texto = str(pregunta.get("texto") or "") if isinstance(pregunta, dict) and pregunta.get("estado") == "pendiente" else ""
+    if not texto and caso.escenario == "pago_individual":
+        comercio = str(caso.hechos.get("comercio") or "").strip()
+        texto = f"¿Fuiste con alguien a {comercio}?" if comercio else "¿Fuiste con alguien a este pago?"
+        if caso.sugerencia and caso.sugerencia.personas:
+            nombres = ", ".join(ciclo.nombre_visible(c) for c in caso.sugerencia.personas)
+            texto += f" Meisam sugería: con {nombres}."
+    return sanear_dato(enmascarar_texto(_quitar_marcas(texto)), 240)
+
+
+def variables_generales(usuario_id: str, modelo: ModeloUsuario | None, caso: Caso | None = None) -> dict[str, str]:
     """Variables de una conversación sin aviso: mismas cinco claves. Sin propuesta no hay acciones: el dinero solo se
-    mueve desde el aviso de una deuda o desde Mis cuentas, con botón y token."""
+    mueve desde el aviso de una deuda o desde Mis cuentas, con botón y token. Con `caso` (el usuario pulsó «Otra
+    respuesta» en una pregunta del Resumen) la conversación se enfoca en esa pregunta: el id va en el contexto para que el
+    agente pueda cambiarlo con `actualizar_caso` solo si el usuario lo dice con sus palabras."""
     contexto = f"{CABECERA_DATOS} Conversación sin aviso: el cliente quiere repasar sus cuentas. " + resumen_cuentas(usuario_id)
+    titulo = FRASE_GENERAL
+    texto = pregunta_de_caso(caso) if caso else ""
+    if caso and texto:
+        contexto += (f"\nEl usuario ha pulsado «Otra respuesta» a una pregunta del Resumen (caso {sanear_dato(caso.id, 80)}): "
+                     f"<datos>{texto}</datos> Deja que la conteste con sus palabras y aplícala con `actualizar_caso` solo "
+                     "con lo que diga.")
+        titulo = "te preguntaba por un pago. ¿Qué me quieres contar?"
     memoria = personalizacion.memoria_para_agente(modelo) if modelo else ""
     if memoria:
         contexto += "\nLo que sé de cómo prefiere usar el servicio:\n" + enmascarar_texto(memoria)
     return {
         "nombre": nombre_de_pila(usuario_id),
         "banco": BANCO,
-        "titulo_aviso": FRASE_GENERAL,
+        "titulo_aviso": titulo,
         "contexto_llamada": contexto,
         "acciones_ofrecidas": ACCIONES_GENERAL,
     }

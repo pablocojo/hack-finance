@@ -47,6 +47,8 @@ let casosMock: CasoResumen[] = [
     aviso: "resumen",
     creado: "2026-11-08",
     pregunta: "¿Fuiste con alguien a PIZZERIA NAPOLI?",
+    pregunta_nivel: 2,
+    sugerencia: { personas: ["LAURA M", "MARCOS R"], forma: "iguales", cuotas: {}, confianza: 0.7 },
     movimiento_origen: { id: "mock-m2", comercio: "PIZZERIA NAPOLI", importe: "-64.00", fecha: "2026-11-07" },
     deudores: [],
   },

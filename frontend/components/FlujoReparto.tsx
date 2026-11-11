@@ -27,16 +27,18 @@ type Props = {
   pago: PagoRepartible;
   alCerrar: () => void;
   alCreado?: (caso: CasoResumen) => void;
+  // Personas ya marcadas al abrir (la sugerencia de Meisam en el nivel 2); se pueden quitar.
+  elegidosIniciales?: string[];
 };
 
 // Elegir con quién se fue y cuánto pone cada uno. Solo apunta la deuda: Meisam no pide nada por Bizum sin el botón
 // del usuario más adelante. Por defecto reparte a partes iguales entre las personas elegidas y tú.
-export default function FlujoReparto({ usuarioId, pago, alCerrar, alCreado }: Props) {
+export default function FlujoReparto({ usuarioId, pago, alCerrar, alCreado, elegidosIniciales }: Props) {
   const id = useId();
   const titulo = useRef<HTMLHeadingElement>(null);
   const [agenda, setAgenda] = useState<ContactoResumen[] | null>(null);
   const [errorAgenda, setErrorAgenda] = useState<string | null>(null);
-  const [elegidos, setElegidos] = useState<string[]>([]);
+  const [elegidos, setElegidos] = useState<string[]>(elegidosIniciales ?? []);
   const [escritos, setEscritos] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);

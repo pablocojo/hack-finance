@@ -26,6 +26,7 @@ class PeticionSesion(BaseModel):
     usuario_id: str = Field(min_length=1, max_length=64)
     propuesta_id: str | None = Field(default=None, min_length=1, max_length=128)  # sin ella: conversación general
     modo_preferido: str = Field(default="voz", max_length=16)
+    caso_id: str | None = Field(default=None, min_length=1, max_length=80)  # solo sin propuesta: enfoca la conversación en ese caso
 
 
 class PeticionTexto(BaseModel):
@@ -97,7 +98,8 @@ class PeticionDeshacer(PeticionHerramienta):
 @router.post("/sesion")
 def sesion(peticion: PeticionSesion) -> dict:
     try:
-        return abrir_sesion(peticion.propuesta_id, peticion.usuario_id, peticion.modo_preferido).model_dump(mode="json")
+        return abrir_sesion(peticion.propuesta_id, peticion.usuario_id, peticion.modo_preferido,
+                            peticion.caso_id).model_dump(mode="json")
     except Exception as error:
         raise a_http(error) from error
 
