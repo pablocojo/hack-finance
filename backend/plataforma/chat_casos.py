@@ -38,6 +38,7 @@ from .tipos import (
     AprendizajeAmigos,
     Caso,
     CargoCandidato,
+    Contacto,
     CuotaPersona,
     HechoChatEntrada,
     Movimiento,
@@ -100,9 +101,32 @@ def _lineas_candidatos(candidatos: list[CargoCandidato]) -> str:
     return "; ".join(f"{i}) {_dato(c.comercio, 40)} del {_fecha(c.fecha)}, {_eur(c.importe)}" for i, c in enumerate(candidatos, 1))
 
 
+RASTRO_APUNTADO = "rastro_apuntado"      # {caso_id: {aprendizaje y contactos antes/después}} de los casos creados por el chat
+
+
+def _huella_modelo(modelo) -> dict:
+    """Lo que aprende crear un caso desde el chat: el aprendizaje de amigos y la agenda de contactos, en JSON."""
+    return {"aprendizaje": modelo.aprendizaje.model_dump(mode="json"),
+            "contactos": {k: c.model_dump(mode="json") for k, c in modelo.contactos.items()}}
+
+
+def _guardar_rastro_aprendizaje(usuario_id: str, caso_id: str, antes, despues) -> None:
+    """Guarda (con el candado ya tomado) el aprendizaje y los contactos de antes y de después de crear el caso, para que
+    «Deshacer» los devuelva a como estaban. Si no cambiaron (o no hay modelo) no guarda nada."""
+    if antes is None or despues is None:
+        return
+    a, d = _huella_modelo(antes), _huella_modelo(despues)
+    if a == d:
+        return
+    rastros = alm.cargar(usuario_id, RASTRO_APUNTADO, defecto={}) or {}
+    rastros[caso_id] = {"antes": a, "despues": d}
+    alm.guardar(usuario_id, RASTRO_APUNTADO, rastros)
+
+
 def apuntar_gasto_con_rastro(usuario_id: str, entrada: ApuntarGastoEntrada) -> tuple[ApuntarGastoSalida, Caso | None, Caso | None]:
     """Como `apuntar_gasto_usuario`, pero devuelve también `(antes, despues)`: el caso previo (None si es nuevo) y el caso
-    resultante (None si no se creó nada). La sesión de la llamada los guarda para «Deshacer». Con el candado del usuario."""
+    resultante (None si no se creó nada). La sesión de la llamada los guarda para «Deshacer». Con el candado del usuario.
+    Si crea un caso nuevo, guarda también el aprendizaje y los contactos de antes y de después (`RASTRO_APUNTADO`)."""
     with alm.candado(usuario_id):
         estado = orquestador._estado(usuario_id)
         hoy = orquestador._hoy(estado)
@@ -175,6 +199,8 @@ def apuntar_gasto_con_rastro(usuario_id: str, entrada: ApuntarGastoEntrada) -> t
             return _salida("no_soportado", f"No puedo apuntarlo así: {error} No he cambiado nada."), None, None
         despues = next(c for c in casos.cargar(usuario_id) if c.id == resumen["id"])
         convertido = previo is not None
+        if not convertido:
+            _guardar_rastro_aprendizaje(usuario_id, despues.id, modelo, orquestador._leer(usuario_id, "modelo"))
         orquestador._auditar(usuario_id, "caso_chat", caso_id=despues.id, resultado="convertido" if convertido else "creado",
                              escenario=despues.escenario, personas=len(cuotas), movimiento=elegido.id)
         deudores = [CuotaPersona(contraparte=c, nombre=casos.ciclo.nombre_visible(c), cuota=q) for c, q in cuotas.items()]
@@ -194,9 +220,16 @@ def apuntar_gasto_usuario(usuario_id: str, entrada: ApuntarGastoEntrada) -> Apun
     return apuntar_gasto_con_rastro(usuario_id, entrada)[0]
 
 
-def deshacer_apuntado(usuario_id: str, despues: Caso) -> Caso:
+MSG_APRENDIZAJE_CAMBIADO = ("He descartado el caso, pero no he quitado lo que Meisam aprendió al apuntarlo porque ha cambiado "
+                            "desde entonces; puedes revisarlo en «Lo que Meisam sabe de ti».")
+
+
+def deshacer_apuntado_con_aviso(usuario_id: str, despues: Caso) -> tuple[Caso, str | None]:
     """«Deshacer» un caso que acaba de crear el chat: se descarta (queda en el historial, nada se borra), solo si no ha
-    cambiado desde entonces. Para uno convertido se usa `orquestador.restaurar_caso_llamada`. `ValueError` si no se puede."""
+    cambiado desde entonces. Además, el aprendizaje y los contactos vuelven a como estaban antes de apuntarlo, solo si no
+    han cambiado desde entonces (misma regla que el caso); si han cambiado se deja lo que hay y el segundo valor es el
+    aviso para el usuario (`None` si todo volvió a su sitio o no se había aprendido nada).
+    Para uno convertido se usa `orquestador.restaurar_caso_llamada`. `ValueError` si no se puede."""
     with alm.candado(usuario_id):
         hoy = orquestador._hoy(orquestador._estado(usuario_id))
         lista = casos.cargar(usuario_id)
@@ -205,8 +238,28 @@ def deshacer_apuntado(usuario_id: str, despues: Caso) -> Caso:
             raise ValueError("El caso ha cambiado después de apuntarlo: ya no se puede deshacer.")
         nuevo = casos.descartar(actual, hoy, "lo deshiciste justo después de apuntarlo.", "usuario", ahora_por_defecto(hoy))
         orquestador._guardar_caso(usuario_id, hoy, lista, nuevo, actual)
-        orquestador._auditar(usuario_id, "caso_chat_deshecho", caso_id=despues.id)
-        return nuevo
+        restaurado, aviso = False, None
+        rastros = alm.cargar(usuario_id, RASTRO_APUNTADO, defecto={}) or {}
+        rastro = rastros.pop(despues.id, None)
+        if rastro is not None:
+            modelo = orquestador._leer(usuario_id, "modelo")
+            if modelo is not None and _huella_modelo(modelo) == rastro["despues"]:
+                antes = rastro["antes"]
+                alm.guardar(usuario_id, "modelo", modelo.model_copy(update={
+                    "aprendizaje": AprendizajeAmigos.model_validate(antes["aprendizaje"]),
+                    "contactos": {k: Contacto.model_validate(c) for k, c in antes["contactos"].items()},
+                    "actualizado": ahora_por_defecto(hoy)}))
+                restaurado = True
+            else:
+                aviso = MSG_APRENDIZAJE_CAMBIADO
+            alm.guardar(usuario_id, RASTRO_APUNTADO, rastros)
+        orquestador._auditar(usuario_id, "caso_chat_deshecho", caso_id=despues.id, aprendizaje_restaurado=restaurado)
+        return nuevo, aviso
+
+
+def deshacer_apuntado(usuario_id: str, despues: Caso) -> Caso:
+    """Como `deshacer_apuntado_con_aviso`, devolviendo solo el caso descartado."""
+    return deshacer_apuntado_con_aviso(usuario_id, despues)[0]
 
 
 # --- `recordar_sobre_mi`: frases que enseñan sin crear un caso (personalizacion/hechos_chat.py) -------------------------

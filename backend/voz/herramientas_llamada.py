@@ -256,18 +256,19 @@ def deshacer(sesion, cambio_id: str) -> dict:
     datos = sesion.deshacer.get(cambio_id)
     if datos is None:
         return {"ok": False, "error": "No encuentro ese cambio o ya se deshizo."}
+    aviso = None
     try:
         if "hecho" in datos:             # lo guardó `recordar_sobre_mi`: se borra con su efecto
             chat_casos.deshacer_hecho(sesion.usuario_id, datos["hecho"])
-        elif datos["antes"] is None:     # lo creó `apuntar_gasto`: se descarta (queda en el historial), no se borra
-            chat_casos.deshacer_apuntado(sesion.usuario_id, Caso.model_validate(datos["despues"]))
+        elif datos["antes"] is None:     # lo creó `apuntar_gasto`: se descarta (queda en el historial) y desaprende
+            _, aviso = chat_casos.deshacer_apuntado_con_aviso(sesion.usuario_id, Caso.model_validate(datos["despues"]))
         else:
             orquestador.restaurar_caso_llamada(sesion.usuario_id, Caso.model_validate(datos["antes"]),
                                                Caso.model_validate(datos["despues"]))
     except (orquestador.NoEncontrado, ValueError) as error:
         return {"ok": False, "error": str(error)}
     sesion.deshacer.pop(cambio_id, None)
-    return {"ok": True, "hecho": "Cambio deshecho"}
+    return {"ok": True, "hecho": f"Cambio deshecho. {aviso}" if aviso else "Cambio deshecho"}
 
 
 @herramienta(grupo="llamada")

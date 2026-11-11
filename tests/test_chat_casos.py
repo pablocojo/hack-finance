@@ -223,6 +223,44 @@ def test_la_herramienta_guarda_el_deshacer_y_descarta_lo_creado():
     assert auditoria("caso_chat_deshecho")
 
 
+def _huella(m) -> tuple:
+    return (m.aprendizaje.model_dump(mode="json"), {k: c.model_dump(mode="json") for k, c in m.contactos.items()})
+
+
+def test_deshacer_lo_apuntado_devuelve_el_aprendizaje_y_los_contactos_a_como_estaban():
+    montar(contactos=("ANA L",))                                       # Marcos no está en la agenda: se añade al apuntar
+    antes = _huella(orquestador._leer(UID, "modelo"))
+    kit = sesiones.crear(UID, "prop-1", "texto_kit", {}).kit
+    r = hl.apuntar(kit, {"pista": "las pizzas", "personas": ["Marcos"], "confirmar_personas_nuevas": True,
+                         "fecha_aprox": "2026-11-08"})
+    assert r["ok"] and r["resultado"] == "creado"
+    tras = orquestador._leer(UID, "modelo")
+    assert _huella(tras) != antes and "MARCOS" in tras.contactos       # apuntar enseñó algo (la escalera ya sugeriría «¿con Marcos?»)
+    assert hl.deshacer(kit, r["cambio_id"])["ok"]
+    assert _huella(orquestador._leer(UID, "modelo")) == antes
+    assert casos.cargar(UID)[0].estado == "descartado"
+    assert auditoria("caso_chat_deshecho")[0]["aprendizaje_restaurado"] is True
+    assert alm.cargar(UID, chat_casos.RASTRO_APUNTADO, defecto={}) == {}
+
+
+def test_deshacer_lo_apuntado_no_pisa_un_aprendizaje_posterior():
+    montar(mov("m-pizza", date(2026, 11, 8), "-48.00", "PIZZERIA ROMA"),
+           mov("m-cafe", date(2026, 11, 6), "-3.20", "CAFETERIA ESCUELA ARQUITECTURA"))
+    r, _antes, despues = chat_casos.apuntar_gasto_con_rastro(UID, entrada(personas=("Marcos",), fecha_aprox=date(2026, 11, 8)))
+    assert r.ok
+    modelo_tras_apuntar = orquestador._leer(UID, "modelo")
+    # después de apuntar llega otro aprendizaje (el usuario dice que en la cafetería siempre va solo)
+    assert chat_casos.recordar_sobre_mi_usuario(
+        UID, HechoChatEntrada(tipo="va_solo", texto="siempre solo", pista="la cafetería de la escuela"))["ok"]
+    con_lo_nuevo = _huella(orquestador._leer(UID, "modelo"))
+    assert con_lo_nuevo != _huella(modelo_tras_apuntar)
+    caso, aviso = chat_casos.deshacer_apuntado_con_aviso(UID, despues)
+    assert caso.estado == "descartado"                                 # el caso se deshace igual
+    assert _huella(orquestador._leer(UID, "modelo")) == con_lo_nuevo   # pero lo posterior no se pisa
+    assert aviso == chat_casos.MSG_APRENDIZAJE_CAMBIADO
+    assert auditoria("caso_chat_deshecho")[0]["aprendizaje_restaurado"] is False
+
+
 def test_deshacer_una_conversion_restaura_y_no_si_el_caso_cambio_despues():
     previo = Caso(id="caso-ind", usuario_id=UID, escenario="pago_individual", creado=date(2026, 11, 8), aviso="resumen",
                   hechos={"movimiento_origen": "m-pizza", "pago_id": "m-pizza", "movimientos": ["m-pizza"],
