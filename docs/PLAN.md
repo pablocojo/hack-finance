@@ -35,6 +35,8 @@ Lo mantienen el orquestador y `/estado`. `/planificar` cierra las tareas y `/esq
 
 - 2026-11-11, 14:45 (`arquitecto`, fase 0 de `curva-amigos.md`): tipos nuevos en `tipos.py` (todos opcionales; `ModeloUsuario.aprendizaje` vacío = comportamiento de antes), apartado «Curva de amigos» en `CONTRATO.md` con las interfaces entre hilos, `amigos/ESQUEMA.md` (vidas y corpus) y cinco decisiones en `DECISIONES.md`. Tareas C (H1), A (H2), B (H3) e I en «11 nov: curva de amigos». Orden de K: K4 a H3 y K1 (a, c) a H2 cuando acaben; K1 (b, d), K2 y K3 a la hoja de ruta. **Siguiente: `pytest` de la fase 0, commit en `main` y abrir A0, C1 + C3, B1, A1 y A3.**
 
+- 2026-11-11, 17:52: **parada por saldo** (Pablo: la clave del producto se queda sin crédito). Encargo `curva-amigos.md` hecho salvo lo recortado (A6, C10; C8 sin ejecutar) y K1 (a, c, d) y K4 hechos; todo en `main` (40 commits desde `7fcfafc`, sin `push`). `pytest` completo en verde, `/medir todo` sin regresiones, evals de la llamada **35/35** (0,77 US$, clave del producto), `revisor` sin bloqueantes y `critico-necesidad` en `docs/revisiones/necesidad-2026-11-11.md`. Curva final (semillas 100-119): preguntas inútiles 1,11 → 0,78, recordatorios a destiempo 38,9 % → 31,3 %, dinero que se escapa 19,1 % igual. **Siguiente: ver «Para continuar» en `docs/DIARIO.md` (11 nov, 17:52).**
+
 ## Idea y MVP
 - **Idea elegida**: **Meisam** (nombre interno: Copiloto), una plataforma para bancos que convierte los movimientos de cada cliente en momentos, avisa solo cuando ahorra dinero o protege y lo resuelve en una llamada de voz. Aprende de cada usuario y admite módulos nuevos sin código.
 - **Usuario**: el cliente del banco, dentro de la app de su banco. **Comprador**: bancos medianos y neobancos.
