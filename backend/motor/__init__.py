@@ -16,7 +16,7 @@ from ..plataforma.tipos import Momento, Movimiento, MovimientoEnriquecido, Perfi
 from . import conocimiento, parametros, pruebas, razonador
 from .detectores import REGISTRO
 from .detectores.base import Contexto
-from .detectores.pago_individual import tipos_por_buscar
+from .detectores.pago_individual import precios_por_buscar, tipos_por_buscar
 from .enriquecer import enriquecer as _enriquecer
 from .enriquecer import enriquecer_normalizados, lineas_base
 from .estado import EstadoMotor
@@ -97,6 +97,7 @@ def procesar(
         )
         hallazgos = [h for detector in REGISTRO.values() for h in detector.detectar(ctx)]
         estado.tipos_pendientes = tipos_por_buscar(ctx) if config.ajustes().busqueda_web else []
+        estado.precios_pendientes = precios_por_buscar(ctx) if config.ajustes().busqueda_web else []
         fechas = {m.id: m.fecha for m in historial}
         saldo_hoy = next((m.saldo for m in reversed(historial) if m.saldo is not None), None)
         momentos = razonador.razonar(usuario_id, hallazgos, estado.claves_emitidas, hoy, fechas,
@@ -203,3 +204,12 @@ def tipos_pendientes(usuario_id: str) -> list[str]:
     with _CANDADO:
         estado = _ESTADOS.get(usuario_id)
         return list(estado.tipos_pendientes) if estado else []
+
+
+def precios_pendientes(usuario_id: str) -> list[str]:
+    """Nombres de sitios con entrada (cine, teatro...) de pagos recientes que aún no tienen tabla de precios. Solo con
+    `BUSQUEDA_WEB=on`. El orquestador, fuera de `procesar`, llama a `ocio.buscar_tabla(nombre)` por cada uno: a la web
+    solo va el nombre, nunca el importe ni la fecha."""
+    with _CANDADO:
+        estado = _ESTADOS.get(usuario_id)
+        return list(estado.precios_pendientes) if estado else []

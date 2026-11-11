@@ -24,6 +24,7 @@ class EstadoMotor:
     pruebas: list[dict] = field(default_factory=list)
     comercios_pendientes: list[str] = field(default_factory=list)
     tipos_pendientes: list[str] = field(default_factory=list)             # comercios sin tipo (pago_individual)
+    precios_pendientes: list[str] = field(default_factory=list)           # sitios con entrada sin tabla de precios
     ultimo_hoy: date | None = None
     _normalizados: dict[str, MovimientoEnriquecido] = field(default_factory=dict, repr=False)
     _orden: dict[str, int] = field(default_factory=dict, repr=False)
@@ -55,6 +56,7 @@ class EstadoMotor:
             "pruebas": [dict(p) for p in self.pruebas],
             "comercios_pendientes": list(self.comercios_pendientes),
             "tipos_pendientes": list(self.tipos_pendientes),
+            "precios_pendientes": list(self.precios_pendientes),
             "ultimo_hoy": self.ultimo_hoy.isoformat() if self.ultimo_hoy else None,
         }
 
@@ -66,6 +68,7 @@ class EstadoMotor:
         estado.pruebas = [dict(p) for p in datos.get("pruebas", [])]
         estado.comercios_pendientes = list(datos.get("comercios_pendientes", []))
         estado.tipos_pendientes = list(datos.get("tipos_pendientes", []))
+        estado.precios_pendientes = list(datos.get("precios_pendientes", []))
         ultimo = datos.get("ultimo_hoy")
         estado.ultimo_hoy = date.fromisoformat(ultimo) if ultimo else None
         return estado

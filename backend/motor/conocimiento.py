@@ -50,6 +50,9 @@ from .parametros import PagoIndividual
 
 RUTA_CATALOGO = Path(__file__).resolve().parent.parent / "datos" / "comercios_conocidos.json"
 NOMBRE_CACHE_WEB = "comercios_web.json"
+# Caché web VERSIONADA (11 nov, ocio): lo que trajo una búsqueda real, guardado una vez para que la demo funcione sin
+# red ni gasto (`BUSQUEDA_WEB=off` en Render). Solo lectura en marcha; la escribe `motor.ocio` desde la línea de órdenes.
+RUTA_CACHE_VERSIONADA = Path(__file__).resolve().parent.parent / "datos" / "cache_web" / NOMBRE_CACHE_WEB
 
 _MEMORIA: dict[Path, tuple[int, dict[str, InfoComercio]]] = {}   # ruta -> (mtime_ns, fichas)
 
@@ -91,12 +94,18 @@ def limpiar_memoria() -> None:
     ESTADISTICAS.update(consultas_tipo=0, coste_usd=0.0)
 
 
+def _ficha_web(k: str) -> InfoComercio | None:
+    """La ficha de la web de una clave: primero la caché versionada (revisada, de la demo) y después la de
+    `datos_usuario/_cache` (la que escribe el orquestador en marcha)."""
+    return _leer(RUTA_CACHE_VERSIONADA, estricto=False).get(k) or _leer(ruta_cache_web(), estricto=False).get(k)
+
+
 def info_en_cache(nombre: str) -> InfoComercio | None:
-    """Sin red: catálogo y, si no está, caché web. `None` si no se conoce el comercio."""
+    """Sin red: catálogo y, si no está, caché web (versionada y de marcha). `None` si no se conoce el comercio."""
     k = clave(nombre)
     if not k:
         return None
-    return _leer(RUTA_CATALOGO, estricto=True).get(k) or _leer(ruta_cache_web(), estricto=False).get(k)
+    return _leer(RUTA_CATALOGO, estricto=True).get(k) or _ficha_web(k)
 
 
 def info_comercio(nombre: str) -> InfoComercio | None:
@@ -253,7 +262,7 @@ def precio_persona(nombre: str) -> Decimal | None:
     ficha = _leer(RUTA_CATALOGO, estricto=True).get(k)
     if ficha is not None:
         return precio_valido(ficha.precio_persona, tipo_de_ficha(ficha))
-    ficha = _leer(ruta_cache_web(), estricto=False).get(k)
+    ficha = _ficha_web(k)
     if ficha is not None and tipo_de_ficha(ficha) is not None:
         return precio_valido(ficha.precio_persona, tipo_de_ficha(ficha))
     guardado = _leer_tipos(ruta_cache_web()).get(k)
@@ -340,7 +349,7 @@ def resolver_tipo(nombre: str, *, buscar: bool = True, canal: str | None = "tarj
     if catalogo is not None:
         return tipo_de_ficha(catalogo) or "otro", "catalogo"
     # 2. caché: ficha web y sección `_tipos`
-    ficha = tipo_de_ficha(_leer(ruta_cache_web(), estricto=False).get(k))
+    ficha = tipo_de_ficha(_ficha_web(k))
     if ficha is not None:
         return ficha, "cache"
     hoy = hoy or date.today()

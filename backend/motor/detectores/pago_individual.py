@@ -40,6 +40,15 @@ El precio por persona (K1 d; `conocimiento.precio_persona`, del catálogo o de l
    abran las reglas (`debil` pasa a `media`; `aprendida` se queda) con `datos["personas_estimadas"]`,
    `datos["precio_persona"]` y `datos["motivo_personas"]` («19,00 € en Cines Fotograma son unas 2 entradas»).
    Entre medias (o sin precio), todo como en las reglas 1-6. La regla 4 (espera y Bizums) se aplica igual.
+
+La tabla de precios (ocio, 11 nov; `motor/ocio.py`, de la caché de la búsqueda web, nunca de internet aquí):
+8. Si el sitio (cine, teatro, concierto, evento o actividad) tiene `tabla_precios`, el código aplica el día del pago y
+   enumera en local las combinaciones que suman el importe (± 0,05 €): «2 entradas de sábado» o «1 entrada con dos
+   palomitas pequeñas», cada una con sus personas. Manda sobre la regla 7. Solo de 1 persona -> SILENCIO; alguna de
+   >= 2 -> abre con `senal = media` cualquier día desde `IMPORTE_MIN_PRECIO` (o refuerza), con `datos["ocio"]`
+   (combinaciones, día, tarifa, fuentes, consulta y la pregunta sin afirmar). `personas_estimadas` solo si todas las
+   combinaciones dicen lo mismo. Si ninguna encaja, la regla 7 y las de siempre. El juicio de la IA (cuál es más
+   probable y p de ir acompañado) lo añade el orquestador fuera de `procesar` (`ocio.anotar_momento`).
 """
 
 from __future__ import annotations
@@ -49,7 +58,7 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from ...plataforma.tipos import MovimientoEnriquecido
-from .. import conocimiento
+from .. import conocimiento, ocio
 from ..enriquecer import centimos, es_reembolso_entrante
 from ..formato import eur
 from ..parametros import GastoCompartido, PagoIndividual
@@ -60,6 +69,7 @@ MOTIVO_CON_ALGUIEN = "Pudo ir con alguien y nadie le ha enviado todavía su part
 MOTIVO_SOLO = "Pudo ir solo: un pago propio sin nada que reclamar"
 MOTIVO_APRENDIDA = "Sueles ir acompañado a este sitio y nadie le ha enviado todavía su parte"
 MOTIVO_PRECIO = "Por el importe fueron unas {n} personas y nadie le ha enviado todavía su parte"
+MOTIVO_TABLA = "Por la tabla de precios del sitio pudieron ser {n} personas y nadie le ha enviado todavía su parte"
 TIPOS_CON_ENTRADA = ("cine", "teatro", "concierto", "evento", "actividad")   # «son unas 2 entradas»; si no, «personas»
 CLAVE_COMERCIO, CLAVE_TIPO = "c:", "t:"
 FRANJAS = {4: "viernes", 5: "finde", 6: "finde"}       # `date.weekday`; el resto, `laborable` (Franja del contrato)
@@ -159,8 +169,29 @@ def _es_pago_propio(m: MovimientoEnriquecido, p: PagoIndividual, minimo: Decimal
             and m.serie_id is None and bool(m.comercio_normalizado) and "posible_persona" not in m.etiquetas)
 
 
+def estimar_por_tabla(importe: Decimal, ocio_datos: dict, comercio: str | None) -> Estimacion | None:
+    """Regla 8: `personas_estimadas` solo si todas las combinaciones de la tabla dicen el mismo número (>= 2); el
+    motivo enseña las dos primeras opciones («21,80 € en Kinepolis...: 2 entradas de sábado (...) o 1 entrada...»)."""
+    lista = ocio_datos.get("combinaciones", [])
+    personas = {c["personas"] for c in lista}
+    if len(personas) != 1 or min(personas) < 2:
+        return None
+    primera = lista[0]
+    precio = (Decimal(str(primera["importe"])) / primera["personas"]).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return Estimacion(personas=primera["personas"], precio=precio, motivo=motivo_tabla(importe, ocio_datos, comercio))
+
+
+def motivo_tabla(importe: Decimal, ocio_datos: dict, comercio: str | None) -> str:
+    lista = ocio_datos.get("combinaciones", [])
+    con = next((c for c in lista if c["personas"] >= 2), None)
+    otra = ocio.alternativa(lista, con) if con else None
+    que = " o ".join(c["descripcion"] for c in ([con, otra] if otra else lista[:2]) if c)
+    return f"{eur(importe)} en {_nombre_visible(comercio)} pueden ser {que}"
+
+
 def _hallazgo(m: MovimientoEnriquecido, tipo: str, senal: str, p: PagoIndividual,
-              aprendido: tuple[str, float] | None = None, estimacion: Estimacion | None = None) -> Hallazgo:
+              aprendido: tuple[str, float] | None = None, estimacion: Estimacion | None = None,
+              ocio_datos: dict | None = None) -> Hallazgo:
     importe = centimos(-m.importe)
     datos = {
         "origen": "pago_individual",
@@ -188,6 +219,13 @@ def _hallazgo(m: MovimientoEnriquecido, tipo: str, senal: str, p: PagoIndividual
         datos["motivo_personas"] = estimacion.motivo
         if not aprendido:
             datos["hipotesis"][0]["motivo"] = MOTIVO_PRECIO.format(n=estimacion.personas)
+        confianza = max(confianza, p.CONFIANZA_PRECIO)
+    if ocio_datos:                              # regla 8: siempre con alguna combinación de >= 2 personas
+        datos["ocio"] = ocio_datos
+        datos.setdefault("motivo_personas", motivo_tabla(importe, ocio_datos, m.comercio_normalizado))
+        if not aprendido:
+            n = next(c["personas"] for c in ocio_datos["combinaciones"] if c["personas"] >= 2)
+            datos["hipotesis"][0]["motivo"] = MOTIVO_TABLA.format(n=n)
         confianza = max(confianza, p.CONFIANZA_PRECIO)
     return Hallazgo(tipo="gasto_compartido", clave=f"individual:{m.id}", movimientos=[m.id],
                     confianza=confianza, datos=datos, impacto_eur=None)
@@ -219,22 +257,45 @@ def detectar(ctx: Contexto) -> list[Hallazgo]:
             continue
         importe = -m.importe
         tipo, _ = tipo_del_pago(m)
-        estimacion = None
-        if tipo in p.TIPOS_ELEGIBLES:           # regla 7: precio por persona del catálogo o la caché, sin red
-            estimacion = estimar_personas(importe, tipo, conocimiento.precio_persona(m.comercio_normalizado or ""),
-                                          m.comercio_normalizado, p)
-            if estimacion and estimacion.personas == 1:
-                continue                        # una entrada o un menú: nada que reclamar
+        estimacion, ocio_datos = None, None
+        if tipo in p.TIPOS_ELEGIBLES:
+            # regla 8: la tabla de precios del sitio (caché de la búsqueda web, sin red) con el día del pago
+            ocio_datos = ocio.analizar_pago(importe, m.comercio_normalizado, tipo, m.fecha)
+            if ocio_datos is not None:
+                if max(ocio_datos["personas_posibles"]) < 2:
+                    continue                    # todas las combinaciones son de una persona: nada que reclamar
+                estimacion = estimar_por_tabla(importe, ocio_datos, m.comercio_normalizado)
+            else:                               # regla 7: precio por persona del catálogo o la caché, sin red
+                estimacion = estimar_personas(importe, tipo, conocimiento.precio_persona(m.comercio_normalizado or ""),
+                                              m.comercio_normalizado, p)
+                if estimacion and estimacion.personas == 1:
+                    continue                    # una entrada o un menú: nada que reclamar
         aprendido = ambito_aprendido(ctx.compania, m, tipo)
         if aprendido and aprendido[1] >= p.P_ACOMPANADO_MIN and importe >= p.IMPORTE_MIN_APRENDIDA:
-            hallazgos.append(_hallazgo(m, tipo, "aprendida", p, aprendido, estimacion))
+            hallazgos.append(_hallazgo(m, tipo, "aprendida", p, aprendido, estimacion, ocio_datos))
             continue
         senal = senal_de(m.fecha, tipo, importe, p) if importe >= p.IMPORTE_MIN else None
-        if estimacion and importe >= p.IMPORTE_MIN_PRECIO:
+        if (estimacion or ocio_datos) and importe >= p.IMPORTE_MIN_PRECIO:
             senal = "media"                     # >= 2 personas: abre cualquier día o refuerza un `debil`
         if senal:
-            hallazgos.append(_hallazgo(m, tipo, senal, p, None, estimacion))
+            hallazgos.append(_hallazgo(m, tipo, senal, p, None, estimacion, ocio_datos))
     return hallazgos
+
+
+def precios_por_buscar(ctx: Contexto) -> list[str]:
+    """Nombres de sitios con entrada (cine, teatro...) de pagos propios de la ventana cuyo tipo ya se conoce y que aún
+    no tienen tabla de precios. Solo nombres: el orquestador, fuera de `procesar`, llama a `ocio.buscar_tabla`."""
+    p: PagoIndividual = ctx.params["pago_individual"]
+    g: GastoCompartido = ctx.params["gasto_compartido"]
+    desde = ctx.hoy - timedelta(days=g.VENTANA_REEMBOLSO)
+    pendientes: dict[str, None] = {}
+    for m in ctx.historial:
+        if m.fecha < desde or not _es_pago_propio(m, p, p.IMPORTE_MIN_PRECIO) or m.comercio_normalizado in pendientes:
+            continue
+        sin_tabla = tipo_del_pago(m)[0] in ocio.TIPOS_CON_TABLA and ocio.tabla_de(m.comercio_normalizado) is None
+        if sin_tabla and conocimiento.es_buscable_tipo(m.comercio_normalizado, m.etiquetas, m.canal):
+            pendientes[m.comercio_normalizado] = None
+    return list(pendientes)
 
 
 def tipos_por_buscar(ctx: Contexto) -> list[str]:

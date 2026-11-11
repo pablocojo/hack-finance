@@ -6,6 +6,8 @@
 #  12/11  subida_recibo: la luz pasa de 45 € a 57 € (+12 €), el recibo que vigila el módulo del banco.
 #  15/10  cargo_duplicado: solo con perfil (9,99 € >= 6 € de Lucía; sin perfil, < 15 €). Hasta que
 #         `parametros.ajustar` lo aplique (M9), con perfil se omite: es lo que mide ese cambio.
+#  10/11  pago_individual (ocio con tabla de precios, 11 nov): 21,80 € en Kinepolis el sábado 7/11 son 2 entradas o
+#         1 entrada con dos palomitas pequeñas (precios reales de la web, caché versionada); pregunta sin afirmar.
 id: demo-lucia
 usuario_id: lucia
 descripcion: "Lucía: la cena sin devolver, la prueba de Streamflix, el duplicado de la librería y el recibo de la luz"
@@ -47,6 +49,10 @@ movimientos:
   - {id: luc-b1, fecha: 2026-11-06, concepto: "BIZUM RECIBIDO", contraparte: "Laura Martinez Garcia", nota: "cena viernes 🍝", importe: 24.00, canal: bizum}
   - {id: luc-b2, fecha: 2026-11-07, concepto: "BIZUM RECIBIDO", contraparte: "Daniel Perez Ruiz", nota: "cena viernes", importe: 24.00, canal: bizum}
   - {id: luc-b3, fecha: 2026-11-08, concepto: "BIZUM RECIBIDO", contraparte: "Sara Lopez Gil", nota: "cena viernes", importe: 24.00, canal: bizum}
+  # El cine del sábado (ocio con tabla de precios, 11 nov): 21,80 € en Kinepolis Ciudad de la Imagen. Con los precios
+  # reales de la web (caché versionada backend/datos/cache_web/) son 2 entradas de sábado (10,90 € cada una) o 1 entrada
+  # con dos palomitas pequeñas (5,45 € cada una). Nadie le manda nada después (los Bizums de 24 € son de la cena).
+  - {id: luc-k1, fecha: 2026-11-07, concepto: "COMPRA TARJETA KINEPOLIS CIUDAD DE LA IMAGEN", comercio: "KINEPOLIS CIUDAD DE LA IMAGEN", importe: -21.80, canal: tarjeta, categoria: ocio}
   # La prueba de Streamflix: verificación de 0 € al guardar la tarjeta
   - {id: luc-v1, fecha: 2026-10-14, concepto: "VERIFICACION TARJETA STREAMFLIX", comercio: "STREAMFLIX", importe: 0.00, canal: tarjeta, tipo_operacion: verificacion}
   # El duplicado de la librería (9,99 € dos veces el mismo día)
@@ -70,6 +76,10 @@ esperado:
              importe_previsto: "9.99", fuente: verificacion, fuente_duracion: catalogo}}
   - {tipo: subida_recibo, fecha_detectable: 2026-11-12, ids: [luc-luz-11], tolerancia_dias: 0,
      datos: {comercio: ENERGIA NORTE, importe_actual: "57.00", importe_habitual: "45.00", subida_eur: "12.00", serie_id: "ENERGIA NORTE:1m"}}
+  # El cine: pregunta (sin afirmar) el martes 10/11, tras los 3 días de espera por si llega un Bizum
+  - {tipo: pago_individual, fecha_detectable: 2026-11-10, ids: [luc-k1], tolerancia_dias: 0,
+     datos: {origen: pago_individual, senal: media, tipo_comercio: cine, pago_id: luc-k1,
+             comercio: "KINEPOLIS CIUDAD DE LA IMAGEN", importe_total: "21.80"}}
 trampas:
   - {tipo: posible_estafa, ids: [luc-b1, luc-b2, luc-b3, luc-s1], motivo: "Bizums recibidos"}
   - {tipo: gasto_compartido, ids: [luc-p1, luc-p2, luc-p3], motivo: "pagaron los cuatro"}

@@ -1,0 +1,30 @@
+# Ocio con tabla de precios (11 nov; motor/ocio.py y regla 8 de pago_individual). Datos sintéticos; los precios son
+# los reales que trajo la búsqueda web (solo con el nombre del comercio) y están en la caché VERSIONADA
+# backend/datos/cache_web/comercios_web.json: en Kinepolis Ciudad de la Imagen, la entrada de viernes a domingo cuesta
+# 10,90 €, el suplemento 3D 1,50 € y las palomitas 5,45 € (pequeñas), 6,55 € (medianas) y 8,65 € (XXL).
+#  - kin-c1, sábado 7/11, 21,80 €: 2 entradas de sábado o 1 entrada con dos palomitas pequeñas. Hay una combinación de
+#    2 personas y nadie le manda nada: pregunta (sin afirmar) el martes 10/11, tras DIAS_ESPERA = 3.
+#  - Trampas: el sábado 24/10, 21,05 € = 1 entrada 3D con palomitas XXL; el sábado 31/10, 24,00 € = 1 entrada con dos
+#    palomitas medianas. Por las reglas de lugar y día (cine, fin de semana, >= 20 €) preguntarían; con la tabla, todas
+#    sus combinaciones son de una persona: silencio.
+id: cine-kinepolis
+usuario_id: lucia
+descripcion: "Lucía paga 21,80 € en Kinepolis el sábado (2 entradas o 1 con palomitas): pregunta; 1 entrada con extras: silencio"
+activacion: 2026-10-01
+hasta: 2026-11-16
+perfil: {calculado: 2026-10-01, dias_historial: 60, ticket_tipico: 12, umbral_relevante_eur: 20}   # a mano: así también se mide con perfil
+movimientos:
+  - {id: kin-n1, fecha: 2026-10-30, concepto: "NOMINA EMPRESA SOL", importe: 1450.00, canal: transferencia, categoria: ingresos}
+  - {id: kin-s1, fecha: 2026-10-24, concepto: "COMPRA TARJETA KINEPOLIS CIUDAD DE LA IMAGEN", comercio: "KINEPOLIS CIUDAD DE LA IMAGEN", importe: -21.05, canal: tarjeta, categoria: ocio}
+  - {id: kin-s2, fecha: 2026-10-31, concepto: "COMPRA TARJETA KINEPOLIS CIUDAD DE LA IMAGEN", comercio: "KINEPOLIS CIUDAD DE LA IMAGEN", importe: -24.00, canal: tarjeta, categoria: ocio}
+  - {id: kin-m1, fecha: 2026-11-03, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -58.40, canal: tarjeta, categoria: supermercado}
+  - {id: kin-c1, fecha: 2026-11-07, concepto: "COMPRA TARJETA KINEPOLIS CIUDAD DE LA IMAGEN", comercio: "KINEPOLIS CIUDAD DE LA IMAGEN", importe: -21.80, canal: tarjeta, categoria: ocio}
+eventos: []
+esperado:
+  - {tipo: pago_individual, fecha_detectable: 2026-11-10, ids: [kin-c1], tolerancia_dias: 0,
+     datos: {origen: pago_individual, senal: media, tipo_comercio: cine, pago_id: kin-c1,
+             comercio: "KINEPOLIS CIUDAD DE LA IMAGEN", importe_total: "21.80"}}
+trampas:
+  - {tipo: pago_individual, ids: [kin-s1, kin-s2], motivo: "una entrada con palomitas: la tabla de precios dice que fue sola"}
+  - {tipo: pago_individual, ids: [kin-m1], motivo: "supermercado: compra diaria"}
+  - {tipo: gasto_compartido, ids: [kin-c1, kin-s1, kin-s2], motivo: "no hay deuda calculada: nadie ha enviado nada"}

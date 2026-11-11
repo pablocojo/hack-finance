@@ -251,6 +251,33 @@ class ResultadoAccion(Base):
 
 # --- Conocimiento de comercios ---------------------------------------------------------------
 
+TipoDiaTarifa = Literal["laborable", "fin_de_semana", "espectador", "general"]
+ClaseExtra = Literal["menu", "palomitas", "bebida", "otro"]
+
+
+class TarifaEntrada(Base):
+    """Precio de una entrada según el día (ocio, 11 nov). `dias`: 0 = lunes ... 6 = domingo (`date.weekday`)."""
+    tipo_dia: TipoDiaTarifa
+    dias: list[int]
+    importe: Euros
+    descripcion: str = ""
+
+
+class PrecioExtra(Base):
+    """Un menú, palomitas o bebida (`extras`) o un suplemento por entrada, como el 3D (`suplementos`)."""
+    descripcion: str
+    importe: Euros
+    clase: ClaseExtra = "otro"
+
+
+class TablaPrecios(Base):
+    """Tabla de precios de un sitio de ocio, de la búsqueda web (solo con el nombre). El código aplica el día del
+    pago y enumera en local las combinaciones que suman el importe (`motor/ocio.py`)."""
+    entradas: list[TarifaEntrada]
+    suplementos: list[PrecioExtra] = Field(default_factory=list)
+    extras: list[PrecioExtra] = Field(default_factory=list)
+
+
 class InfoComercio(Base):
     nombre: str
     tipo: str
@@ -258,6 +285,7 @@ class InfoComercio(Base):
     dias_prueba: int | None = None
     precio_tras_prueba: Euros | None = None
     precio_persona: Euros | None = None      # K1 (d): precio típico por persona (entrada, menú); lo compara el código
+    tabla_precios: TablaPrecios | None = None   # ocio (11 nov): entradas por día, suplementos y menús; ver motor/ocio.py
     url_baja: str | None = None
     pasos_baja: list[str] | None = None
     fuentes: list[str] = Field(default_factory=list)

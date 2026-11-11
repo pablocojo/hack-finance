@@ -229,8 +229,11 @@ def test_nomina_a_final_de_mes_corto_usa_el_ultimo_dia():
 def test_demo_lucia_con_perfil_lleva_contexto_calculado_por_el_codigo():
     esc = cargar.cargar("demo-lucia")
     momentos = cargar.reproducir(esc, con_perfil=True)
-    assert len(momentos) == 4
+    assert len(momentos) == 5          # 11 nov: + el cine de Kinepolis (pago_individual con tabla de precios)
     for m in momentos:
+        if cargar.tipo_medido(m) == "pago_individual":   # sin impacto por diseño: la cuota la fija el usuario
+            assert m.impacto_eur is None and m.contexto_personal is None
+            continue
         assert m.impacto_relativo is not None and m.contexto_personal and m.contexto_personal.endswith(".")
         assert "hasta la nómina" in m.contexto_personal
     luz = de_tipo(momentos, "subida_recibo")[0]

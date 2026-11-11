@@ -137,6 +137,44 @@ def _hipotesis(momento: Momento) -> list[Hipotesis]:
     return salida
 
 
+MAX_PREGUNTA_OCIO = 240
+TIPO_PREGUNTA_OCIO = "ocio"           # `hechos["pregunta"]["tipo"]`: la pregunta con la tabla de precios (sin `estado`:
+                                      # no es una duda pendiente; la contestan iba_solo, con_personas o nadie_me_debe)
+
+
+def hechos_ocio(ocio: Any) -> dict[str, Any]:
+    """`hechos["ocio"]` desde `Momento.datos["ocio"]` (motor y juicio de la IA ya validados en `motor/ocio.py`): los
+    textos saneados (el nombre del sitio es un dato), importes como texto, fuentes solo `https`. Vacío si no hay."""
+    if not isinstance(ocio, dict) or not isinstance(ocio.get("combinaciones"), list):
+        return {}
+    combinaciones = []
+    for c in ocio["combinaciones"][:6]:
+        importe = a_decimal(c.get("importe")) if isinstance(c, dict) else None
+        if importe is None or not isinstance(c.get("personas"), int) or isinstance(c.get("personas"), bool):
+            continue
+        combinaciones.append({"id": sanear_motivo(c.get("id"), 4), "personas": c["personas"],
+                              "importe": eur_texto(importe), "descripcion": sanear_motivo(c.get("descripcion"), 160),
+                              "corta": sanear_motivo(c.get("corta"), 80)})
+    if not combinaciones:
+        return {}
+    salida: dict[str, Any] = {"combinaciones": combinaciones,
+                              "pregunta": sanear_motivo(ocio.get("pregunta"), MAX_PREGUNTA_OCIO),
+                              "fuentes": [u for u in (ocio.get("fuentes") or []) if isinstance(u, str)
+                                          and u.startswith("https://") and len(u) <= 300][:6]}
+    for clave in ("dia", "tarifa", "consultado", "juicio"):
+        if isinstance(ocio.get(clave), str):
+            salida[clave] = sanear_motivo(ocio[clave], 40)
+    if ocio.get("elegida") in {c["id"] for c in combinaciones}:
+        p = ocio.get("p_acompanado")
+        if isinstance(p, (int, float)) and not isinstance(p, bool) and 0 <= p <= 1:
+            salida.update(elegida=ocio["elegida"], p_acompanado=round(float(p), 3),
+                          motivo=sanear_motivo(ocio.get("motivo"), 160))
+    en_juego = a_decimal(ocio.get("en_juego"))
+    if en_juego is not None and en_juego > 0:
+        salida["en_juego"] = eur_texto(en_juego)
+    return salida
+
+
 def crear_desde_momento(momento: Momento, hoy: date | None = None, ahora: datetime | None = None,
                         pregunta: DecisionPregunta | None = None) -> Caso:
     """Abre el caso de un `Momento` de `gasto_compartido`. Los deudores son los candidatos del momento, con la
@@ -198,6 +236,11 @@ def crear_desde_momento(momento: Momento, hoy: date | None = None, ahora: dateti
     motivo_personas = sanear_motivo(datos.get("motivo_personas"), MAX_MOTIVO) if datos.get("motivo_personas") else ""
     if motivo_personas:
         hechos["motivo_personas"] = motivo_personas
+    ocio = hechos_ocio(datos.get("ocio"))     # ocio con tabla de precios (11 nov): combinaciones, juicio y fuentes
+    if ocio:
+        hechos["ocio"] = ocio
+        if ocio.get("pregunta"):              # el Resumen de la app enseña este texto (`CasoResumen.pregunta.texto`)
+            hechos["pregunta"] = {"texto": ocio["pregunta"], "tipo": TIPO_PREGUNTA_OCIO}
 
     origen_pago = datos.get("movimiento_origen") or datos.get("pago_id")
     if isinstance(origen_pago, str):
@@ -595,6 +638,9 @@ def texto_pregunta(caso: Caso, nombres: dict[str, str] | None = None) -> str:
     sitio = _nombre_comercio(caso.hechos.get("comercio"))
     cabeza = f"{_eur_corto(total)} en {sitio}" if total is not None else f"Tu pago en {sitio}"
     sug = caso.sugerencia
+    ocio = caso.hechos.get("ocio") if isinstance(caso.hechos.get("ocio"), dict) else {}
+    if (sug is None or not sug.personas) and ocio.get("pregunta"):
+        return ocio["pregunta"]      # tabla de precios: «...: parecen 2 entradas, aunque puede ser... ¿Fuiste con...?»
     if sug is None or not sug.personas:
         n = caso.hechos.get("personas_estimadas")       # K1 d: por el precio por persona del sitio
         pista = f" (unas {n} personas)" if isinstance(n, int) and not isinstance(n, bool) and n >= 2 else ""
@@ -615,6 +661,11 @@ def propuesta_pregunta(caso: Caso, ahora: datetime, nombres: dict[str, str] | No
     texto = texto_pregunta(caso, nombres)
     sug = caso.sugerencia
     en_juego = sum((v for v in (sug.cuotas.values() if sug else [])), Decimal("0")) or None
+    ocio = caso.hechos.get("ocio") if isinstance(caso.hechos.get("ocio"), dict) else {}
+    confianza = sug.confianza if sug else 0.0
+    if sug is None and ocio.get("elegida"):      # tabla de precios: lo que te deberían y la p de la IA (validada)
+        en_juego = a_decimal(ocio.get("en_juego"))
+        confianza = float(ocio.get("p_acompanado") or 0.0)
     sitio = _nombre_comercio(caso.hechos.get("comercio"))
     return Propuesta(
         id=f"prop-preg-{caso.id}", modulo_id=MODULO_DEUDAS, momento_id=caso.momento_id or caso.id,
@@ -628,7 +679,7 @@ def propuesta_pregunta(caso: Caso, ahora: datetime, nombres: dict[str, str] | No
         valor_estimado_eur=en_juego, urgencia="media", tipo_momento="gasto_compartido",
         comercio=caso.hechos.get("comercio") if isinstance(caso.hechos.get("comercio"), str) else None,
         contraparte=sug.personas[0] if sug and sug.personas else None,
-        confianza=max(min(sug.confianza if sug else 0.0, 1.0), 0.0), creada=ahora)
+        confianza=max(min(confianza, 1.0), 0.0), creada=ahora)
 
 
 def pregunta_sin_respuesta(caso: Caso, hoy: date) -> bool:

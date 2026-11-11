@@ -1,0 +1,88 @@
+{
+  "KINEPOLIS CIUDAD DE LA IMAGEN": {
+    "consultado": "2026-11-11",
+    "es_suscripcion": false,
+    "fuentes": [
+      "https://www.taquilla.com/madrid/kinepolis-madrid-ciudad-de-la-imagen",
+      "https://www.timeout.es/madrid/es/cine/kinepolis",
+      "https://carnejovenmadrid.com/kinepolis",
+      "https://www.ubereats.com/es/store/kinepolis-pozuelo-kinepolis-pozuelo/ZE3pcpLNW3uyzRMn0EyI4A"
+    ],
+    "nombre": "KINEPOLIS CIUDAD DE LA IMAGEN",
+    "origen": "web",
+    "precio_persona": "10.90",
+    "tabla_precios": {
+      "entradas": [
+        {
+          "descripcion": "Tarifa normal adulto, lunes a jueves no",
+          "dias": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "importe": "10.60",
+          "tipo_dia": "laborable"
+        },
+        {
+          "descripcion": "Tarifa normal adulto, viernes a domingo",
+          "dias": [
+            4,
+            5,
+            6
+          ],
+          "importe": "10.90",
+          "tipo_dia": "fin_de_semana"
+        },
+        {
+          "descripcion": "Día del espectador, miércoles no festivos (dato orientativo",
+          "dias": [
+            2
+          ],
+          "importe": "7.20",
+          "tipo_dia": "espectador"
+        }
+      ],
+      "extras": [
+        {
+          "clase": "palomitas",
+          "descripcion": "Palomitas saladas pequeñas",
+          "importe": "5.45"
+        },
+        {
+          "clase": "palomitas",
+          "descripcion": "Palomitas saladas medianas",
+          "importe": "6.55"
+        },
+        {
+          "clase": "palomitas",
+          "descripcion": "Palomitas saladas XXL",
+          "importe": "8.65"
+        }
+      ],
+      "suplementos": [
+        {
+          "clase": "otro",
+          "descripcion": "Suplemento 3D",
+          "importe": "1.50"
+        }
+      ]
+    },
+    "tipo": "cine"
+  },
+  "_analisis_ocio": {
+    "a14c7c6f2194294709da6f9e": {
+      "combinacion": "c1",
+      "consultado": "2026-11-11",
+      "coste_usd": 0.000139,
+      "descripcion": "2 entradas de sábado (10,90 € cada una)",
+      "modelo": "haiku",
+      "motivo": "Dos entradas de fin de semana suelen indicar que la compra fue para dos personas, lo habitual en un cine el sábado.",
+      "p_acompanado": 0.8
+    }
+  },
+  "_meta": {
+    "KINEPOLIS CIUDAD DE LA IMAGEN": "11/11/2026: 5 consultas reales con Haiku y web_search (0,072 USD): entradas por día de la semana (taquilla.com, Time Out, Carné Joven), suplemento 3D y palomitas del propio cine (Uber Eats, tienda «Kinepolis Pozuelo», con el recargo de la plataforma). Revisado a mano: se quitaron los precios de otros Kinépolis (Alcobendas, Mataró, Valencia) que trajo la consulta de la marca.",
+    "descripcion": "Caché web VERSIONADA: resultados reales de la búsqueda web (solo con el nombre del comercio) y del juicio de la IA, guardados una vez para que la demo funcione sin red ni gasto (BUSQUEDA_WEB=off y OCIO_IA=off). La escriben `python -m backend.motor.ocio buscar|juzgar --versionar`."
+  }
+}

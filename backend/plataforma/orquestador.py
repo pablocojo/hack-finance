@@ -26,6 +26,7 @@ from typing import Any, Iterator
 from .. import acciones, casos, config, modulos, motor, personalizacion
 from ..acciones import banco_sim as _banco_sim   # directo: los tests sustituyen `acciones` por un stub
 from ..motor import dudas as _dudas              # directo: los tests sustituyen `motor` por un stub
+from ..motor import ocio as _ocio                # ocio con tabla de precios (11 nov), directo por lo mismo
 from . import almacenamiento as alm
 from ..modulos.plantillas import CABECERA_DATOS, sanear_dato
 from ..personalizacion import amigos as _contactos   # directo: los tests sustituyen `personalizacion` por un stub
@@ -332,12 +333,15 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         for momento in motor.procesar(uid, nuevos, hoy, perfil, **args_motor):
             if momento.id in vistos:
                 continue
+            momento = _ocio.anotar_momento(momento)   # ocio con tabla de precios: juicio de la IA (caché u OCIO_IA=on)
+            if isinstance(momento.datos.get("ocio"), dict) and momento.datos["ocio"].get("juicio") == "ia":
+                _auditar(uid, "ocio_ia", momento_id=momento.id, coste_usd=momento.datos["ocio"].get("coste_usd", 0))
             vistos.add(momento.id)
             momentos.append(momento)
             momentos_dia.append(momento)
             if momento.tipo == "gasto_compartido":   # abre un caso; el portero de casos decide el aviso
                 if casos.abre_caso(lista_casos, momento):   # ni repetido ni un pago_individual sobre un cargo con caso
-                    pregunta = _pregunta_de(momento, modelo)
+                    pregunta = _ocio.decidir_pregunta(momento, _pregunta_de(momento, modelo))   # tabla: nivel 3
                     nuevo_caso = casos.crear_desde_momento(momento, hoy, ahora, pregunta).model_copy(update={"origen": "motor"})
                     nuevo_caso = casos.aplicar_recurrente(nuevo_caso, momento, hoy, ahora)   # serie -> fijo
                     nuevo_caso = _plazos_amigos(nuevo_caso, modelo, hoy, ahora)
@@ -736,6 +740,8 @@ def _buscar_comercios(uid: str) -> None:
             conocimiento.info_comercio(comercio)
         for comercio in motor.tipos_pendientes(uid)[:MAX_PENDIENTES_WEB]:   # tipo de comercio (pago individual)
             conocimiento.tipo_comercio(comercio)
+        for comercio in getattr(motor, "precios_pendientes", lambda _: [])(uid)[:MAX_PENDIENTES_WEB]:
+            _ocio.buscar_tabla(comercio)        # tabla de precios de ocio: a la web solo va el nombre
     except Exception as error:  # la búsqueda nunca rompe el día
         _auditar(uid, "busqueda_web_fallida", error=type(error).__name__)
 
