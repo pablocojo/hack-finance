@@ -28,7 +28,7 @@ from ..enriquecer import centimos
 from ..formato import eur, nombre_persona
 from ..parametros import GastoCompartido
 from ..reparto import Reparto, es_pago, repartos
-from . import registrar
+from . import grupo_habitual, registrar
 from .base import Contexto, Hallazgo
 
 _PLAN = re.compile(r"\b(CENA|COMIDA|PIZZAS?|BIRRAS?|CUMPLE DE|REGALO PARA)\b")
@@ -64,10 +64,32 @@ def grupo_del_perfil(perfil: PerfilUsuario | None, pagadores: set[str]):
     return max(posibles, key=lambda t: (t[0], t[1]), default=(0, 0, None))[2]
 
 
+def _aprendidos(ctx: Contexto, pago: MovimientoEnriquecido | None, pagadores: set[str],
+                personas: int | None) -> tuple[list[tuple[str, float]], bool, tuple[str, dict[str, float]] | None]:
+    """Del grupo habitual aprendido del sitio (`grupos`, A3b), si alguno de los que ya pagaron es de él: los miembros
+    que faltan (de quien más va a quien menos), si el grupo encaja con las personas del reparto y `(ámbito, grupo)`."""
+    aprendido = grupo_habitual.grupo_de(ctx, pago) if pago is not None and ctx.grupos else None
+    if aprendido is None or not pagadores & set(aprendido[1]):
+        return [], False, None
+    miembros = aprendido[1]
+    faltan = [(c, miembros[c]) for c in grupo_habitual.ordenados(miembros) if c not in pagadores]
+    return faltan, personas is not None and len(miembros) == personas - 1, aprendido
+
+
 def _candidatos(ctx: Contexto, pagadores: set[str], personas: int | None,
-                p: GastoCompartido) -> tuple[list[tuple[str, int]], bool]:
+                p: GastoCompartido, pago: MovimientoEnriquecido | None = None,
+                faltan: int | None = None) -> tuple[list[tuple[str, int]], bool]:
     """`([(contraparte, peso)], fuertes)`: los miembros del grupo del perfil que faltan (por `veces`) o, sin
-    perfil, los de las líneas base propias. `fuertes`: encaja el grupo con las personas o hay >= 3 coincidencias."""
+    perfil, los de las líneas base propias. `fuertes`: encaja el grupo con las personas o hay >= 3 coincidencias.
+    Con el grupo habitual aprendido del sitio (`grupos`), sus miembros que faltan van primero; si bastan para
+    `faltan`, son los únicos (aprendidos, no adivinados)."""
+    aprendidos, encaja, _ = _aprendidos(ctx, pago, pagadores, personas)
+    if aprendidos:
+        if faltan is not None and len(aprendidos) >= faltan:
+            return aprendidos, encaja
+        resto, _ = _candidatos(ctx, pagadores, personas, p)
+        vistos = {c for c, _ in aprendidos}
+        return aprendidos + [(c, n) for c, n in resto if c not in vistos], encaja
     grupo = grupo_del_perfil(ctx.perfil, pagadores)
     if grupo is not None:
         faltan = [(m, grupo.veces) for m in sorted(set(grupo.miembros) - pagadores)]
@@ -150,7 +172,7 @@ def _hallazgo_cuota_comun(ctx: Contexto, reparto: Reparto, p: GastoCompartido,
     pago = reparto.pago
     reembolsos = reparto.reembolsos
     pagadores = {r.contraparte_normalizada for r in reembolsos}
-    todos, fuertes = _candidatos(ctx, pagadores, reparto.personas, p)
+    todos, fuertes = _candidatos(ctx, pagadores, reparto.personas, p, pago, reparto.faltan)
     elegidos = todos[: reparto.faltan * 2]
     posibles = {c for c, _ in todos}
     extras = [e for e in reparto.extras if e.contraparte_normalizada in posibles]
@@ -172,6 +194,10 @@ def _hallazgo_cuota_comun(ctx: Contexto, reparto: Reparto, p: GastoCompartido,
         "candidatos": [{"contraparte": c, "importe": cuota} for c, _ in elegidos],
         "cuota": cuota,
     }
+    aprendidos, _, grupo = _aprendidos(ctx, pago, pagadores, reparto.personas)
+    if aprendidos and grupo and {c for c, _ in elegidos} <= {c for c, _ in aprendidos}:   # candidatos aprendidos
+        datos["ambito_aprendido"] = grupo[0]
+        datos["motivo_grupo"] = grupo_habitual.motivo(grupo[1], sorted(pagadores & set(grupo[1])))
     confianza = _confianza(reparto, fuertes, p)
     if todos_repartos is not None and _es_recurrente(ctx, reparto, pagadores | {c for c, _ in elegidos[: reparto.faltan]},
                                                      todos_repartos, p):
@@ -202,7 +228,7 @@ def _hallazgo_desigual(ctx: Contexto, reparto: Reparto, p: GastoCompartido,
     cubierto = sum((r.importe for r in recibidos), Decimal("0"))
     if len(pagadores & conocidos) < p.MIN_CONOCIDOS_DESIGUAL or cubierto >= reparto.total * p.CUBIERTO_MAX_PCT:
         return None
-    todos, _ = _candidatos(ctx, pagadores, None, p)
+    todos, _ = _candidatos(ctx, pagadores, None, p, pago)
     elegidos = [c for c, _ in todos][: max(p.PERSONAS_MAX - 1 - len(pagadores), 0)]
     if not elegidos:
         return None
@@ -238,16 +264,19 @@ def _hallazgo_desigual(ctx: Contexto, reparto: Reparto, p: GastoCompartido,
 
 @registrar("gasto_compartido", version=3)
 def detectar(ctx: Contexto) -> list[Hallazgo]:
-    from . import pago_individual      # la señal de lugar y día (`origen = pago_individual`): mismo tipo de momento
+    """Los repartos con falta, el grupo habitual aprendido (`origen = grupo_habitual`, solo con `grupos`) y la señal de
+    lugar y día (`origen = pago_individual`): el mismo tipo de momento."""
+    from . import pago_individual
 
-    return _repartos_con_falta(ctx) + pago_individual.detectar(ctx)
+    todos = repartos(ctx.historial, ctx.params["gasto_compartido"])
+    return _repartos_con_falta(ctx, todos) + grupo_habitual.detectar(ctx, todos) + pago_individual.detectar(ctx)
 
 
-def _repartos_con_falta(ctx: Contexto) -> list[Hallazgo]:
+def _repartos_con_falta(ctx: Contexto, todos: dict[str, Reparto] | None = None) -> list[Hallazgo]:
     p: GastoCompartido = ctx.params["gasto_compartido"]
     propio = ctx.lineas_base.get("retraso_reembolso_p75")
     hallazgos = []
-    todos = repartos(ctx.historial, p)
+    todos = repartos(ctx.historial, p) if todos is None else todos
     for reparto in todos.values():
         dias = (ctx.hoy - reparto.pago.fecha).days
         grupo = grupo_del_perfil(ctx.perfil, {r.contraparte_normalizada for r in [*reparto.reembolsos, *reparto.extras]})

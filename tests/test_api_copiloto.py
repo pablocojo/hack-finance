@@ -235,7 +235,7 @@ def test_perfil_ver_editar_y_borrar_un_campo(activo):
     # La auditoría dice qué se tocó, no el valor.
     eventos = [e for e in alm.leer_auditoria(UID) if e["evento"].startswith("perfil_")]
     assert [e["evento"] for e in eventos] == ["perfil_editado", "perfil_campo_borrado"]
-    assert all("valor" not in e and "35" not in json.dumps(e) for e in eventos)
+    assert all("valor" not in e and "35" not in json.dumps({k: v for k, v in e.items() if k != "ts"}) for e in eventos)
 
 
 def test_borrar_el_perfil_deja_motor_y_politica_en_frio_y_se_puede_reactivar(activo, monkeypatch):

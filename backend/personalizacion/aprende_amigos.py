@@ -743,3 +743,40 @@ def editar_persona(apr: AprendizajeAmigos, contraparte: str, campo: str, valor: 
         h.fijado_por_usuario.append(marca)
     nuevo.personas[contraparte] = h
     return nuevo
+
+
+# --- El grupo habitual para el motor (A3b) ------------------------------------------------------------------------
+# Al final del archivo a propósito: las constantes se añaden a `PARAMETROS` sin tocar su bloque (el bucle de ajuste
+# lo edita en otra copia).
+
+PARAMETROS.update({
+    "frecuencia_min_grupo_motor": 0.5,   # va al menos la mitad de las veces que alguien te debe en ese sitio...
+    "min_veces_grupo_motor": 1.5,        # ...y se le ha visto ~2 veces recientes (pseudo-cuentas con decaimiento)
+})
+
+
+def grupos_para_motor(apr: AprendizajeAmigos) -> dict[str, dict[str, float]] | None:
+    """`{"c:<COMERCIO>" | "t:<tipo>|<franja>": {contraparte: frecuencia}}`: con quién sueles ir a cada sitio, para que
+    el motor sepa a quién falta cuando parte del grupo ya te ha pagado. La frecuencia de una persona es la fracción de
+    las veces con deuda del ámbito (con decaimiento, solo grupos con miembros) en que iba; solo entran quienes llegan a
+    `frecuencia_min_grupo_motor` y `min_veces_grupo_motor`. Mismas claves de ámbito que `compania_para_motor`. None con
+    `modo = "reglas"` o si no hay ninguno (el motor se comporta exactamente como antes)."""
+    if apr.modo == "reglas":
+        return None
+    P = PARAMETROS
+    salida: dict[str, dict[str, float]] = {}
+    for prefijo, ambitos in (("c:", apr.por_comercio), ("t:", apr.por_tipo_franja)):
+        for clave, a in ambitos.items():
+            con_miembros = [g for g in a.grupos if g.miembros]
+            total = sum(veces_con_deuda(g) for g in con_miembros)
+            if total <= 0:
+                continue
+            veces: dict[str, float] = {}
+            for g in con_miembros:
+                for m in g.miembros:
+                    veces[m] = veces.get(m, 0.0) + veces_con_deuda(g)
+            miembros = {m: round(v / total, 3) for m, v in sorted(veces.items())
+                        if v >= P["min_veces_grupo_motor"] and v / total >= P["frecuencia_min_grupo_motor"]}
+            if miembros:
+                salida[f"{prefijo}{clave}"] = miembros
+    return salida or None

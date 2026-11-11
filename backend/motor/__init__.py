@@ -34,6 +34,25 @@ def _comprobar_pasado(movimientos: list[Movimiento], hoy: date) -> None:
         raise ValueError(f"Movimientos con fecha posterior a hoy ({hoy.isoformat()}): {futuros[:5]}")
 
 
+def _grupos_validos(grupos: object) -> dict[str, dict[str, float]] | None:
+    """Copia saneada de `grupos`: ámbitos de texto -> {contraparte de texto: frecuencia en [0, 1]}. Lo que no lo sea
+    (bool, texto, NaN, fuera de rango) se ignora; sin nada válido, None (el motor de siempre)."""
+    if not isinstance(grupos, dict):
+        return None
+    salida: dict[str, dict[str, float]] = {}
+    for ambito, miembros in grupos.items():
+        if not isinstance(ambito, str) or not isinstance(miembros, dict):
+            continue
+        validos = {}
+        for clave, valor in miembros.items():
+            if isinstance(clave, str) and clave.strip() and not isinstance(valor, bool) and isinstance(valor, (int, float)) \
+                    and 0.0 <= float(valor) <= 1.0:
+                validos[clave] = float(valor)
+        if validos:
+            salida[ambito] = validos
+    return salida or None
+
+
 def _estado(usuario_id: str) -> EstadoMotor:
     if usuario_id not in _ESTADOS:
         _ESTADOS[usuario_id] = EstadoMotor(usuario_id=usuario_id)
@@ -46,11 +65,15 @@ def procesar(
     hoy: date,
     perfil: PerfilUsuario | None = None,
     compania: dict[str, float] | None = None,
+    grupos: dict[str, dict[str, float]] | None = None,
 ) -> list[Momento]:
     """Detecta los momentos nuevos de `hoy`. Error si algún movimiento tiene fecha > hoy.
     Idempotente: reprocesar el mismo día no repite momentos ni duplica movimientos.
     `compania` ("c:<COMERCIO>" o "t:<tipo>|<franja>" -> p de ir acompañado) lo aprendido del usuario, calculado fuera
-    del motor: `pago_individual` abre con `senal = "aprendida"` donde p es alta. Con None (o vacío), lo de siempre."""
+    del motor: `pago_individual` abre con `senal = "aprendida"` donde p es alta. Con None (o vacío), lo de siempre.
+    `grupos` (mismos ámbitos -> {contraparte: frecuencia con que va}): el grupo habitual aprendido. Con él, «falta
+    alguien de tu grupo habitual» es un `gasto_compartido` (`detectores/grupo_habitual.py`) y sus miembros son los
+    candidatos de los repartos de ese sitio. Con None (o vacío), lo de siempre."""
     _comprobar_pasado(nuevos, hoy)
     with _CANDADO:
         estado = _estado(usuario_id)
@@ -70,6 +93,7 @@ def procesar(
             conocimiento=conocimiento.info_en_cache,
             pruebas=tuple(dict(p) for p in estado.pruebas),
             compania=dict(compania) if compania else None,
+            grupos=_grupos_validos(grupos),
         )
         hallazgos = [h for detector in REGISTRO.values() for h in detector.detectar(ctx)]
         estado.tipos_pendientes = tipos_por_buscar(ctx) if config.ajustes().busqueda_web else []

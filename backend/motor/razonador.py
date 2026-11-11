@@ -20,6 +20,8 @@ from typing import Any, Callable
 from ..plataforma.tipos import Momento, PerfilUsuario
 from . import detectores
 from .detectores.base import Hallazgo
+from .detectores.grupo_habitual import ORIGEN as ORIGEN_GRUPO
+from .detectores.grupo_habitual import frase_explicacion as _explicar_grupo_habitual
 from .detectores.pago_individual import TIPOS_CON_ENTRADA
 from .formato import decimal, eur  # noqa: F401  (`eur` es API pública del razonador)
 from .parametros import Razonador
@@ -70,6 +72,8 @@ def _explicar_pago_individual(d: dict) -> str:
 def _explicar_gasto_compartido(d: dict) -> str:
     if d.get("origen") == "pago_individual":
         return _explicar_pago_individual(d)
+    if d.get("origen") == ORIGEN_GRUPO:                       # falta alguien del grupo habitual aprendido (A3b)
+        return _explicar_grupo_habitual(d)
     reembolsos = d.get("reembolsos", [])
     devuelto = sum((_decimal(r["importe"]) for r in reembolsos), Decimal("0"))
     n, faltan = len(reembolsos), int(d["faltan"])

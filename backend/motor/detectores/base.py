@@ -26,6 +26,9 @@ class Contexto:
     # Lo aprendido del usuario (curva de amigos): "c:<COMERCIO>" o "t:<tipo>|<franja>" -> p(acompañado). Lo calcula
     # la personalización fuera del motor; None = las reglas fijas de siempre.
     compania: dict[str, float] | None = None
+    # El grupo habitual aprendido (A3b), mismos ámbitos que `compania` -> {contraparte: frecuencia con que va}. Lo
+    # calcula la personalización fuera del motor; None = las reglas fijas de siempre.
+    grupos: dict[str, dict[str, float]] | None = None
 
 
 @dataclass

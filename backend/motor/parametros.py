@@ -65,6 +65,10 @@ class GastoCompartido:
     PERSONAS_MAX_FIJO: int = 6          # un alquiler se reparte entre pocos: un Bizum de 31 € no es 1/12 de 380 €
     MIN_OCURRENCIAS_RECURRENTE: int = 3  # con el de ahora: >= 3 ciclos seguidos del mismo comercio...
     DIAS_ENTRE_CICLOS: tuple[int, int] = (25, 37)   # ...a ≈ un mes uno de otro
+    # Grupo habitual aprendido (`grupos` en `procesar`, curva de amigos A3b; `detectores/grupo_habitual.py`)
+    IMPORTE_MIN_APRENDIDA: Decimal = Decimal("10")  # con grupo aprendido, el pago mínimo baja (el perfil no lo sube)
+    MIN_MIEMBROS_GRUPO: int = 2         # con 1 solo amigo, si paga no falta nadie: hacen falta >= 2
+    FRECUENCIA_MIN_GRUPO: float = 0.5   # solo cuenta quien va al menos la mitad de las veces (ya filtrado fuera)
 
 
 @dataclass(frozen=True)

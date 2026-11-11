@@ -326,6 +326,9 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         momentos_dia: list[Momento] = []
         compania = _compania(modelo)   # curva de amigos: dónde sueles ir acompañado (None con `reglas` o sin datos)
         args_motor = {"compania": compania} if compania is not None else {}   # con None, la llamada es idéntica a la de antes
+        grupos = _grupos(modelo)       # A3b: con quién sueles ir a cada sitio (None con `reglas` o sin datos)
+        if grupos is not None:
+            args_motor["grupos"] = grupos
         for momento in motor.procesar(uid, nuevos, hoy, perfil, **args_motor):
             if momento.id in vistos:
                 continue
@@ -440,6 +443,16 @@ def _compania(modelo: ModeloUsuario | None) -> dict[str, float] | None:
         return None
     try:
         return _aprende.compania_para_motor(apr)
+    except Exception:   # noqa: BLE001  (sin lo aprendido, el motor de siempre)
+        return None
+
+
+def _grupos(modelo: ModeloUsuario | None) -> dict[str, dict[str, float]] | None:
+    apr = _aprendizaje(modelo)
+    if apr is None:
+        return None
+    try:
+        return _aprende.grupos_para_motor(apr)
     except Exception:   # noqa: BLE001  (sin lo aprendido, el motor de siempre)
         return None
 
