@@ -116,6 +116,14 @@ def test_sin_el_usuario_el_total_se_reparte_entre_los_demas_sin_pasar_del_pago()
     assert set(r.values()) == {Decimal("33.33")} and sum(r.values()) <= Decimal("100.00")
 
 
+@pytest.mark.parametrize("raro", ["1e40", "123456789"])   # infinito y NaN ya los rechaza el tipo
+def test_un_importe_absurdo_es_un_error_legible_no_un_500(raro):
+    m = mov("m", date(2026, 11, 9), "-48.00", "LA TASCA")
+    e = ApuntarGastoEntrada(pista="x", personas=[PersonaGasto(nombre="A", importe=Decimal(raro))])
+    with pytest.raises(ValueError):
+        cuotas_de(m, e, ["A"])
+
+
 def test_importes_dichos_y_resto_a_partes_iguales():
     m = mov("m", date(2026, 11, 9), "-60.00", "LA TASCA")
     e = ApuntarGastoEntrada(pista="x", personas=[PersonaGasto(nombre="A", importe=Decimal("20")), PersonaGasto(nombre="B")])

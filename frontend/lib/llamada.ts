@@ -107,6 +107,7 @@ const CAMPOS_HERRAMIENTAS: Record<
     numero: ["importe_total"],
     booleano: ["incluye_usuario", "efectivo", "confirmar_personas_nuevas"],
     nombres: ["personas"],
+    limites: { pista: 60 },
   },
   recordar_sobre_mi: {
     texto: ["tipo", "texto", "persona", "pista"],

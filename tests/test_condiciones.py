@@ -28,6 +28,16 @@ def test_comparaciones_y_decimales():
     assert ev("momento.datos.subida_eur * 2 + 1 == 25")
 
 
+def test_los_modulos_no_ven_lo_que_el_usuario_cuenta_de_sus_amigos_en_el_chat():
+    from backend.plataforma.tipos import HechoAprendido
+    modelo = ModeloUsuario(usuario_id="lucia", hechos_aprendidos=[
+        HechoAprendido(id="h1", texto="Pilar suele pagarte en efectivo", origen="chat", creado=date(2026, 11, 9)),
+        HechoAprendido(id="h2", texto="No te aviso de cafés", origen="feedback", creado=date(2026, 11, 9)),
+    ])
+    hechos = c.contexto(momento(), modelo)["modelo"]["hechos_aprendidos"]
+    assert [h["id"] for h in hechos] == ["h2"]
+
+
 def test_importes_como_cadena_se_comparan_como_numero():
     assert ev("momento.datos.subida_eur >= 8", momento(subida_eur="12.00"))
 

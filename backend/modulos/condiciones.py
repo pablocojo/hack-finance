@@ -320,6 +320,9 @@ def contexto(momento, modelo) -> dict:
     if modelo is not None:
         d = modelo.model_dump(mode="python")
         mod = {k: d.get(k) for k in cm.RUTAS_MODELO}
+        # Lo que el usuario cuenta de sus amigos en el chat solo sirve para sus recordatorios (curva-amigos §2.1):
+        # nunca para las condiciones de los módulos del banco.
+        mod["hechos_aprendidos"] = [h for h in (mod.get("hechos_aprendidos") or []) if h.get("origen") != "chat"]
         perfil = d.get("perfil")
         mod["perfil"] = None if perfil is None else {k: perfil.get(k) for k in cm.RUTAS_PERFIL}
     return {"momento": m, "modelo": mod}

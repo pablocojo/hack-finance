@@ -162,7 +162,10 @@ def cuotas_de(movimiento: Movimiento, entrada: ApuntarGastoEntrada, claves: list
     dichos: dict[str, Decimal] = {}
     for clave, persona in zip(claves, entrada.personas):
         if persona.importe is not None:
-            dichos[clave] = Decimal(persona.importe).quantize(CENT, rounding=ROUND_HALF_UP)
+            try:  # revisor 11 nov: «1e40» o infinito no deben acabar en un 500
+                dichos[clave] = Decimal(persona.importe).quantize(CENT, rounding=ROUND_HALF_UP)
+            except ArithmeticError:
+                raise ValueError("Ese importe no es válido: cada parte va de 0,50 € a 1.000 €.") from None
     libres = [c for c in claves if c not in dichos]
     partes = len(libres) + (1 if entrada.incluye_usuario else 0)
     cuotas = dict(dichos)
