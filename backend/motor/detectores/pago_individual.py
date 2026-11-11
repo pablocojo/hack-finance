@@ -19,7 +19,9 @@ Reglas (todas con parámetros con nombre en `parametros.PagoIndividual`, ajustad
    -> `debil`; entre semana solo cuenta un pago de >= `MULT_ENTRE_SEMANA` x el umbral y es `debil`.
 4. Cuándo: el primer `hoy` con `hoy - pago >= DIAS_ESPERA` (el mismo plazo que `gasto_compartido`, para dar tiempo
    a los Bizums) y mientras `hoy - pago <= VENTANA_REEMBOLSO`, y solo si NINGÚN Bizum o transferencia recibidos en la
-   ventana pudo ser la parte de alguien (si lo hay, es el `gasto_compartido` normal o una duda suya).
+   ventana pudo ser la parte de alguien (si lo hay, es el `gasto_compartido` normal o una duda suya). No cuenta un
+   Bizum que ya es la cuota de OTRO pago con un reparto válido (`reparto.repartos`: >= 2 cuotas que cuadran con su
+   total): las pizzas del domingo de Rodrigo e Irene no callan la pregunta por el cine del sábado (demo-pablo, 11 nov).
 Confianza baja y fija (0,50): nunca llega al 0,7 del módulo, así que no avisa por sí solo.
 
 Lo aprendido (curva de amigos, A3; `compania` en `procesar` y en `Contexto`, calculado fuera del motor):
@@ -238,8 +240,15 @@ def _hay_bizum_que_encaja(m: MovimientoEnriquecido, entrantes: list[MovimientoEn
                for r in entrantes)
 
 
-def detectar(ctx: Contexto) -> list[Hallazgo]:
-    """No está registrado: lo llama `gasto_compartido.detectar` (mismo tipo de momento, `origen = pago_individual`)."""
+def cuotas_de_otros(todos: dict | None, pago_id: str) -> set[str]:
+    """Ids de los Bizums que ya son la cuota de OTRO pago con un reparto válido (regla 4): no son la parte de nadie
+    en este. Sin `todos` (los repartos del historial), ninguno."""
+    return {r.id for pid, rep in (todos or {}).items() if pid != pago_id and rep.valido for r in rep.reembolsos}
+
+
+def detectar(ctx: Contexto, todos: dict | None = None) -> list[Hallazgo]:
+    """No está registrado: lo llama `gasto_compartido.detectar` (mismo tipo de momento, `origen = pago_individual`)
+    con `todos`, los repartos del historial (`reparto.repartos`), para no contar las cuotas de otros pagos."""
     from .gasto_compartido import dias_espera
 
     p: PagoIndividual = ctx.params["pago_individual"]
@@ -253,7 +262,8 @@ def detectar(ctx: Contexto) -> list[Hallazgo]:
     entrantes = [r for r in ctx.historial if es_reembolso_entrante(r) and r.fecha >= desde]
     hallazgos = []
     for m in candidatos:
-        if _hay_bizum_que_encaja(m, entrantes, g):
+        ajenas = cuotas_de_otros(todos, m.id)
+        if _hay_bizum_que_encaja(m, [r for r in entrantes if r.id not in ajenas], g):
             continue
         importe = -m.importe
         tipo, _ = tipo_del_pago(m)

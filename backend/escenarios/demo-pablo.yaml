@@ -1,0 +1,132 @@
+# demo-pablo (11 nov, encargo de Pablo): la demo sencilla de /app, día a día, con los gastos entre amigos.
+# Datos sintéticos: Pablo es estudiante universitario en Madrid; los alias de Bizum de sus amigos son inventados.
+# Historial previo (21/9 -> 1/11, 6 semanas, para que `perfilar` tenga >= 28 días): súper, cafetería de la facultad,
+# copistería, farmacia, la recarga del abono joven, Spotify, la paga de su madre, dos sábados de pizzas en Mamma Rosa
+# con Rodrigo, Irene y Nacho (le devolvieron los tres por Bizum) y unas hamburguesas con Sergio (también le devolvió).
+# Activación: domingo 1/11. Demo: del lunes 2/11 al domingo 15/11, con solo DOS notificaciones de Meisam:
+#   vie  6/11  cena en Taberna El Búho, 34,60 € (con Sergio, que no le manda nada). Un viernes es señal débil: el
+#              domingo 8/11 se abre un caso en SILENCIO (`pago_individual`, aviso `silencioso`). Pablo lo apunta él
+#              (chat: «la cena del viernes en El Búho la pagué yo, era con Sergio», o el botón del movimiento).
+#   sáb  7/11  Kinepolis Ciudad de la Imagen, 32,70 € = 3 entradas de sábado (10,90 €) o 2 entradas con dos palomitas
+#              pequeñas (precios reales de la caché versionada). Nadie le manda nada.
+#   -> lun 9/11  CINE: pregunta de un toque «32,70 € en Kinepolis...: parecen 3 entradas. ¿Fuiste con alguien?»
+#              (juicio de la IA, p = 0,8, grabado en la caché versionada): NOTIFICACIÓN.
+#   dom  8/11  pizzas en Pizzeria Mamma Rosa, 52,00 € para cuatro; Rodrigo e Irene le mandan 13 € esa noche.
+#   -> mar 10/11 PIZZAS: falta Nacho G (13 €), el de siempre en Mamma Rosa: NOTIFICACIÓN con «Pedir Bizum».
+#              Las dos notificaciones van en días seguidos: así la segunda no cae al Resumen si la primera se ignora
+#              (48 h sin respuesta cuentan como molestia).
+#   Con `amigos_pagan_tras_solicitud_dias: 1`, si Pablo pide el Bizum con el botón el 10/11, el 11/11 entra el Bizum de
+#   Nacho por ese importe (lo crea el código, no la IA) y el caso queda «Saldado» por el cierre de siempre.
+#   El resto (cafetería, súper, farmacia, copistería, Spotify, ropa) no avisa nada.
+# Las fechas salen de la espera propia: los amigos de Pablo devuelven en 0-2 días (p75 = 1 -> espera de 2 días).
+# Los Bizums de las pizzas caen en la ventana del cine, pero son las cuotas de OTRO pago con un reparto válido: no
+# callan la pregunta del cine (regla 4 de `pago_individual`, 11 nov).
+id: demo-pablo
+usuario_id: pablo
+descripcion: "Pablo (estudiante en Madrid): el cine de Kinepolis y las pizzas sin el Bizum de Nacho; la cena del viernes la apunta él"
+activacion: 2026-11-01
+hasta: 2026-11-15
+perfil: calcular
+amigos_pagan_tras_solicitud_dias: 1      # solo para la demo: el amigo paga al día siguiente de pedirle el Bizum
+contactos:     # la agenda inventada de Pablo (teléfonos falsos y enmascarados); la lee el orquestador
+  - {contraparte: "RODRIGO P", nombre: "Rodrigo P.", telefono: "+34 6** *** 214", relacion: amigo}
+  - {contraparte: "IRENE C", nombre: "Irene C.", telefono: "+34 6** *** 328", relacion: amigo}
+  - {contraparte: "NACHO G", nombre: "Nacho G.", telefono: "+34 6** *** 436", relacion: amigo}
+  - {contraparte: "SERGIO M", nombre: "Sergio M.", telefono: "+34 6** *** 551", relacion: amigo}
+  - {contraparte: "MARTA S", nombre: "Marta S.", telefono: "+34 6** *** 667", relacion: amigo}
+  - {contraparte: "CARMEN G", nombre: "Mamá", telefono: "+34 6** *** 773", relacion: familia}
+movimientos:
+  # --- Historial previo (antes de activar) -------------------------------------------------------------------------
+  - {id: pab-h01, fecha: 2026-09-21, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h02, fecha: 2026-09-22, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -24.60, canal: tarjeta, categoria: supermercado}
+  - {id: pab-h03, fecha: 2026-09-23, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h04, fecha: 2026-09-24, concepto: "COMPRA TARJETA COPISTERIA CAMPUS", comercio: "COPISTERIA CAMPUS", importe: -3.20, canal: tarjeta, categoria: compras}
+  - {id: pab-h05, fecha: 2026-09-25, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -1.80, canal: tarjeta, categoria: restaurantes}
+  # Pizzas 1 (sábado): pagan los tres
+  - {id: pab-h06, fecha: 2026-09-26, concepto: "COMPRA TARJETA PIZZERIA MAMMA ROSA MADRID", comercio: "PIZZERIA MAMMA ROSA", importe: -48.00, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h07, fecha: 2026-09-26, concepto: "BIZUM RECIBIDO", contraparte: "RODRIGO P", nota: "pizzas", importe: 12.00, canal: bizum}
+  - {id: pab-h08, fecha: 2026-09-27, concepto: "BIZUM RECIBIDO", contraparte: "IRENE C", nota: "🍕", importe: 12.00, canal: bizum}
+  - {id: pab-h09, fecha: 2026-09-27, concepto: "BIZUM RECIBIDO", contraparte: "NACHO G", importe: 12.00, canal: bizum}
+  - {id: pab-h10, fecha: 2026-09-29, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -19.85, canal: tarjeta, categoria: supermercado}
+  - {id: pab-h11, fecha: 2026-09-29, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h12, fecha: 2026-10-01, concepto: "TRANSFERENCIA RECIBIDA PAGA OCTUBRE", contraparte: "Carmen Gomez Ruiz", importe: 200.00, canal: transferencia, categoria: ingresos}
+  - {id: pab-h13, fecha: 2026-10-01, concepto: "COMPRA TARJETA RECARGA ABONO JOVEN METRO DE MADRID", comercio: "METRO DE MADRID", importe: -20.00, canal: tarjeta, categoria: transporte}
+  - {id: pab-h14, fecha: 2026-10-02, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h15, fecha: 2026-10-04, concepto: "COMPRA TARJETA SPOTIFY", comercio: "SPOTIFY", importe: -5.99, canal: tarjeta, categoria: suscripciones}
+  - {id: pab-h16, fecha: 2026-10-06, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -22.10, canal: tarjeta, categoria: supermercado}
+  - {id: pab-h17, fecha: 2026-10-07, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h18, fecha: 2026-10-07, concepto: "COMPRA TARJETA FARMACIA LAVAPIES", comercio: "FARMACIA LAVAPIES", importe: -4.95, canal: tarjeta, categoria: salud}
+  - {id: pab-h19, fecha: 2026-10-08, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -1.80, canal: tarjeta, categoria: restaurantes}
+  # Hamburguesas con Sergio (sábado): le devuelve su parte esa noche
+  - {id: pab-h20, fecha: 2026-10-10, concepto: "COMPRA TARJETA BURGER LA ESQUINA", comercio: "BURGER LA ESQUINA", importe: -25.80, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h21, fecha: 2026-10-10, concepto: "BIZUM RECIBIDO", contraparte: "SERGIO M", nota: "burger", importe: 12.90, canal: bizum}
+  - {id: pab-h22, fecha: 2026-10-13, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -18.40, canal: tarjeta, categoria: supermercado}
+  - {id: pab-h23, fecha: 2026-10-13, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h24, fecha: 2026-10-15, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h25, fecha: 2026-10-15, concepto: "COMPRA TARJETA COPISTERIA CAMPUS", comercio: "COPISTERIA CAMPUS", importe: -5.60, canal: tarjeta, categoria: compras}
+  # Pizzas 2 (sábado): pagan los tres
+  - {id: pab-h26, fecha: 2026-10-17, concepto: "COMPRA TARJETA PIZZERIA MAMMA ROSA MADRID", comercio: "PIZZERIA MAMMA ROSA", importe: -50.00, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h27, fecha: 2026-10-17, concepto: "BIZUM RECIBIDO", contraparte: "RODRIGO P", nota: "pizzas sabado", importe: 12.50, canal: bizum}
+  - {id: pab-h28, fecha: 2026-10-18, concepto: "BIZUM RECIBIDO", contraparte: "IRENE C", importe: 12.50, canal: bizum}
+  - {id: pab-h29, fecha: 2026-10-19, concepto: "BIZUM RECIBIDO", contraparte: "NACHO G", nota: "pizza", importe: 12.50, canal: bizum}
+  - {id: pab-h30, fecha: 2026-10-20, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -21.75, canal: tarjeta, categoria: supermercado}
+  - {id: pab-h31, fecha: 2026-10-20, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h32, fecha: 2026-10-22, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h33, fecha: 2026-10-23, concepto: "COMPRA TARJETA PRIMARK GRAN VIA", comercio: "PRIMARK", importe: -17.99, canal: tarjeta, categoria: compras}
+  - {id: pab-h34, fecha: 2026-10-27, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -23.30, canal: tarjeta, categoria: supermercado}
+  - {id: pab-h35, fecha: 2026-10-27, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h36, fecha: 2026-10-29, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -1.80, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h37, fecha: 2026-10-29, concepto: "COMPRA TARJETA FARMACIA LAVAPIES", comercio: "FARMACIA LAVAPIES", importe: -6.20, canal: tarjeta, categoria: salud}
+  - {id: pab-h38, fecha: 2026-10-30, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-h39, fecha: 2026-11-01, concepto: "TRANSFERENCIA RECIBIDA PAGA NOVIEMBRE", contraparte: "Carmen Gomez Ruiz", importe: 200.00, canal: transferencia, categoria: ingresos}
+  - {id: pab-h40, fecha: 2026-11-01, concepto: "COMPRA TARJETA RECARGA ABONO JOVEN METRO DE MADRID", comercio: "METRO DE MADRID", importe: -20.00, canal: tarjeta, categoria: transporte}
+  # --- Las dos semanas de la demo ----------------------------------------------------------------------------------
+  - {id: pab-d01, fecha: 2026-11-02, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-d02, fecha: 2026-11-03, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -20.45, canal: tarjeta, categoria: supermercado}
+  - {id: pab-d03, fecha: 2026-11-03, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -1.80, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-d04, fecha: 2026-11-04, concepto: "COMPRA TARJETA SPOTIFY", comercio: "SPOTIFY", importe: -5.99, canal: tarjeta, categoria: suscripciones}
+  - {id: pab-d05, fecha: 2026-11-04, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-d06, fecha: 2026-11-04, concepto: "COMPRA TARJETA FARMACIA LAVAPIES", comercio: "FARMACIA LAVAPIES", importe: -7.85, canal: tarjeta, categoria: salud}
+  - {id: pab-d07, fecha: 2026-11-05, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-d08, fecha: 2026-11-05, concepto: "COMPRA TARJETA COPISTERIA CAMPUS", comercio: "COPISTERIA CAMPUS", importe: -4.10, canal: tarjeta, categoria: compras}
+  # Caso 3: la cena del viernes con Sergio (Pablo paga los dos platos; Sergio no le manda nada). Meisam no avisa.
+  - {id: pab-d09, fecha: 2026-11-06, concepto: "COMPRA TARJETA TABERNA EL BUHO MADRID", comercio: "TABERNA EL BUHO", importe: -34.60, canal: tarjeta, categoria: restaurantes}
+  # Caso 1: el cine del sábado (3 entradas de fin de semana a 10,90 €). Nadie le manda nada.
+  - {id: pab-d10, fecha: 2026-11-07, concepto: "COMPRA TARJETA KINEPOLIS MADRID CIUDAD DE LA IMAGEN", comercio: "KINEPOLIS CIUDAD DE LA IMAGEN", importe: -32.70, canal: tarjeta, categoria: ocio}
+  # Caso 2: las pizzas del domingo para cuatro (13 € cada uno). Rodrigo e Irene pagan esa noche; Nacho no.
+  - {id: pab-d11, fecha: 2026-11-08, concepto: "COMPRA TARJETA PIZZERIA MAMMA ROSA MADRID", comercio: "PIZZERIA MAMMA ROSA", importe: -52.00, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-d12, fecha: 2026-11-08, concepto: "BIZUM RECIBIDO", contraparte: "RODRIGO P", nota: "pizzas 🍕", importe: 13.00, canal: bizum}
+  - {id: pab-d13, fecha: 2026-11-08, concepto: "BIZUM RECIBIDO", contraparte: "IRENE C", nota: "pizza domingo", importe: 13.00, canal: bizum}
+  # Segunda semana: lo de siempre (nada de esto avisa)
+  - {id: pab-d14, fecha: 2026-11-09, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-d15, fecha: 2026-11-10, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -17.90, canal: tarjeta, categoria: supermercado}
+  - {id: pab-d16, fecha: 2026-11-10, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-d17, fecha: 2026-11-11, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -1.80, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-d18, fecha: 2026-11-11, concepto: "COMPRA TARJETA FARMACIA LAVAPIES", comercio: "FARMACIA LAVAPIES", importe: -5.40, canal: tarjeta, categoria: salud}
+  - {id: pab-d19, fecha: 2026-11-12, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-d20, fecha: 2026-11-12, concepto: "COMPRA TARJETA COPISTERIA CAMPUS", comercio: "COPISTERIA CAMPUS", importe: -6.30, canal: tarjeta, categoria: compras}
+  - {id: pab-d21, fecha: 2026-11-13, concepto: "COMPRA TARJETA CAFETERIA LA FACULTAD", comercio: "CAFETERIA LA FACULTAD", importe: -2.40, canal: tarjeta, categoria: restaurantes}
+  - {id: pab-d22, fecha: 2026-11-14, concepto: "COMPRA TARJETA PRIMARK GRAN VIA", comercio: "PRIMARK", importe: -19.99, canal: tarjeta, categoria: compras}
+  - {id: pab-d23, fecha: 2026-11-15, concepto: "COMPRA TARJETA MERCADONA MADRID", comercio: "MERCADONA", importe: -14.65, canal: tarjeta, categoria: supermercado}
+eventos: []
+esperado:
+  # La cena del viernes: se abre en silencio (señal débil), sin notificación
+  - {tipo: pago_individual, fecha_detectable: 2026-11-08, ids: [pab-d09], tolerancia_dias: 0,
+     datos: {origen: pago_individual, senal: debil, tipo_comercio: restaurante, pago_id: pab-d09,
+             comercio: "TABERNA EL BUHO", importe_total: "34.60"}}
+  # El cine: pregunta (sin afirmar) el lunes 9/11, tras los 2 días de espera por si llega un Bizum
+  - {tipo: pago_individual, fecha_detectable: 2026-11-09, ids: [pab-d10], tolerancia_dias: 0,
+     datos: {origen: pago_individual, senal: media, tipo_comercio: cine, pago_id: pab-d10,
+             comercio: "KINEPOLIS CIUDAD DE LA IMAGEN", importe_total: "32.70"}}
+  # Las pizzas: falta Nacho
+  - {tipo: gasto_compartido, fecha_detectable: 2026-11-10, ids: [pab-d11], tolerancia_dias: 0,
+     datos: {pago_id: pab-d11, importe_total: "52.00", personas_estimadas: 4, faltan: 1, importe_pendiente: "13.00", cuota: "13.00"},
+     candidatos: ["NACHO G"]}
+trampas:
+  - {tipo: posible_estafa, ids: [pab-d12, pab-d13], motivo: "Bizums de amigos"}
+  - {tipo: gasto_compartido, ids: [pab-d09, pab-d10], motivo: "nadie ha enviado nada: no hay deuda calculada"}
+  - {tipo: pago_individual, ids: [pab-d11, pab-d12, pab-d13], motivo: "las pizzas llevan Bizums: es el gasto_compartido de siempre"}
+  - {tipo: pago_individual, ids: [pab-d01, pab-d02, pab-d05, pab-d07, pab-d14, pab-d15, pab-d19, pab-d22, pab-d23],
+     motivo: "cafetería, súper y ropa: pagos de uno"}
+  - {tipo: cargo_duplicado, ids: [pab-d05, pab-d07, pab-d14, pab-d16, pab-d19, pab-d21], motivo: "el café de cada día"}
+  - {tipo: subida_recibo, ids: [pab-d04], motivo: "Spotify cobra lo mismo"}

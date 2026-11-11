@@ -19,6 +19,9 @@ Formato del YAML:
 - `contactos` (opcional): la agenda inventada del usuario, `[{contraparte: "MARCOS R", nombre: "Marcos R.",
   telefono: "+34 6** *** 123", relacion?}]` (`Escenario.contactos`, `Contacto` del contrato). La lee el orquestador al
   cargar el escenario; el motor no la usa.
+- `amigos_pagan_tras_solicitud_dias` (opcional, solo demos; por defecto apagado): si el usuario pide un Bizum con el
+  botón, N días después entra el Bizum de ese amigo por ese importe y la solicitud pasa a `aceptada` (lo guarda el
+  orquestador en el estado del usuario; `banco_sim.pagos_de_solicitudes`). El motor no lo usa.
 - Un `tipo` de etiqueta o trampa puede ser `pago_individual`: es un momento `gasto_compartido` con
   `datos.origen = pago_individual`, que se mide aparte (siempre `dudoso`). Ver `tipo_medido`.
 """
@@ -57,6 +60,7 @@ class Escenario:
     trampas: list[dict] = field(default_factory=list)
     fondo: dict | None = None
     contactos: list[Contacto] = field(default_factory=list)
+    amigos_pagan_tras_solicitud_dias: int | None = None    # solo demos: el amigo paga N días después de pedírselo
     crudo: dict = field(default_factory=dict, repr=False)
 
     def previos(self) -> list[Movimiento]:
@@ -90,6 +94,15 @@ def _fondo(fondo: dict) -> list[Movimiento]:
     return [_movimiento(m) for m in crudos]
 
 
+def _dias_pago_amigos(valor: Any) -> int | None:
+    if valor is None:
+        return None
+    if isinstance(valor, bool) or not isinstance(valor, int) or not 1 <= valor <= 6:
+        raise ValueError(f"amigos_pagan_tras_solicitud_dias debe ser un entero de 1 a 6 (la solicitud caduca a los 7 "
+                         f"días): {valor!r}")
+    return valor
+
+
 def desde_dict(datos: dict) -> Escenario:
     fondo = datos.get("fondo")
     movimientos = (_fondo(fondo) if fondo else []) + [_movimiento(m) for m in datos.get("movimientos") or []]
@@ -113,6 +126,7 @@ def desde_dict(datos: dict) -> Escenario:
         trampas=list(datos.get("trampas") or []),
         fondo=fondo,
         contactos=[Contacto.model_validate(c) for c in datos.get("contactos") or []],
+        amigos_pagan_tras_solicitud_dias=_dias_pago_amigos(datos.get("amigos_pagan_tras_solicitud_dias")),
         crudo=dict(datos),
     )
 

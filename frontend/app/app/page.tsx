@@ -14,8 +14,8 @@ import type { EstadoUsuario, EventoReloj, Notificacion } from "@/lib/api";
 import { eur } from "@/lib/formato";
 import { CLAVE_USUARIO } from "@/lib/sesion";
 
-// La demo completa: cena de La Tasca, Streamflix, duplicado de la librería, luz y el cine de Kinepolis.
-const ESCENARIO = "demo-lucia";
+// Demo de Pablo (2/11-15/11): el cine de Kinepolis y las pizzas notifican; la cena del viernes la apunta él.
+const ESCENARIO = "demo-pablo";
 
 export default function PantallaCliente() {
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
@@ -109,7 +109,7 @@ export default function PantallaCliente() {
       <header className="banco-cab">
         <div>
           <p className="banco-nombre">Banco Aurora</p>
-          <p className="banco-saludo">{usuarioId ? "Hola, Lucía" : "Tu app del banco"}</p>
+          <p className="banco-saludo">{usuarioId ? `Hola, ${usuarioId.charAt(0).toUpperCase()}${usuarioId.slice(1)}` : "Tu app del banco"}</p>
         </div>
         <div className="banco-acciones">
           <Campana />

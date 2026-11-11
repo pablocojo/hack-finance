@@ -71,6 +71,15 @@
     "tipo": "cine"
   },
   "_analisis_ocio": {
+    "4589f26439a6415dfb302f15": {
+      "combinacion": "c1",
+      "consultado": "2026-11-11",
+      "coste_usd": 0.000136,
+      "descripcion": "3 entradas de sábado (10,90 € cada una)",
+      "modelo": "haiku",
+      "motivo": "Tres entradas de fin de semana suman el importe y un sábado es habitual ir acompañado al cine.",
+      "p_acompanado": 0.8
+    },
     "a14c7c6f2194294709da6f9e": {
       "combinacion": "c1",
       "consultado": "2026-11-11",

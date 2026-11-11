@@ -58,6 +58,9 @@ from .tipos import (
 HORAS_IGNORADA = 48
 MAX_PENDIENTES_WEB = 20
 DIAS_PERFIL = 7
+# Demos (opción del escenario, en el estado del usuario; apagada por defecto): el amigo paga N días después de que el
+# usuario le pida el Bizum con el botón. El simulador de amigos no la usa: ya simula sus propios pagos.
+OPCION_PAGO_AMIGOS = "amigos_pagan_tras_solicitud_dias"
 
 _motor_cargado: set[str] = set()
 
@@ -187,8 +190,9 @@ def cargar_escenario(escenario_id: str) -> dict:
                    for m in _campo(escenario, "movimientos", [])]
     if not uid or activacion is None:
         raise ValueError(f"El escenario {escenario_id!r} no tiene usuario_id o activacion.")
+    opciones = {OPCION_PAGO_AMIGOS: _campo(escenario, OPCION_PAGO_AMIGOS, None)}
     return _cargar_usuario(uid, activacion, movimientos, _contactos.agenda_de_escenario(_campo(escenario, "contactos", None)),
-                           None, escenario_id)
+                           None, escenario_id, opciones)
 
 
 def cargar_simulacion(usuario_id: str, movimientos: list[Movimiento], activacion: date,
@@ -202,7 +206,7 @@ def cargar_simulacion(usuario_id: str, movimientos: list[Movimiento], activacion
 
 
 def _cargar_usuario(uid: str, activacion: date, movimientos: list[Movimiento], contactos: dict[str, Contacto] | None,
-                    modelo: ModeloUsuario | None, escenario_id: str) -> dict:
+                    modelo: ModeloUsuario | None, escenario_id: str, opciones: dict | None = None) -> dict:
     with alm.candado(uid):
         alm.borrar_usuario(uid)
         motor.reiniciar(uid)
@@ -211,8 +215,10 @@ def _cargar_usuario(uid: str, activacion: date, movimientos: list[Movimiento], c
         alm.guardar(uid, "movimientos", [m for m in movimientos if m.fecha <= activacion])
         alm.guardar(uid, "pendientes", [m for m in movimientos if m.fecha > activacion])
         alm.guardar(uid, "reloj", {"hoy": activacion.isoformat()})  # lo lee acciones.banco_sim.fecha_simulada
-        alm.guardar(uid, "estado", {"hoy": activacion.isoformat(), "activado": False, "activacion": activacion.isoformat(),
-                                    "ultimo_perfil": None, "escenario_id": escenario_id})
+        estado = {"hoy": activacion.isoformat(), "activado": False, "activacion": activacion.isoformat(),
+                  "ultimo_perfil": None, "escenario_id": escenario_id}
+        estado.update({k: v for k, v in (opciones or {}).items() if v is not None})   # p. ej. OPCION_PAGO_AMIGOS
+        alm.guardar(uid, "estado", estado)
         modelo_nuevo = (modelo.model_copy(update={"usuario_id": uid}) if modelo is not None
                         else personalizacion.nuevo_modelo(uid))
         if contactos:   # agenda inventada del escenario o de la simulación
@@ -301,6 +307,8 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         pendientes = _leer(uid, "pendientes", [])
         nuevos = [m for m in pendientes if m.fecha <= hoy]
         pendientes = [m for m in pendientes if m.fecha > hoy]
+        pagos_amigos = _pagos_tras_solicitud(uid, estado, hoy, historial + nuevos)   # demos: el amigo acepta la solicitud
+        nuevos = nuevos + pagos_amigos
         historial = historial + nuevos
 
         # 1. perfilar cada 7 días
@@ -410,9 +418,22 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
         alm.guardar(uid, "estado", estado)
         alm.guardar(uid, "reloj", {"hoy": hoy.isoformat()})
         _guardar_motor(uid)
+        if pagos_amigos:   # su Bizum ya está en el historial: la solicitud pasa a `aceptada`
+            _banco_sim.aceptar_pagadas(uid, [m.id for m in pagos_amigos], hoy)
         return {"hoy": hoy, "movimientos": nuevos, "saldo": _saldo(historial), "perfil": modelo.perfil if perfil_recalculado else None,
                 "perfil_recalculado": perfil_recalculado, "items": items, "momentos": momentos_dia,
                 "contadores": _contadores(uid)}
+
+
+def _pagos_tras_solicitud(uid: str, estado: dict, hoy: date, conocidos: list[Movimiento]) -> list[Movimiento]:
+    """Demos (`OPCION_PAGO_AMIGOS = N` en el estado): el Bizum del amigo al que el usuario pidió con el botón hace N días,
+    por el importe de la solicitud y con fecha de hoy (`banco_sim.pagos_de_solicitudes`; lo crea el código, nunca la IA).
+    Lo cierra el cierre por Bizum de siempre. Sin la opción, nada."""
+    dias = estado.get(OPCION_PAGO_AMIGOS)
+    if isinstance(dias, bool) or not isinstance(dias, int) or dias < 1:
+        return []
+    ids = {m.id for m in conocidos}
+    return [Movimiento.model_validate(d) for d in _banco_sim.pagos_de_solicitudes(uid, hoy, dias) if d["id"] not in ids]
 
 
 def _actualizar_casos(uid: str, lista: list[Caso], nuevos: list[Movimiento], hoy: date, ahora: datetime,

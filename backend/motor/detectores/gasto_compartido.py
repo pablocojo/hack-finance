@@ -269,7 +269,8 @@ def detectar(ctx: Contexto) -> list[Hallazgo]:
     from . import pago_individual
 
     todos = repartos(ctx.historial, ctx.params["gasto_compartido"])
-    return _repartos_con_falta(ctx, todos) + grupo_habitual.detectar(ctx, todos) + pago_individual.detectar(ctx)
+    return (_repartos_con_falta(ctx, todos) + grupo_habitual.detectar(ctx, todos)
+            + pago_individual.detectar(ctx, todos))
 
 
 def _repartos_con_falta(ctx: Contexto, todos: dict[str, Reparto] | None = None) -> list[Hallazgo]:
