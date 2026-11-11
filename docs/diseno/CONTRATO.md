@@ -356,7 +356,10 @@ def nivel_pregunta(apr: AprendizajeAmigos, *, comercio: str | None, tipo_comerci
                    importe: Decimal, senal: str | None, umbral: Decimal) -> DecisionPregunta: ...
 
 # backend/motor (H2, ingeniero-deteccion). Solo añade un argumento opcional; con None, idéntico.
-def procesar(usuario_id, nuevos, hoy, perfil=None, compania: dict[str, float] | None = None) -> list[Momento]: ...
+def procesar(usuario_id, nuevos, hoy, perfil=None, compania: dict[str, float] | None = None,
+             grupos: dict[str, dict[str, float]] | None = None) -> list[Momento]: ...
+#   grupos (A3b, 11 nov): mismo ámbito que compania -> {contraparte: frecuencia con que va} del grupo habitual
+#   aprendido (`aprende_amigos.grupos_para_motor`). Con él, «falta alguien de tu grupo habitual» es un momento del motor.
 #   compania: "c:<COMERCIO>" o "t:<tipo>|<franja>" -> p(acompañado), solo ámbitos con n suficiente.
 #   K1 (c, d): pago_individual estudia todo el ocio (PagoIndividual.TIPOS_ELEGIBLES) y, con InfoComercio.precio_persona,
 #   estima personas en local: Momento.datos += personas_estimadas, precio_persona, motivo_personas (1 persona = silencio).
