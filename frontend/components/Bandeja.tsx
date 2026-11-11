@@ -11,6 +11,7 @@ import InsigniaIA from "./InsigniaIA";
 import PorQue from "./PorQue";
 import PreguntaConAlguien from "./PreguntaConAlguien";
 import ResumenSemanal from "./ResumenSemanal";
+import SelectorPedir from "./SelectorPedir";
 import TarjetaAccion from "./TarjetaAccion";
 
 type Pestana = "ahora" | "resumen";
@@ -98,21 +99,6 @@ export default function Bandeja({ usuarioId, ahora, resumen, hoy = null, alResol
   type Ofrecida = Notificacion["propuesta"]["acciones_ofrecidas"][number];
   const [elegidas, setElegidas] = useState<Record<string, Ofrecida>>({});
   const pedidosDe = (n: Notificacion) => n.propuesta.acciones_ofrecidas.filter((a) => a.accion_id === "pedir_bizum");
-  const BotonesPedir = ({ notificacion }: { notificacion: Notificacion }) => (
-    <div className="aviso-botones">
-      {pedidosDe(notificacion).map((a) => (
-        <button
-          key={String(a.parametros.contraparte)}
-          type="button"
-          className="boton-secundario grande"
-          disabled={preparando === notificacion.propuesta.id}
-          onClick={() => accesoRapido(notificacion, a)}
-        >
-          Pedir {eur(String(a.parametros.importe ?? ""))} a {nombreVisible(String(a.parametros.contraparte ?? ""))}
-        </button>
-      ))}
-    </div>
-  );
 
   async function accesoRapido({ propuesta }: Notificacion, elegida?: Ofrecida) {
     const accion = elegida ?? propuesta.acciones_ofrecidas[0];
@@ -179,9 +165,9 @@ export default function Bandeja({ usuarioId, ahora, resumen, hoy = null, alResol
             return (
               <article key={propuesta.id} className="aviso-tarjeta aviso-cerrado">
                 <p className="aviso-resuelto">
-                  {estado === "resuelta" ? "✓ Resuelto" : "Descartado"}
+                  {estado === "resuelta" ? "✓ Hecho" : "Descartado"}
                   <span className="pequeno tenue">
-                    {estado === "resuelta" ? " · caso cerrado, lo tienes en Mis cuentas" : " · no hace falta hacer nada"}
+                    {estado === "resuelta" ? " · lo sigues en Mis cuentas" : " · no hace falta hacer nada"}
                   </span>
                 </p>
                 <h3>{textoVisible(propuesta.titulo)}</h3>
@@ -208,36 +194,38 @@ export default function Bandeja({ usuarioId, ahora, resumen, hoy = null, alResol
               {decision.motivos[0] && <p className="aviso-motivo">Por qué te aviso: {textoVisible(decision.motivos[0])}</p>}
               <PorQue usuarioId={usuarioId} propuestaId={propuesta.id} />
               {estado !== "nueva" && <p className="pequeno tenue">Estado: {estado}</p>}
-              {tarjeta ? (
+              {pedidosDe(notificacion).length > 1 ? (
                 <>
-                  <TarjetaAccion
-                    tarjeta={tarjeta}
-                    usuarioId={usuarioId}
-                    parametrosBase={(elegidas[propuesta.id] ?? primera)?.parametros}
-                    alResultado={() => alResolver?.()}
-                    alAhoraNo={() => setTarjetas((ts) => sin(ts, propuesta.id))}
-                    alCambiarTarjeta={(t) => setTarjetas((ts) => ({ ...ts, [propuesta.id]: t }))}
-                  />
-                  {pedidosDe(notificacion).length > 1 && <BotonesPedir notificacion={notificacion} />}
+                  <SelectorPedir usuarioId={usuarioId} notificacion={notificacion} alHecho={() => alResolver?.()} />
+                  <div className="aviso-botones">
+                    <Link href={`/app/llamada/${encodeURIComponent(propuesta.id)}`} className="enlace-boton grande">
+                      Resolver hablando
+                    </Link>
+                  </div>
                 </>
+              ) : tarjeta ? (
+                <TarjetaAccion
+                  tarjeta={tarjeta}
+                  usuarioId={usuarioId}
+                  parametrosBase={(elegidas[propuesta.id] ?? primera)?.parametros}
+                  alResultado={() => alResolver?.()}
+                  alAhoraNo={() => setTarjetas((ts) => sin(ts, propuesta.id))}
+                  alCambiarTarjeta={(t) => setTarjetas((ts) => ({ ...ts, [propuesta.id]: t }))}
+                />
               ) : (
                 <div className="aviso-botones">
                   <Link href={`/app/llamada/${encodeURIComponent(propuesta.id)}`} className="enlace-boton grande">
                     Resolver
                   </Link>
-                  {pedidosDe(notificacion).length > 1 ? (
-                    <BotonesPedir notificacion={notificacion} />
-                  ) : (
-                    primera && (
-                      <button
-                        type="button"
-                        className="boton-secundario grande"
-                        disabled={preparando === propuesta.id}
-                        onClick={() => accesoRapido(notificacion)}
-                      >
-                        Hacerlo ya
-                      </button>
-                    )
+                  {primera && (
+                    <button
+                      type="button"
+                      className="boton-secundario grande"
+                      disabled={preparando === propuesta.id}
+                      onClick={() => accesoRapido(notificacion)}
+                    >
+                      Hacerlo ya
+                    </button>
                   )}
                 </div>
               )}
