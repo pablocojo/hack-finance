@@ -7,6 +7,7 @@ Hecho: `nuevo_modelo`, `decidir` (política `beta-jerarquica-v2`, en politica.py
 Todas puras: no guardan nada; guarda el orquestador.
 `observar` (amigos.py, O7): contactos del día y saldo con cada amigo calculado desde los `Caso`.
 Pendiente: crear amigos en `registrar_decision` (ya no hace falta: salen de los casos).
+Curva de amigos (11 nov): `aprende_amigos` (lo que aprende de cada usuario y persona) y `escalera` (cómo preguntar).
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from ..plataforma.tipos import (
     Propuesta,
     ResultadoAccion,
 )
-from . import edicion  # noqa: F401
+from . import aprende_amigos, edicion, escalera  # noqa: F401  (curva de amigos: lo aprendido y la escalera)
 from .amigos import observar as _observar
 from .amigos import saldo_amigos as _saldo_amigos
 from .aprendizaje import abrir_aviso
