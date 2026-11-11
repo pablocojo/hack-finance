@@ -309,6 +309,14 @@ def test_frases_neutras_por_persona_y_por_sitio():
         assert not any(p in texto.lower() for p in PALABRAS_DE_JUICIO), texto
 
 
+def test_no_dice_no_te_pregunto_si_la_escalera_aun_no_calla():
+    # Con 2 «iba solo» hay evidencia para la frase, no para el silencio (crítico, 11 nov): sin «no te pregunto».
+    apr = aprender(AprendizajeAmigos(), [visita(f"s{i}", False, comercio="CAFETERIA UNI", fecha=JUEVES)
+                                         for i in range(2)])
+    texto = {f.campo: f.texto for f in A.frases_amigos(apr, {})}.get("sitios:comercio:CAFETERIA UNI")
+    assert texto is None or "no te pregunto" not in texto
+
+
 def test_frase_de_sitio_donde_cada_uno_paga_lo_suyo():
     apr = aprender(AprendizajeAmigos(), [visita(f"s{i}", True, forma="cada_uno_lo_suyo") for i in range(3)])
     frases = {f.campo: f.texto for f in A.frases_amigos(apr, {})}

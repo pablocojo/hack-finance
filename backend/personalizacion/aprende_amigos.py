@@ -649,8 +649,10 @@ def _frase_sitio(clave: str, a: Acompanamiento, donde: str, contactos: dict[str,
         return None
     p = p_de(a)
     if p <= P["p_solo_max"]:
-        texto = (f"{donde} cada uno suele pagar lo suyo: no te pregunto." if sin_deuda_de(a) > a.solo else
-                 f"{donde} sueles ir solo: no te pregunto.")
+        # «no te pregunto» solo cuando la escalera calla de verdad (misma evidencia que el nivel 0; crítico 11 nov)
+        cola = ": no te pregunto." if evidencia_de(a) >= P["min_evidencia_silencio"] else "."
+        texto = (f"{donde} cada uno suele pagar lo suyo{cola}" if sin_deuda_de(a) > a.solo else
+                 f"{donde} sueles ir solo{cola}")
     elif p >= P["p_media"]:
         texto = f"{donde} sueles pagar tú por más gente"
         g = grupo_con_deuda(a)
