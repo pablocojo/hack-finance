@@ -124,7 +124,7 @@ export async function salud(): Promise<Salud> {
 export async function cargarEjemplo(perfil: string, sesionId?: string | null): Promise<DatosSesion> {
   const respuesta = await fetch(`${API_URL}/datos/ejemplo`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: cabeceras({ "Content-Type": "application/json" }),
     body: JSON.stringify({ perfil, sesion_id: sesionId ?? null }),
   });
   return leerJson<DatosSesion>(respuesta);
@@ -134,7 +134,7 @@ export async function subirCsv(archivo: File, sesionId?: string | null): Promise
   const formulario = new FormData();
   formulario.append("archivo", archivo);
   const consulta = sesionId ? `?sesion_id=${encodeURIComponent(sesionId)}` : "";
-  return leerJson<DatosSesion>(await fetch(`${API_URL}/movimientos${consulta}`, { method: "POST", body: formulario }));
+  return leerJson<DatosSesion>(await fetch(`${API_URL}/movimientos${consulta}`, { method: "POST", headers: cabeceras(), body: formulario }));
 }
 
 export async function resumen(sesionId: string, meses = 3): Promise<Resumen> {
@@ -192,7 +192,7 @@ type OpcionesPregunta = {
 export async function preguntar(opciones: OpcionesPregunta): Promise<void> {
   const respuesta = await fetch(`${API_URL}/chat/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    headers: cabeceras({ "Content-Type": "application/json", Accept: "text/event-stream" }),
     body: JSON.stringify({
       mensaje: opciones.mensaje,
       sesion_id: opciones.sesionId ?? null,
@@ -692,8 +692,13 @@ export const editarContacto = (usuarioId: string, clave: string, relacion: Relac
 export const movimientosUsuario = (usuarioId: string, limite = 60) =>
   enviar<Movimiento[]>(`${usuario(usuarioId)}/movimientos?limite=${limite}`, "GET");
 
-export const sesionVoz = (propuestaId: string, usuarioId: string, modoPreferido: "voz" | "texto_el" | "texto_kit") =>
-  enviar<SesionVoz>("/voz/sesion", "POST", { propuesta_id: propuestaId, usuario_id: usuarioId, modo_preferido: modoPreferido });
+// Sin `propuestaId` es una conversación general («Hablar con Meisam»): ligada solo al usuario y sin acciones ofrecidas.
+export const sesionVoz = (propuestaId: string | null, usuarioId: string, modoPreferido: "voz" | "texto_el" | "texto_kit") =>
+  enviar<SesionVoz>("/voz/sesion", "POST", {
+    ...(propuestaId ? { propuesta_id: propuestaId } : {}),
+    usuario_id: usuarioId,
+    modo_preferido: modoPreferido,
+  });
 export async function hablarTexto(opciones: {
   tokenSesion: string;
   mensaje?: string;
@@ -727,18 +732,24 @@ export const vozDeshacer = (tokenSesion: string, cambioId: string) =>
   enviar<{ ok: boolean; hecho?: string; error?: string }>("/voz/herramientas/deshacer", "POST", { token_sesion: tokenSesion, cambio_id: cambioId });
 // Al colgar: la transcripción va al agente post-llamada (voz y chat). El backend la enmascara y solo aplica cambios de una
 // lista cerrada al caso; nunca mueve dinero. Quien la llama debe ignorar el fallo: no bloquea el cierre de la llamada.
-export const enviarConversacion = (opciones: {
-  usuarioId: string;
-  propuestaId: string;
+// Al colgar o salir de la pantalla: `keepalive` hace que el navegador termine el envío aunque la página se cierre. Usuario y
+// propuesta salen de la sesión del servidor (`tokenSesion`), no del cuerpo. Con `keepalive` el cuerpo no puede pasar de
+// 64 KB: si la transcripción es larga se recortan los mensajes más antiguos.
+export function enviarConversacion(opciones: {
+  tokenSesion: string;
   mensajes: { rol: "meisam" | "usuario"; texto: string }[];
   canal: "voz" | "texto";
-}) =>
-  enviar<{ ok: boolean; cambios: string[] }>("/voz/conversacion", "POST", {
-    usuario_id: opciones.usuarioId,
-    propuesta_id: opciones.propuestaId,
-    mensajes: opciones.mensajes,
-    canal: opciones.canal,
-  });
+}): Promise<{ ok: boolean; cambios: string[] }> {
+  let mensajes = opciones.mensajes;
+  const cuerpo = () => JSON.stringify({ token_sesion: opciones.tokenSesion, mensajes, canal: opciones.canal });
+  while (mensajes.length > 1 && cuerpo().length > 60000) mensajes = mensajes.slice(1);
+  return fetch(`${API_URL}/voz/conversacion`, {
+    method: "POST",
+    headers: cabeceras({ "Content-Type": "application/json" }),
+    body: cuerpo(),
+    keepalive: true,
+  }).then((r) => leerJson<{ ok: boolean; cambios: string[] }>(r));
+}
 export const vozConsultar = (tokenSesion: string, pregunta: string) =>
   enviar<{ respuesta: string }>("/voz/herramientas/consultar", "POST", { token_sesion: tokenSesion, pregunta });
 

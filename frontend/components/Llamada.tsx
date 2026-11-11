@@ -27,9 +27,18 @@ const RAPIDAS: Rapida[] = [
   { texto: "No me avises de esto", feedback: "no_avisar_tipo" },
 ];
 
+// Sin aviso no hay «Ahora no» ni «No me avises»: se sugieren preguntas que las herramientas de consulta saben responder.
+const RAPIDAS_GENERAL: Rapida[] = [
+  { texto: "¿Quién me debe?", mensaje: "¿Quién me debe dinero ahora mismo?" },
+  { texto: "Lo que sabes de mí", mensaje: "¿Qué sabes de mí?" },
+];
+
 const TEXTO_CAIDA_KIT = "La voz de Meisam no está disponible ahora: seguimos por chat con el asistente de respaldo.";
 
-export default function Llamada({ propuestaId, usuarioId }: { propuestaId: string; usuarioId: string }) {
+// Con `propuestaId` es la llamada de un aviso; sin él («Hablar con Meisam») es una conversación general: se pregunta por
+// las cuentas y se piden cambios con las herramientas de consulta y de cambio, pero no hay acciones que confirmar.
+export default function Llamada({ propuestaId, usuarioId }: { propuestaId: string | null; usuarioId: string }) {
+  const general = !propuestaId;
   const [propuesta, setPropuesta] = useState<Propuesta | null>(null);
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [tarjeta, setTarjeta] = useState<TarjetaConfirmacion | null>(null);
@@ -64,6 +73,8 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
   const conFeedback = useRef(false); // ya hay un Feedback explícito (rechazo, error, silencio): no se manda vista_sin_accion
   const cierreRegistrado = useRef(false);
   const conversacionEnviada = useRef(false); // la transcripción se manda una sola vez por llamada
+  const ultimoToken = useRef<string | null>(null); // token de la última sesión del servidor: de él salen usuario y propuesta
+  const huboCambios = useRef(false); // en una conversación general, solo hay caso relacionado si el agente cambió alguno
 
   useEffect(() => {
     turnosRef.current = turnos;
@@ -105,6 +116,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
   }, [esperando]);
 
   const anotarCambio = useCallback((id: string, hecho: string, token: string) => {
+    huboCambios.current = true;
     setCambios((cs) => (cs.some((c) => c.id === id) ? cs : [...cs.slice(-2), { id, hecho: textoVisible(hecho), token, estado: "hecho" }]));
   }, []);
 
@@ -175,7 +187,9 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
   // ---- Feedback: un solo cierre por llamada ----
   const feedback = useCallback(
     (resultado: ResultadoFeedback) =>
-      enviarFeedback({ usuarioId, propuestaId, resultado, canal: canalRef.current === "voz" ? "voz" : "texto" }).catch(() => undefined),
+      !propuestaId
+        ? Promise.resolve(undefined) // sin aviso no hay nada que valorar
+        : enviarFeedback({ usuarioId, propuestaId, resultado, canal: canalRef.current === "voz" ? "voz" : "texto" }).catch(() => undefined),
     [usuarioId, propuestaId],
   );
   // Al terminar sin haber hecho nada ni dado un Feedback explícito, la propuesta queda «vista sin acción».
@@ -193,9 +207,11 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
       .map((t) => ({ rol: t.rol, texto: t.texto.trim().slice(0, 2000) }))
       .slice(-120);
     if (!mensajes.some((m) => m.rol === "usuario")) return; // el usuario no dijo nada: no hay nada que leer
+    if (general && !huboCambios.current) return; // sin aviso y sin cambios en sus casos: no hay caso relacionado
+    if (!ultimoToken.current) return; // nunca se llegó a abrir una sesión
     conversacionEnviada.current = true;
-    void enviarConversacion({ usuarioId, propuestaId, mensajes, canal: canalUsado.current === "voz" ? "voz" : "texto" }).catch(() => undefined);
-  }, [usuarioId, propuestaId]);
+    void enviarConversacion({ tokenSesion: ultimoToken.current, mensajes, canal: canalUsado.current === "voz" ? "voz" : "texto" }).catch(() => undefined);
+  }, [general]);
 
   // La llamada termina por cualquier vía (colgar, «ahora no», colgó el agente): se manda la transcripción una vez.
   useEffect(() => {
@@ -287,7 +303,8 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
           }
         },
         // El texto técnico del SDK no se enseña: puede llevar direcciones de la conexión.
-        onError: () => {
+        onError: (e: unknown) => {
+          if (process.env.NODE_ENV !== "production") console.warn("[llamada] error del SDK de ElevenLabs:", e);
           if (viva()) setError("Ha habido un problema con la conexión de la llamada.");
         },
       };
@@ -316,6 +333,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
       setConectando(true);
       try {
         const s = await sesionVoz(propuestaId, usuarioId, preferido);
+        ultimoToken.current = s.token_sesion;
         if (terminadaRef.current || !montado.current) return;
         if (s.modo === "voz" && s.token) {
           await conectarEleven(s, false);
@@ -331,6 +349,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
           await hablarKit(s.token_sesion, undefined, turnosRef.current.length > 0);
         }
       } catch (fallo) {
+        if (process.env.NODE_ENV !== "production") console.warn(`[llamada] falló el canal "${preferido}":`, fallo);
         await cerrarEleven();
         if (terminadaRef.current || !montado.current) return;
         if (preferido === "voz") {
@@ -340,6 +359,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
         } else {
           try {
             const k = await sesionVoz(propuestaId, usuarioId, "texto_kit");
+            ultimoToken.current = k.token_sesion;
             tokenKit.current = k.token_sesion;
             fijarCanal("kit");
             setNota("El chat de voz no está disponible: seguimos con el asistente de respaldo.");
@@ -371,7 +391,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
   }, []);
 
   useEffect(() => {
-    if (detalleCargado.current) return;
+    if (detalleCargado.current || !propuestaId) return;
     detalleCargado.current = true;
     detallePropuesta(usuarioId, propuestaId)
       .then((d) => setPropuesta(d.propuesta))
@@ -385,12 +405,12 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
 
   async function prefieroEscribir() {
     await cerrarEleven();
-    await abrirCanal("texto_el", "Seguimos por chat con el mismo aviso.");
+    await abrirCanal("texto_el", general ? "Seguimos por chat." : "Seguimos por chat con el mismo aviso.");
   }
 
   async function hablarPorVoz() {
     await cerrarEleven();
-    await abrirCanal("voz", "Seguimos por voz con el mismo aviso.");
+    await abrirCanal("voz", general ? "Seguimos por voz." : "Seguimos por voz con el mismo aviso.");
   }
 
   async function deshacerCambio(c: CambioHecho) {
@@ -524,7 +544,14 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
         </p>
       )}
 
-      {previa && <PreLlamada titulo={propuesta ? textoVisible(propuesta.titulo) : undefined} alContestar={contestar} alEscribir={prefieroEscribir} />}
+      {previa && (
+        <PreLlamada
+          titulo={propuesta ? textoVisible(propuesta.titulo) : undefined}
+          general={general}
+          alContestar={contestar}
+          alEscribir={prefieroEscribir}
+        />
+      )}
 
       {conectando && (
         <p className="tarjeta-accion-nota" role="status">
@@ -571,7 +598,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
       )}
       {sinSaludo && !terminada && (
         <p className="tarjeta-accion-nota" role="status">
-          Conectado. Si Meisam no te saluda, escribe «Hola» o pulsa «Sí, hazlo».
+          {general ? "Conectado. Si Meisam no te saluda, escribe «Hola»." : "Conectado. Si Meisam no te saluda, escribe «Hola» o pulsa «Sí, hazlo»."}
         </p>
       )}
 
@@ -595,7 +622,7 @@ export default function Llamada({ propuestaId, usuarioId }: { propuestaId: strin
       {activa ? (
         <div className="llamada-pie">
           <div className="rapidas" role="group" aria-label="Respuestas rápidas">
-            {RAPIDAS.map((r) => (
+            {(general ? RAPIDAS_GENERAL : RAPIDAS).map((r) => (
               <button key={r.texto} type="button" className="chip grande" disabled={conectando || hablando} onClick={() => rapida(r)}>
                 {r.texto}
               </button>

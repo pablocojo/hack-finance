@@ -6,6 +6,7 @@ import Activacion from "@/components/Activacion";
 import Bandeja from "@/components/Bandeja";
 import { useAvisos } from "@/components/AvisosProvider";
 import Campana from "@/components/Campana";
+import IconoMicro from "@/components/IconoMicro";
 import InsigniaIA from "@/components/InsigniaIA";
 import RelojDemo from "@/components/RelojDemo";
 import { activar, avanzarReloj, cargarDemo, estadoUsuario, notificaciones } from "@/lib/api";
@@ -155,6 +156,11 @@ export default function PantallaCliente() {
             resumen={resumen}
             alResolver={() => void refrescar(usuarioId).catch(() => undefined)}
           />
+
+          <Link href="/app/hablar" className="enlace-boton grande" style={{ gap: 8 }}>
+            <IconoMicro tamano={18} />
+            Hablar con Meisam
+          </Link>
 
           <nav className="atajos" aria-label="Más de Meisam">
             <Link href="/app/notificaciones" className="atajo">

@@ -20,6 +20,7 @@ import {
 import { casos as pedirCasos, contactos as pedirContactos, editarContacto, esMaqueta } from "@/lib/cuentasApi";
 import { eur, fechaLarga, nombreVisible, textoVisible } from "@/lib/formato";
 import AccionesDeudor from "./AccionesDeudor";
+import IconoMicro from "./IconoMicro";
 import PreguntaConAlguien from "./PreguntaConAlguien";
 
 const mensaje = (fallo: unknown) => (fallo instanceof Error ? fallo.message : String(fallo));
@@ -152,6 +153,10 @@ export default function MisCuentas({ usuarioId }: { usuarioId: string }) {
         )}
         <Link href="/app/movimientos" className="enlace-boton grande">
           He pagado por otra persona
+        </Link>
+        <Link href="/app/hablar" className="enlace-boton secundario grande" style={{ gap: 8, marginTop: 8 }}>
+          <IconoMicro tamano={18} />
+          Hablar con Meisam
         </Link>
       </section>
 
