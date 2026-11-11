@@ -13,13 +13,19 @@ from ..plataforma.tipos import ModeloUsuario, Propuesta, SesionVoz
 from . import contexto, elevenlabs, sesiones
 
 
-def sesion(propuesta_id: str, usuario_id: str, modo_preferido: str) -> SesionVoz:
-    """modo: voz | texto_el | texto_kit | grabado. 404 si la propuesta no es de ese usuario."""
-    detalle = orquestador.propuesta_detalle(usuario_id, propuesta_id)
-    propuesta = Propuesta.model_validate(detalle["propuesta"])
-    modelo = alm.cargar(usuario_id, "modelo", tipo=ModeloUsuario)
-    variables = contexto.variables(propuesta, modelo, usuario_id, casos.cargar(usuario_id))
+def sesion(propuesta_id: str | None, usuario_id: str, modo_preferido: str) -> SesionVoz:
+    """modo: voz | texto_el | texto_kit | grabado. 404 si la propuesta no es de ese usuario. Sin `propuesta_id`, sesión
+    general (conversación sin aviso): ligada solo al usuario, sin acciones ofrecidas, con el mismo token y TTL."""
+    if propuesta_id:
+        detalle = orquestador.propuesta_detalle(usuario_id, propuesta_id)
+        propuesta = Propuesta.model_validate(detalle["propuesta"])
+        modelo = alm.cargar(usuario_id, "modelo", tipo=ModeloUsuario)
+        variables = contexto.variables(propuesta, modelo, usuario_id, casos.cargar(usuario_id))
+    else:
+        orquestador.estado_usuario(usuario_id)       # 404 si el usuario no existe
+        modelo = alm.cargar(usuario_id, "modelo", tipo=ModeloUsuario)
+        variables = contexto.variables_generales(usuario_id, modelo)
     modo, token, url = elevenlabs.abrir(modo_preferido)
-    registro = sesiones.crear(usuario_id, propuesta_id, modo, variables)
+    registro = sesiones.crear(usuario_id, propuesta_id or "", modo, variables)
     return SesionVoz(modo=modo, token=token, signed_url=url, variables=variables,
                      token_sesion=registro.token_sesion, caduca=registro.caduca)

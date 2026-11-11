@@ -926,6 +926,15 @@ def borrar_amigo_usuario(usuario_id: str, contraparte: str) -> list[dict]:
 
 # --- Agente post-llamada: la transcripción al colgar (voz y chat) -------------------------------
 
+def _propuesta_de_hoy(caso: Caso, hoy: date) -> bool:
+    propuesta = caso.hechos.get("cambio_propuesto")
+    return isinstance(propuesta, dict) and propuesta.get("propuesto") == hoy.isoformat()
+
+
+def _sin_cambio_propuesto(caso: Caso) -> Caso:
+    return caso.model_copy(update={"hechos": {k: v for k, v in caso.hechos.items() if k != "cambio_propuesto"}})
+
+
 def registrar_conversacion(usuario_id: str, propuesta_id: str, mensajes: list[dict], canal: str = "voz") -> dict:
     """Al colgar: Haiku propone cambios de una lista cerrada (`casos/resumir.py`) y el código los valida y aplica al
     caso de esa propuesta (posponer, nota, silenciar contacto, olvidar a un deudor y resumen). Nunca mueve dinero ni
@@ -939,7 +948,12 @@ def registrar_conversacion(usuario_id: str, propuesta_id: str, mensajes: list[di
         estado = _estado(usuario_id)
         hoy = _hoy(estado)
         lista = casos.cargar(usuario_id)
-        propios = casos.de_propuesta(lista, propuesta_id)
+        caducados = [c for c in lista if "cambio_propuesto" in c.hechos and not _propuesta_de_hoy(c, hoy)]
+        if caducados:      # una propuesta de cambio vale solo el día en que se hizo: la de otro día se ignora y se borra
+            ids = {c.id for c in caducados}
+            lista = [_sin_cambio_propuesto(c) if c.id in ids else c for c in lista]
+            casos.guardar(usuario_id, lista)
+        propios = casos.de_propuesta(lista, propuesta_id) if propuesta_id else []     # sin propuesta: conversación general
         principal = next((c for c in propios if c.estado not in casos.CERRADOS), propios[0] if propios else None)
         extras = [c for c in lista if "cambio_propuesto" in c.hechos and (principal is None or c.id != principal.id)][:3]
     objetivos = ([principal] if principal else []) + extras
@@ -965,7 +979,7 @@ def registrar_conversacion(usuario_id: str, propuesta_id: str, mensajes: list[di
                 _auditar(usuario_id, "conversacion", propuesta_id=propuesta_id, acciones=[a["tipo"] for a in plan.acciones],
                          descartadas=len(plan.descartadas), resumen=bool(plan.resumen))
             if "cambio_propuesto" in actual.hechos:     # la propuesta vale solo para esta llamada
-                actual = actual.model_copy(update={"hechos": {k: v for k, v in actual.hechos.items() if k != "cambio_propuesto"}})
+                actual = _sin_cambio_propuesto(actual)
                 hecho = hecho or True
             if hecho:
                 lista = [actual if c.id == caso.id else c for c in lista]

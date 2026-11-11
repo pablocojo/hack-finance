@@ -25,7 +25,7 @@ CAMPOS_DATOS: dict[str, dict[str, bool]] = {
         "contraparte_nueva": False, "veces_lo_habitual": False,
     },
     "gasto_compartido": {
-        "pago_id": False, "comercio": False, "importe_total": False, "fecha": False, "reembolsos": False,
+        "pago_id": False, "comercio": False, "importe_total": False, "fecha": False, "reembolsos": True,
         "personas_estimadas": False, "faltan": False, "importe_pendiente": False, "candidatos": False,
         "cuota": True,
     },

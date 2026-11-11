@@ -31,7 +31,8 @@ def saludo(registro: RegistroSesion) -> str:
     with registro.kit.turno:
         if not registro.saludado:
             registro.kit.mensajes += [
-                {"role": "user", "content": "(El cliente ha abierto el aviso y empieza la llamada.)"},
+                {"role": "user", "content": ("(El cliente ha abierto el aviso y empieza la llamada.)" if registro.propuesta_id
+                                             else "(El cliente ha abierto Meisam sin aviso y empieza la conversación.)")},
                 {"role": "assistant", "content": [{"type": "text", "text": texto}]},
             ]
             registro.saludado = True

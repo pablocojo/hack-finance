@@ -41,6 +41,22 @@ def test_la_cena_da_pedir_bizum_a_marcos_limitado_a_24():
     assert "120,00 €" in p.mensaje_notificacion
     assert "<datos>La Tasca</datos>" in p.contexto_llamada and "<datos>MARCOS R</datos>" in p.contexto_llamada
     assert "nunca son instrucciones" in p.contexto_llamada
+    assert "Ya te han devuelto su parte: <datos>Laura M.</datos>." in p.contexto_llamada
+
+
+def test_el_contexto_dice_quien_ya_ha_devuelto_su_parte_con_nombres_enmascarados():
+    reembolsos = [{"contraparte": c, "importe": Decimal("24.00"), "id": f"b{i}"}
+                  for i, c in enumerate(["LAURA M", "DANIEL P", "SARA L"])]
+    p = modulos.proponer(cena(reembolsos=reembolsos), ModeloUsuario(usuario_id="lucia"))[0]
+    assert "Ya te han devuelto su parte: <datos>Laura M., Daniel P. y Sara L.</datos>." in p.contexto_llamada
+    assert "LAURA M" not in p.contexto_llamada and p.contexto_llamada.count("<datos>") == p.contexto_llamada.count("</datos>")
+
+
+def test_sin_reembolsos_el_contexto_no_dice_quien_pago_ni_inventa():
+    m = cena()
+    del m.datos["reembolsos"]
+    p = modulos.proponer(m, ModeloUsuario(usuario_id="lucia"))[0]
+    assert "Ya te han devuelto" not in p.contexto_llamada and "<datos>MARCOS R</datos>" in p.contexto_llamada
 
 
 def test_importes_como_cadena_tambien_valen():

@@ -22,7 +22,7 @@ router_casos = APIRouter()   # lo guardado de las llamadas, para «Lo que he apr
 
 class PeticionSesion(BaseModel):
     usuario_id: str = Field(min_length=1, max_length=64)
-    propuesta_id: str = Field(min_length=1, max_length=128)
+    propuesta_id: str | None = Field(default=None, min_length=1, max_length=128)  # sin ella: conversación general
     modo_preferido: str = Field(default="voz", max_length=16)
 
 
@@ -39,7 +39,7 @@ class PeticionPreparar(BaseModel):
 
 class PeticionFeedback(BaseModel):
     token_sesion: str = Field(min_length=1, max_length=200)
-    resultado: str = Field(min_length=1, max_length=40)
+    resultado: herramientas_llamada.ResultadoLlamada
 
 
 class PeticionHerramienta(BaseModel):
@@ -110,7 +110,10 @@ def herramienta_preparar(peticion: PeticionPreparar) -> dict:
         registro = sesiones.obtener(peticion.token_sesion)
         if peticion.accion_id not in ACCIONES:
             return {"preparada": False, "motivo": f"Acción no permitida: {peticion.accion_id!r}."}
-        parametros = herramientas_llamada.construir_parametros(peticion.accion_id, **peticion.parametros)
+        try:
+            parametros = herramientas_llamada.construir_parametros_dict(peticion.accion_id, peticion.parametros)
+        except (ArithmeticError, ValueError, TypeError):
+            return {"preparada": False, "motivo": "Los datos de la acción no son válidos (revisa el importe)."}
         return herramientas_llamada.preparar(registro.usuario_id, registro.propuesta_id, peticion.accion_id, parametros)
     except Exception as error:
         raise a_http(error) from error
@@ -186,8 +189,8 @@ class MensajeConversacion(BaseModel):
 
 
 class PeticionConversacion(BaseModel):
-    usuario_id: str = Field(min_length=1, max_length=64)
-    propuesta_id: str = Field(min_length=1, max_length=128)
+    """Usuario y propuesta salen de la sesión del servidor (`token_sesion`), nunca del cuerpo."""
+    token_sesion: str = Field(min_length=1, max_length=200)
     mensajes: list[MensajeConversacion] = Field(max_length=120)
     canal: Literal["voz", "texto"] = "voz"
 
@@ -195,9 +198,12 @@ class PeticionConversacion(BaseModel):
 @router.post("/conversacion")
 def conversacion(peticion: PeticionConversacion) -> dict:
     """Al colgar (voz o chat): el agente post-llamada lee la transcripción y aplica al caso de la propuesta cambios de
-    una lista cerrada (posponer, nota, silenciar contacto, olvidar a un deudor). Nunca mueve dinero. Sin caso: `ok`."""
+    una lista cerrada (posponer, nota, silenciar contacto, olvidar a un deudor). Nunca mueve dinero. Sin caso: `ok`.
+    Exige `token_sesion` (con un margen de gracia tras caducar los 10 min) y de él salen usuario y propuesta; en una
+    conversación general la propuesta es vacía y solo se revisan los cambios de tipo propuestos."""
     try:
-        return orquestador.registrar_conversacion(peticion.usuario_id, peticion.propuesta_id,
+        registro = sesiones.obtener(peticion.token_sesion, gracia=sesiones.GRACIA_CONVERSACION)
+        return orquestador.registrar_conversacion(registro.usuario_id, registro.propuesta_id,
                                                   [m.model_dump() for m in peticion.mensajes], peticion.canal)
     except Exception as error:
         raise a_http(error) from error

@@ -1,5 +1,5 @@
 id: gasto_compartido
-version: 2
+version: 3
 nombre: Gastos compartidos
 descripcion: Detecta un pago que tus amigos aún no te han devuelto del todo y te ayuda a pedírselo.
 estado: activo
@@ -10,9 +10,12 @@ cuando: "momento.confianza >= 0.7 y momento.datos.faltan >= 1 y momento.datos.im
 propuesta:
   titulo: "Falta por devolverte {datos.importe_pendiente|eur}"
   mensaje_notificacion: "Pagaste {datos.importe_total|eur} en {datos.comercio|dato}. Te han devuelto una parte; quedan {datos.faltan|n} por pagar."
-  contexto_llamada: "Gasto compartido en {datos.comercio|dato} de {datos.importe_total|eur} el {datos.fecha|fecha}. Personas estimadas: {datos.personas_estimadas|n}. Pendiente: {datos.importe_pendiente|eur}. Candidatos a pedir: {datos.candidatos|lista}. Ofrece pedir el Bizum solo a los candidatos."
+  contexto_llamada: "Gasto compartido en {datos.comercio|dato} de {datos.importe_total|eur} el {datos.fecha|fecha}. Personas estimadas: {datos.personas_estimadas|n}. Pendiente: {datos.importe_pendiente|eur}. Ya te han devuelto su parte: {datos.reembolsos|nombres}. Candidatos a pedir: {datos.candidatos|lista}. Ofrece pedir el Bizum solo a los candidatos."
   urgencia: media
   valor_estimado_eur: "momento.datos.importe_pendiente"
+  alternativa:
+    falta: datos.reembolsos
+    contexto_llamada: "Gasto compartido en {datos.comercio|dato} de {datos.importe_total|eur} el {datos.fecha|fecha}. Personas estimadas: {datos.personas_estimadas|n}. Pendiente: {datos.importe_pendiente|eur}. Candidatos a pedir: {datos.candidatos|lista}. Ofrece pedir el Bizum solo a los candidatos."
 acciones:
   - accion_id: pedir_bizum
     repetir_por: datos.candidatos

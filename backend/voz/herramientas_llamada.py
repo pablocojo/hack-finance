@@ -36,6 +36,8 @@ EscenarioCaso = Literal[ESCENARIOS_PROPUESTA]  # type: ignore[valid-type]
 ViaSaldado = Literal["efectivo", "invitacion", "otro"]
 EstadoCuentas = Literal["abiertos", "cerrados", "todos"]
 MAX_DESHACER = 20
+MOTIVO_SIN_ACCIONES = ("En esta conversación no hay acciones ofrecidas: para pedir dinero, abre el aviso de esa deuda o usa "
+                       "Mis cuentas.")
 
 
 def construir_parametros(accion_id: str, **plano) -> dict:
@@ -48,8 +50,17 @@ def construir_parametros(accion_id: str, **plano) -> dict:
     return p
 
 
+def construir_parametros_dict(accion_id: str, plano: dict) -> dict:
+    """Como `construir_parametros`, pero con un `dict` del navegador: una clave como `accion_id` no puede chocar con los
+    argumentos de la función. Un importe no numérico lanza `ArithmeticError` (`decimal.InvalidOperation`) o `ValueError`."""
+    return construir_parametros(accion_id, **{k: v for k, v in plano.items() if k != "accion_id"})
+
+
 def preparar(usuario_id: str, propuesta_id: str, accion_id: str, parametros: dict) -> dict:
-    """`{preparada, titulo, tarjeta}` o `{preparada: False, motivo}`. La tarjeta lleva el token."""
+    """`{preparada, titulo, tarjeta}` o `{preparada: False, motivo}`. La tarjeta lleva el token. Sin propuesta (conversación
+    general) no hay acciones ofrecidas: el dinero solo se mueve desde el aviso de una deuda, con botón y token."""
+    if not propuesta_id:
+        return {"preparada": False, "motivo": MOTIVO_SIN_ACCIONES}
     try:
         tarjeta = orquestador.preparar_accion(usuario_id, propuesta_id, accion_id, parametros)
     except (ErrorAccion, orquestador.Prohibido) as error:
@@ -58,6 +69,8 @@ def preparar(usuario_id: str, propuesta_id: str, accion_id: str, parametros: dic
 
 
 def registrar(usuario_id: str, propuesta_id: str, resultado: str, canal: str = "voz") -> dict:
+    if not propuesta_id:         # conversación general: no hay aviso que rechazar
+        return {"ok": True, "hechos_nuevos": [], "aviso": "No hay ningún aviso en esta conversación."}
     hoy = date.fromisoformat(orquestador.estado_usuario(usuario_id)["hoy"])
     hechos = orquestador.registrar_feedback(Feedback(
         propuesta_id=propuesta_id, usuario_id=usuario_id, resultado=resultado, canal=canal,
@@ -101,6 +114,8 @@ def registrar_feedback(resultado: ResultadoLlamada, ctx=None) -> dict:
     Args:
         resultado: rechazada, falso_positivo o no_avisar_tipo, no_avisar_comercio, no_avisar_contacto.
     """
+    if not ctx.propuesta_id:
+        return {"registrada": False, "aviso": "No hay ningún aviso en esta conversación."}
     registrar(ctx.usuario_id, ctx.propuesta_id, resultado, canal="texto")
     return {"registrada": True}
 
