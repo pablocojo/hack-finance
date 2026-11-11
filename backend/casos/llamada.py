@@ -5,6 +5,8 @@ del candado del usuario, con su auditoría). Cada acción reutiliza las reglas d
 manual, personas del caso) y deja rastro en `Caso.historial` con origen `llamada`.
 
     iba_solo                       descarta un `pago_individual` («iba solo»)
+    nadie_me_debe                  descarta un `pago_individual` en el que fue acompañado pero nadie le debe
+                                   (cada uno lo suyo, invitó él, lo paga la empresa)
     con_personas                   convierte un `pago_individual` o `pago_por_otro` en `pago_por_otro` o
                                    `gasto_compartido` con personas de la agenda
     no_me_debe                     una persona sale del reparto (o, si solo hay una, se descarta el caso)
@@ -30,7 +32,7 @@ from ..plataforma.reloj import ahora_por_defecto
 from ..plataforma.tipos import Caso, Movimiento
 from . import ciclo, transiciones
 
-ACCIONES = ("iba_solo", "con_personas", "no_me_debe", "marcar_saldado", "posponer", "responder_duda",
+ACCIONES = ("iba_solo", "nadie_me_debe", "con_personas", "no_me_debe", "marcar_saldado", "posponer", "responder_duda",
             "proponer_cambio_de_escenario")
 ESCENARIOS_PROPUESTA = ("pago_individual", "pago_por_otro", "gasto_compartido", "gasto_fijo_compartido")
 DIAS_MIN, DIAS_MAX = 1, 14
@@ -105,6 +107,15 @@ def aplicar(caso: Caso, accion: str, hoy: date, ahora: datetime | None = None, *
         nuevo = transiciones.cambiar_escenario(caso, "descartado", "dijiste en la llamada que ibas solo.", "llamada",
                                                hoy, cuando)
         return Cambio(nuevo, "Pago marcado como tuyo: ibas solo")
+
+    if accion == "nadie_me_debe":
+        _abierto(caso)
+        if caso.escenario != "pago_individual":
+            raise ValueError("Solo vale para un pago individual (una pregunta «¿fuiste con alguien?»). "
+                             "Si una persona concreta no te debe, usa no_me_debe.")
+        nuevo = transiciones.cambiar_escenario(caso, "descartado", "fuiste acompañado, pero nadie te debe nada.",
+                                               "llamada", hoy, cuando)
+        return Cambio(nuevo, "Pago marcado: fuiste acompañado, pero nadie te debe")
 
     if accion == "con_personas":
         return _con_personas(caso, hoy, cuando, personas or [], importe, texto, movimiento)

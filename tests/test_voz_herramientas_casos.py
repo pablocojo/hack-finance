@@ -286,6 +286,16 @@ def test_iba_solo_descarta_un_pago_individual_y_no_vale_para_otros():
     assert r["ok"] and un_caso("caso-solo").estado == "descartado" and un_caso("caso-solo").historial[-1].origen == "llamada"
 
 
+def test_nadie_me_debe_descarta_un_pago_individual_acompanado_y_no_vale_para_otros():
+    montar(caso("caso-solo", "pago_individual", (), "m-solo", "45.00", comercio="EL PINO"), caso())
+    kit = sesion()
+    assert "Solo vale para un pago individual" in act(kit, "caso-cena", "nadie_me_debe")["error"]
+    r = act(kit, "caso-solo", "nadie_me_debe")
+    final = un_caso("caso-solo")
+    assert r["ok"] and final.estado == "descartado" and final.historial[-1].origen == "llamada"
+    assert "nadie te debe" in final.historial[-1].cambio
+
+
 def test_con_personas_convierte_un_pago_individual_en_pago_por_otro_o_gasto_compartido():
     montar(caso("caso-solo", "pago_individual", (), "m-solo", "45.00", comercio="EL PINO"))
     r = act(sesion(), "caso-solo", "con_personas", persona="Pepe G.")
