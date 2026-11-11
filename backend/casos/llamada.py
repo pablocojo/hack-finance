@@ -12,7 +12,8 @@ manual, personas del caso) y deja rastro en `Caso.historial` con origen `llamada
     no_me_debe                     una persona sale del reparto (o, si solo hay una, se descarta el caso)
     marcar_saldado                 saldado manual (efectivo, invitación u otro): nunca mueve dinero
     posponer                       no avisar hasta dentro de 1 a 14 días
-    responder_duda                 contesta sí o no a la pregunta pendiente de un caso dudoso
+    responder_duda                 contesta sí o no a la pregunta pendiente de un caso dudoso o a «Marcos te ha enviado
+                                   25 €: ¿es lo de La Tasca (24 €)?» (sí = ese Bizum salda su parte; no = sigue igual)
     proponer_cambio_de_escenario   NO cambia nada: deja `hechos["cambio_propuesto"]` y el agente post-llamada
                                    (`resumir.py`) lo confirma al colgar con una cita literal del usuario
 
@@ -149,6 +150,12 @@ def aplicar(caso: Caso, accion: str, hoy: date, ahora: datetime | None = None, *
 
     if accion == "responder_duda":
         nuevo = ciclo.aplicar_respuesta(caso, respuesta, hoy, cuando, origen="llamada")
+        pregunta = caso.hechos.get("pregunta")
+        if isinstance(pregunta, dict) and pregunta.get("tipo") == ciclo.TIPO_BIZUM_NO_ENCAJA:   # un Bizum que no encajaba
+            quien = ciclo.nombre_visible(str(pregunta.get("contraparte") or ""))
+            if nuevo.hechos["pregunta"].get("respuesta") == "si":
+                return Cambio(nuevo, f"El Bizum de {quien} salda su parte; no se mueve dinero")
+            return Cambio(nuevo, f"El Bizum de {quien} era otra cosa: su deuda sigue como estaba")
         quitados = sorted({d.contraparte for d in caso.deudores} - {d.contraparte for d in nuevo.deudores})
         if nuevo.estado == "descartado":
             return Cambio(nuevo, "Caso descartado: no queda nadie por cobrar")
