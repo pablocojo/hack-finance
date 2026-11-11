@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" font-family="Segoe UI, Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">
+<title id="t">Curva de amigos: reglas frente a personalizada</title>
+<desc id="d">Dinero que se escapa y preguntas inútiles por semana, con banda de IC 95 %. Simulación.</desc>
+<rect width="1920" height="1080" fill="#ffffff"/>
+<text x="70.0" y="70.0" font-size="42" font-weight="bold" fill="#1b1b1b" text-anchor="start">Con lo que aprende de cada usuario, el dinero que se escapa no cambia (19,1 %) y las</text>
+<text x="70.0" y="124.0" font-size="42" font-weight="bold" fill="#1b1b1b" text-anchor="start">preguntas inútiles bajan (1,11 a 0,78 por vida, -29 %)</text>
+<g id="panel-0">
+<text x="70.0" y="197.0" font-size="34" font-weight="bold" fill="#1b1b1b" text-anchor="start">Dinero que se escapa (% de lo prestado)</text>
+<clipPath id="recorte-0"><rect x="160" y="231" width="560.0" height="323"/></clipPath>
+<line x1="165" y1="550.0" x2="715.0" y2="550.0" stroke="#bdbdbd" stroke-width="2"/>
+<text x="151.0" y="559.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="end">0 %</text>
+<line x1="165" y1="392.5" x2="715.0" y2="392.5" stroke="#bdbdbd" stroke-width="1"/>
+<text x="151.0" y="401.5" font-size="26" font-weight="normal" fill="#555555" text-anchor="end">15 %</text>
+<line x1="165" y1="235.0" x2="715.0" y2="235.0" stroke="#bdbdbd" stroke-width="1"/>
+<text x="151.0" y="244.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="end">30 %</text>
+<text x="190.0" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S1</text>
+<text x="261.4" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S2</text>
+<text x="332.9" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S3</text>
+<text x="404.3" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S4</text>
+<text x="475.7" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S5</text>
+<text x="547.1" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S6</text>
+<text x="618.6" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S7</text>
+<text x="690.0" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S8</text>
+<text x="440.0" y="628.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="middle">semana</text>
+<text x="261.4" y="498.0" font-size="24" font-weight="normal" fill="#555555" text-anchor="middle">sin dato aún</text>
+<text x="261.4" y="526.0" font-size="20" font-weight="normal" fill="#555555" text-anchor="middle">(el cargo no cumple 21 días)</text>
+<polygon points="404.3,300.8 475.7,294.2 547.1,320.3 618.6,314.6 690.0,364.4 690.0,441.6 618.6,410.1 547.1,433.0 475.7,405.3 404.3,448.9" fill="#D55E00" fill-opacity="0.16" clip-path="url(#recorte-0)"/>
+<polyline points="404.3,374.9 475.7,349.8 547.1,376.6 618.6,362.4 690.0,403.0" fill="none" stroke="#D55E00" stroke-width="6" stroke-dasharray="14 8" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="396.3" y="366.9" width="16" height="16" fill="#D55E00"/>
+<rect x="467.7" y="341.8" width="16" height="16" fill="#D55E00"/>
+<rect x="539.1" y="368.6" width="16" height="16" fill="#D55E00"/>
+<rect x="610.6" y="354.4" width="16" height="16" fill="#D55E00"/>
+<rect x="682.0" y="395.0" width="16" height="16" fill="#D55E00"/>
+<polygon points="404.3,300.8 475.7,305.9 547.1,320.3 618.6,314.6 690.0,368.1 690.0,445.3 618.6,410.1 547.1,433.0 475.7,411.2 404.3,448.9" fill="#0072B2" fill-opacity="0.16" clip-path="url(#recorte-0)"/>
+<polyline points="404.3,374.9 475.7,358.5 547.1,376.6 618.6,362.4 690.0,406.8" fill="none" stroke="#0072B2" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="404.3" cy="374.9" r="8" fill="#0072B2"/>
+<circle cx="475.7" cy="358.5" r="8" fill="#0072B2"/>
+<circle cx="547.1" cy="376.6" r="8" fill="#0072B2"/>
+<circle cx="618.6" cy="362.4" r="8" fill="#0072B2"/>
+<circle cx="690.0" cy="406.8" r="8" fill="#0072B2"/>
+<text x="712.0" y="373.9" font-size="28" font-weight="bold" fill="#D55E00" text-anchor="start">reglas</text>
+<text x="712.0" y="401.9" font-size="26" font-weight="normal" fill="#D55E00" text-anchor="start">14,0 %</text>
+<text x="712.0" y="439.9" font-size="28" font-weight="bold" fill="#0072B2" text-anchor="start">personalizada</text>
+<text x="712.0" y="467.9" font-size="26" font-weight="normal" fill="#0072B2" text-anchor="start">13,6 %</text>
+</g>
+<g id="panel-1">
+<text x="985.0" y="197.0" font-size="34" font-weight="bold" fill="#1b1b1b" text-anchor="start">Preguntas inútiles (por vida y semana)</text>
+<clipPath id="recorte-1"><rect x="1075.0" y="231" width="560.0" height="323"/></clipPath>
+<line x1="1080.0" y1="550.0" x2="1630.0" y2="550.0" stroke="#bdbdbd" stroke-width="2"/>
+<text x="1066.0" y="559.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="end">0,00</text>
+<line x1="1080.0" y1="392.5" x2="1630.0" y2="392.5" stroke="#bdbdbd" stroke-width="1"/>
+<text x="1066.0" y="401.5" font-size="26" font-weight="normal" fill="#555555" text-anchor="end">0,12</text>
+<line x1="1080.0" y1="235.0" x2="1630.0" y2="235.0" stroke="#bdbdbd" stroke-width="1"/>
+<text x="1066.0" y="244.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="end">0,25</text>
+<text x="1105.0" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S1</text>
+<text x="1176.4" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S2</text>
+<text x="1247.9" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S3</text>
+<text x="1319.3" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S4</text>
+<text x="1390.7" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S5</text>
+<text x="1462.1" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S6</text>
+<text x="1533.6" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S7</text>
+<text x="1605.0" y="590.0" font-size="26" font-weight="normal" fill="#555555" text-anchor="middle">S8</text>
+<text x="1355.0" y="628.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="middle">semana</text>
+<polygon points="1105.0,296.9 1176.4,286.2 1247.9,306.1 1319.3,358.7 1390.7,393.8 1462.1,333.9 1533.6,303.2 1605.0,333.0 1605.0,483.5 1533.6,387.3 1462.1,451.1 1390.7,454.2 1319.3,426.3 1247.9,400.2 1176.4,404.3 1105.0,393.6" fill="#D55E00" fill-opacity="0.16" clip-path="url(#recorte-1)"/>
+<polyline points="1105.0,345.2 1176.4,345.2 1247.9,353.2 1319.3,392.5 1390.7,424.0 1462.1,392.5 1533.6,345.2 1605.0,408.2" fill="none" stroke="#D55E00" stroke-width="6" stroke-dasharray="14 8" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="1097.0" y="337.2" width="16" height="16" fill="#D55E00"/>
+<rect x="1168.4" y="337.2" width="16" height="16" fill="#D55E00"/>
+<rect x="1239.9" y="345.2" width="16" height="16" fill="#D55E00"/>
+<rect x="1311.3" y="384.5" width="16" height="16" fill="#D55E00"/>
+<rect x="1382.7" y="416.0" width="16" height="16" fill="#D55E00"/>
+<rect x="1454.1" y="384.5" width="16" height="16" fill="#D55E00"/>
+<rect x="1525.6" y="337.2" width="16" height="16" fill="#D55E00"/>
+<rect x="1597.0" y="400.2" width="16" height="16" fill="#D55E00"/>
+<polygon points="1105.0,296.9 1176.4,286.2 1247.9,329.2 1319.3,442.9 1390.7,525.7 1462.1,397.7 1533.6,340.1 1605.0,423.1 1605.0,535.1 1533.6,429.2 1462.1,481.8 1390.7,550.0 1319.3,531.1 1247.9,455.8 1176.4,404.3 1105.0,393.6" fill="#0072B2" fill-opacity="0.16" clip-path="url(#recorte-1)"/>
+<polyline points="1105.0,345.2 1176.4,345.2 1247.9,392.5 1319.3,487.0 1390.7,542.1 1462.1,439.8 1533.6,384.6 1605.0,479.1" fill="none" stroke="#0072B2" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1105.0" cy="345.2" r="8" fill="#0072B2"/>
+<circle cx="1176.4" cy="345.2" r="8" fill="#0072B2"/>
+<circle cx="1247.9" cy="392.5" r="8" fill="#0072B2"/>
+<circle cx="1319.3" cy="487.0" r="8" fill="#0072B2"/>
+<circle cx="1390.7" cy="542.1" r="8" fill="#0072B2"/>
+<circle cx="1462.1" cy="439.8" r="8" fill="#0072B2"/>
+<circle cx="1533.6" cy="384.6" r="8" fill="#0072B2"/>
+<circle cx="1605.0" cy="479.1" r="8" fill="#0072B2"/>
+<text x="1627.0" y="410.2" font-size="28" font-weight="bold" fill="#D55E00" text-anchor="start">reglas</text>
+<text x="1627.0" y="438.2" font-size="26" font-weight="normal" fill="#D55E00" text-anchor="start">0,11</text>
+<text x="1627.0" y="481.1" font-size="28" font-weight="bold" fill="#0072B2" text-anchor="start">personalizada</text>
+<text x="1627.0" y="509.1" font-size="26" font-weight="normal" fill="#0072B2" text-anchor="start">0,06</text>
+</g>
+<text x="70.0" y="680.0" font-size="28" font-weight="bold" fill="#1b1b1b" text-anchor="start">Total de las 8 semanas (la semana 8 sola es ruidosa)</text>
+<text x="70.0" y="778.0" font-size="24" font-weight="bold" fill="#D55E00" text-anchor="start">reglas</text>
+<text x="70.0" y="818.0" font-size="24" font-weight="bold" fill="#0072B2" text-anchor="start">personalizada</text>
+<text x="70.0" y="854.0" font-size="20" font-weight="normal" fill="#555555" text-anchor="start">frente a reglas</text>
+<line x1="270.0" y1="694" x2="477.7" y2="694" stroke="#bdbdbd" stroke-width="1"/>
+<text x="270.0" y="718.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">dinero que se</text>
+<text x="270.0" y="742.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">escapa</text>
+<text x="270.0" y="778.0" font-size="28" font-weight="bold" fill="#D55E00" text-anchor="start">19,1 %</text>
+<text x="270.0" y="818.0" font-size="28" font-weight="bold" fill="#0072B2" text-anchor="start">19,1 %</text>
+<text x="270.0" y="854.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">igual</text>
+<line x1="495.7" y1="694" x2="703.4" y2="694" stroke="#bdbdbd" stroke-width="1"/>
+<text x="495.7" y="718.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">preguntas inútiles</text>
+<text x="495.7" y="778.0" font-size="28" font-weight="bold" fill="#D55E00" text-anchor="start">1,11</text>
+<text x="495.7" y="818.0" font-size="28" font-weight="bold" fill="#0072B2" text-anchor="start">0,78</text>
+<text x="495.7" y="854.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">mejora</text>
+<line x1="721.4" y1="694" x2="929.1" y2="694" stroke="#bdbdbd" stroke-width="1"/>
+<text x="721.4" y="718.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">recordatorios a</text>
+<text x="721.4" y="742.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">destiempo</text>
+<text x="721.4" y="778.0" font-size="28" font-weight="bold" fill="#D55E00" text-anchor="start">38,9 %</text>
+<text x="721.4" y="818.0" font-size="28" font-weight="bold" fill="#0072B2" text-anchor="start">31,3 %</text>
+<text x="721.4" y="854.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">mejora</text>
+<line x1="947.1" y1="694" x2="1154.9" y2="694" stroke="#bdbdbd" stroke-width="1"/>
+<text x="947.1" y="718.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">acierto de la</text>
+<text x="947.1" y="742.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">sugerencia</text>
+<text x="947.1" y="778.0" font-size="28" font-weight="bold" fill="#D55E00" text-anchor="start">sin dato</text>
+<text x="947.1" y="818.0" font-size="28" font-weight="bold" fill="#0072B2" text-anchor="start">0,0 %</text>
+<text x="947.1" y="854.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">sin comparar</text>
+<line x1="1172.9" y1="694" x2="1380.6" y2="694" stroke="#bdbdbd" stroke-width="1"/>
+<text x="1172.9" y="718.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">casos cerrados</text>
+<text x="1172.9" y="742.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">solos</text>
+<text x="1172.9" y="778.0" font-size="28" font-weight="bold" fill="#D55E00" text-anchor="start">5,4 %</text>
+<text x="1172.9" y="818.0" font-size="28" font-weight="bold" fill="#0072B2" text-anchor="start">5,7 %</text>
+<text x="1172.9" y="854.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">mejora</text>
+<line x1="1398.6" y1="694" x2="1606.3" y2="694" stroke="#bdbdbd" stroke-width="1"/>
+<text x="1398.6" y="718.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">toques por 100 €</text>
+<text x="1398.6" y="742.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">cobrados</text>
+<text x="1398.6" y="778.0" font-size="28" font-weight="bold" fill="#D55E00" text-anchor="start">1,19</text>
+<text x="1398.6" y="818.0" font-size="28" font-weight="bold" fill="#0072B2" text-anchor="start">1,05</text>
+<text x="1398.6" y="854.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">mejora</text>
+<line x1="1624.3" y1="694" x2="1832.0" y2="694" stroke="#bdbdbd" stroke-width="1"/>
+<text x="1624.3" y="718.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">días hasta cobrar</text>
+<text x="1624.3" y="778.0" font-size="28" font-weight="bold" fill="#D55E00" text-anchor="start">1,31</text>
+<text x="1624.3" y="818.0" font-size="28" font-weight="bold" fill="#0072B2" text-anchor="start">1,32</text>
+<text x="1624.3" y="854.0" font-size="22" font-weight="normal" fill="#555555" text-anchor="start">igual</text>
+<text x="70.0" y="925.0" font-size="19" font-weight="normal" fill="#555555" text-anchor="start">Simulación: 8 vidas × 20 semillas · supuestos: vidas inventadas, no son clientes; tasas con que el usuario contesta a Meisam supuestas (probado también con la mitad); dinero que se escapa</text>
+<text x="70.0" y="949.0" font-size="19" font-weight="normal" fill="#555555" text-anchor="start">= lo prestado que a los 21 días ni volvió ni se reclamó (solo semanas 4-8); no cuenta quien pide que no se le recuerde; el efectivo devuelto es cobrado; IC 95 % entre semillas · vidas</text>
+<text x="70.0" y="973.0" font-size="19" font-weight="normal" fill="#555555" text-anchor="start">08e2e31a</text>
+<text x="70.0" y="997.0" font-size="19" font-weight="normal" fill="#555555" text-anchor="start">Dónde no mejora (total 8 semanas) · dinero que se escapa: Carmen, Diego, Hugo, Irene, Javier, Marta, Pilar, Sergio · preguntas inútiles: Alvaro, Carmen, Hugo, Irene, Nerea, Pilar, Sergio</text>
+<text x="70.0" y="1021.0" font-size="19" font-weight="normal" fill="#555555" text-anchor="start">Con la mitad de respuestas del usuario, el dinero que se escapa va de 19,4 % (reglas) a 19,4 % (personalizada).</text>
+</svg>
