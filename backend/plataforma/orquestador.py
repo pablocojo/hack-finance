@@ -378,6 +378,7 @@ def _procesar_dia_interno(uid: str, hoy: date, ahora: datetime | None) -> dict:
             ids = {c.id for pid in ignoradas for c in casos.de_propuesta(lista_casos, pid)}
             lista_casos = [casos.marcar_ignorado(c, hoy, ahora) if c.id in ids else c for c in lista_casos]
         modelo = _aprender_ignoradas(modelo, lista_casos, hoy)   # «¿fuiste con alguien?» sin respuesta: pregunta menos
+        modelo = _aprender_bizums(modelo, historial, hoy, lista_casos)   # lo que el banco ve sin preguntar (A4b)
 
         # 5. observar (contactos), saldo con cada amigo (desde los casos) y gancho de búsqueda web
         modelo = personalizacion.observar(modelo, nuevos, hoy)
@@ -472,12 +473,16 @@ def _plazos_amigos(caso: Caso, modelo: ModeloUsuario | None, hoy: date, ahora: d
         claves = [d.contraparte for d in caso.deudores]
         plazos: dict[str, date] = {}
         canales: dict[str, str] = {}
+        plazo_caso = caso.avisar_desde or caso.creado
         for d in caso.deudores:
             if d.contraparte in previos or d.estado == "saldada":
                 continue
             grupo = [c for c in claves if c != d.contraparte]
-            _, fuente = _aprende.retraso_persona(apr, d.contraparte, grupo, perfil)
-            if fuente != "general":
+            dias, fuente = _aprende.retraso_persona(apr, d.contraparte, grupo, perfil)
+            propia = fecha_pago + timedelta(days=dias + _aprende.PARAMETROS["margen_dias"])
+            # Solo si suele pagar DESPUÉS del plazo del caso: quien suele pagar antes y aún no lo ha hecho ya va tarde,
+            # y un caso del motor (que ya esperó a los Bizums) no se retrasa por el «nunca el mismo día».
+            if fuente != "general" and propia > plazo_caso:
                 plazos[d.contraparte] = _aprende.avisar_desde(apr, d.contraparte, fecha_pago, hoy, grupo, perfil)
             canal = _aprende.canal_probable(apr, d.contraparte)
             if canal:
@@ -495,6 +500,7 @@ def _aprender_caso(modelo: ModeloUsuario | None, antes: Caso | None, despues: Ca
         return modelo
     try:
         eventos = _aprende.eventos_de_caso(antes, despues, fuente, hoy, despues.hechos.get("tipo_comercio"))
+        eventos = casos.sin_repetir(eventos, despues, apr.eventos_vistos)   # lo ya aprendido de sus Bizums no cuenta dos veces
         return _aprende.aprender_eventos(modelo, eventos) if eventos else modelo
     except Exception:   # noqa: BLE001  (aprender nunca rompe una acción del usuario)
         return modelo
@@ -511,6 +517,21 @@ def _aprender_de_cambios(modelo: ModeloUsuario | None, antes: list[Caso], despue
         if previo is not None and previo is not c:
             modelo = _aprender_caso(modelo, previo, c, fuente, hoy)
     return modelo
+
+
+def _aprender_bizums(modelo: ModeloUsuario | None, historial: list[Movimiento], hoy: date,
+                     lista: list[Caso]) -> ModeloUsuario | None:
+    """Lo que el banco ve sin preguntar (A4b): los Bizums que devuelven parte de un pago con tarjeta en un sitio
+    elegible enseñan con quién fuiste, el retraso real de cada persona y su canal, haya caso o no
+    (`casos.observar`). Solo con `modo = "aprende"`; ids idempotentes por pago y persona."""
+    apr = _aprendizaje(modelo)
+    if apr is None or apr.modo != "aprende":
+        return modelo
+    try:
+        eventos = casos.observaciones(historial, hoy, lista, apr.eventos_vistos)
+        return _aprende.aprender_eventos(modelo, eventos) if eventos else modelo
+    except Exception:   # noqa: BLE001  (aprender nunca rompe el día)
+        return modelo
 
 
 def _aprender_ignoradas(modelo: ModeloUsuario | None, lista: list[Caso], hoy: date) -> ModeloUsuario | None:

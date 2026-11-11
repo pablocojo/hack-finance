@@ -17,6 +17,8 @@ API pública (todo puro salvo `cargar` y `guardar`; solo el orquestador escribe 
     fijar_plazos(caso, plazos, canales, hoy) (Deudor.avisar_desde y hechos["canal_probable"]);
     propuesta_pregunta(caso, ahora, nombres) (nivel 3, como prop-duda-*); pregunta_sin_respuesta(caso, hoy);
     abre_caso(lista, momento) (ningún pago_individual sobre un cargo que ya tiene caso)
+    A4b (observar.py): observaciones(historial, hoy, casos, vistos) -> list[EventoAmigos] (Bizums que devuelven parte de
+    un pago elegible, haya caso o no);  sin_repetir(eventos, caso, vistos)
     amigos_desde_casos(casos, hoy) -> list[Amigo];  sincronizar_amigos(modelo, casos, hoy) -> ModeloUsuario
     cargar(usuario_id) -> list[Caso];  guardar(usuario_id, casos) -> None
 
@@ -74,6 +76,7 @@ from .ciclo import (
     vincular_propuesta,
 )
 from .cierre import pagos_entrantes, saldar_casos, saldar_con_movimientos
+from .observar import observaciones, sin_repetir
 from .transiciones import (
     DIAS_ESPERA_PAGO_POR_OTRO,
     TRANSICIONES,
