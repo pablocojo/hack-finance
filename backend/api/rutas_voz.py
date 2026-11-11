@@ -3,6 +3,8 @@ El `usuario_id` y la `propuesta_id` de las herramientas salen del `token_sesion`
 
 from __future__ import annotations
 
+from datetime import date
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends
@@ -10,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..plataforma import orquestador
-from ..plataforma.tipos import ACCIONES
+from ..plataforma.tipos import ACCIONES, PersonaGasto
 from ..voz import consultas, herramientas_llamada, sesiones, texto
 from ..voz import sesion as abrir_sesion
 from .rutas_copiloto import a_http, exigir_demo_key, no_implementado
@@ -73,6 +75,19 @@ class PeticionActualizarCaso(PeticionHerramienta):
     dias: int | None = None
     escenario: str | None = Field(default=None, max_length=30)
     respuesta: str | None = Field(default=None, max_length=4)
+
+
+class PeticionApuntarGasto(PeticionHerramienta):
+    """`ApuntarGastoEntrada` + `token_sesion`. `extra="forbid"`: un `usuario_id` en el cuerpo da 422. Los límites de cada
+    campo (pista 1-60, nombre 1-40, ≤ 10 personas) los valida el modelo; aquí solo los de forma."""
+    pista: str = Field(min_length=1, max_length=60)
+    fecha_aprox: date | None = None
+    importe_total: Decimal | None = None
+    personas: list[PersonaGasto] = Field(default_factory=list, max_length=10)
+    incluye_usuario: bool = True
+    efectivo: bool = False
+    movimiento_id: str | None = Field(default=None, max_length=80)
+    confirmar_personas_nuevas: bool = False
 
 
 class PeticionDeshacer(PeticionHerramienta):
@@ -169,6 +184,18 @@ def herramienta_actualizar_caso(peticion: PeticionActualizarCaso) -> dict:
         return herramientas_llamada.actualizar(
             registro.kit, peticion.caso_id, peticion.accion, peticion.persona, peticion.importe, peticion.via,
             peticion.motivo, peticion.dias, peticion.escenario, peticion.respuesta)
+    except Exception as error:
+        raise a_http(error) from error
+
+
+@router.post("/herramientas/apuntar_gasto")
+def herramienta_apuntar_gasto(peticion: PeticionApuntarGasto) -> dict:
+    """El chat crea el caso de un pago que está en la cuenta (docs/diseno/curva-amigos.md §4.2): el servidor busca el cargo,
+    resuelve a las personas y calcula las cuotas. `ApuntarGastoSalida` (texto libre entre `<datos>`) más, si crea o
+    convierte un caso, `cambio_id` y `hecho` para el aviso con «Deshacer» del navegador. Nunca mueve dinero."""
+    try:
+        registro = sesiones.obtener(peticion.token_sesion)
+        return herramientas_llamada.apuntar(registro.kit, peticion.model_dump(exclude={"token_sesion"}, mode="json"))
     except Exception as error:
         raise a_http(error) from error
 
