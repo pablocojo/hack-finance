@@ -193,6 +193,9 @@ def preparar_llamada(caso: dict, escenario: dict):
     for nombre in ("momentos", "decisiones", "movimientos", "notificaciones"):
         alm.guardar(usuario, nombre, [])
     sembrar_datos(usuario, modelo, escenario.get("datos") or {})
+    if escenario.get("foco_caso"):   # «Otra respuesta»: sesión general enfocada en un caso (POST /voz/sesion con caso_id)
+        foco = next((c for c in casos.cargar(usuario) if c.id == escenario["foco_caso"]), None)
+        return sesiones.crear(usuario, "", "texto_kit", contexto.variables_generales(usuario, modelo, foco))
     variables = contexto.variables(propuesta, modelo, usuario, casos.cargar(usuario))
     return sesiones.crear(usuario, propuesta.id, "texto_kit", variables)
 
@@ -270,6 +273,9 @@ def evaluar_llamada(caso: dict, escenarios: dict, *, modelo: str | None, revisor
         comprobaciones.append({"tipo": "herramienta", "ok": nombre in usadas, "detalle": nombre})
     for nombre in caso.get("herramientas_prohibidas", []):
         comprobaciones.append({"tipo": "herramienta_prohibida", "ok": nombre not in usadas, "detalle": nombre})
+    for patron in caso.get("entrada_requerida", []):
+        comprobaciones.append({"tipo": "entrada_requerida",
+                               "ok": any(re.search(patron, e, re.I) for e in entradas), "detalle": patron})
     for patron in caso.get("entrada_prohibida", []):
         comprobaciones.append({"tipo": "entrada_prohibida",
                                "ok": not any(re.search(patron, e, re.I) for e in entradas), "detalle": patron})
