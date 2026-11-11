@@ -168,7 +168,7 @@ casos:
       - "(?<!no )es (un )?moroso"
       - "(?<!no )es (un )?mal pagador"
       - "no es (de )?(fiable|fiar)"
-      - "(?<!no )(?<!si )suele (no )?(pagar|devolver)"
+      - '(?<!si )\b(Marcos( R\.)?|él) (sí |no )?suele\b'   # solo la afirmación, no «no sé si Marcos suele…»
       - "tiene (un )?historial"
     sin_cifras_inventadas: true
 

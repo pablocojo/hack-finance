@@ -174,8 +174,8 @@ Lo comparten `backend/api/rutas_*.py` y `frontend/lib/api.ts`. Convenciones: JSO
 | `PATCH /usuarios/{id}/aprendido/{hid}` · `DELETE …/{hid}` · `DELETE /usuarios/{id}/aprendido` | `{activo?, texto?}` | hecho · `{ok}` · `{ok}` (olvidar todo: también el perfil) | U2 |
 | `POST /usuarios/{id}/pruebas` | `{comercio, fecha_alta, dias?}` | `{ok}` (`registrar_prueba`; botón «He empezado una prueba») | opcional O8 |
 | `GET /usuarios/{id}/amigos` | — | `Amigo[]` | opcional O7 |
-| `POST /voz/sesion` | `{propuesta_id, usuario_id, modo_preferido: voz\|texto_el\|texto_kit}` | `SesionVoz` (sin clave de ElevenLabs → `texto_kit`) | V1 |
-| `POST /voz/texto` (SSE) | `{token_sesion, mensaje?}` (sin mensaje = primer mensaje fijo y neutro: «Hola {nombre}, me has abierto desde el aviso: {titulo_aviso}. ¿Lo vemos?») | eventos del kit (`texto`, `herramienta_inicio`, `herramienta_fin`, `revision`, `fin`, `error`) + `tarjeta` | V1 |
+| `POST /voz/sesion` | `{propuesta_id?, usuario_id, modo_preferido: voz\|texto_el\|texto_kit}` (sin `propuesta_id`: conversación general, sin acciones) | `SesionVoz` (sin clave de ElevenLabs → `texto_kit`) | V1 |
+| `POST /voz/texto` (SSE) | `{token_sesion, mensaje?}` (sin mensaje = primer mensaje fijo y neutro: «Hola {nombre}, {titulo_aviso}», con `titulo_aviso` = «me has abierto desde el aviso: <título>. ¿Lo vemos?» o, sin aviso, «¿qué quieres repasar de tus cuentas con amigos?») | eventos del kit (`texto`, `herramienta_inicio`, `herramienta_fin`, `revision`, `fin`, `error`) + `tarjeta` | V1 |
 | `POST /voz/herramientas/preparar` | `{token_sesion, accion_id, parametros}` | `{preparada, titulo}` al agente; la tarjeta con token va solo a la app | V1 |
 | `POST /voz/herramientas/feedback` | `{token_sesion, resultado}` | `{ok}` (colgar sin acción = `vista_sin_accion`) | V1 |
 | `POST /voz/herramientas/consultar` | `{token_sesion, pregunta}` | `{respuesta}` | opcional O3 |
