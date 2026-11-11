@@ -679,7 +679,7 @@ def propuesta_pregunta(caso: Caso, ahora: datetime, nombres: dict[str, str] | No
         valor_estimado_eur=en_juego, urgencia="media", tipo_momento="gasto_compartido",
         comercio=caso.hechos.get("comercio") if isinstance(caso.hechos.get("comercio"), str) else None,
         contraparte=sug.personas[0] if sug and sug.personas else None,
-        confianza=max(min(confianza, 1.0), 0.0), creada=ahora)
+        confianza=max(min(confianza, 1.0), 0.0), creada=ahora, solo_pregunta=True)
 
 
 def pregunta_sin_respuesta(caso: Caso, hoy: date) -> bool:

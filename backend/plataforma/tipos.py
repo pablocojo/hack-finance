@@ -192,6 +192,7 @@ class Propuesta(Base):
     confianza: float = Field(ge=0, le=1)
     impacto_relativo: Euros | None = None
     contexto_personal: str | None = None
+    solo_pregunta: bool = False              # 11 nov: se contesta con un toque, sin acción ni dinero (molesta menos)
     creada: datetime
 
 

@@ -38,6 +38,8 @@ PARAMETROS: dict = {
     "umbral_sin_perfil": Decimal("20"),
     "n_exploracion": 3,             # celda del tipo con n < 3: exploración prudente
     "E_max_dinero_debido": Decimal("10"),   # el dinero que te deben no se diluye con el umbral personal
+    "factor_E_pregunta": Decimal("0.25"),   # 11 nov (Pablo): una pregunta de un toque (sin acción ni dinero) molesta
+                                            # una cuarta parte que un aviso que pide hacer algo
 }
 
 TIPOS_PROTECCION = frozenset({"prueba_gratuita", "posible_estafa"})
@@ -164,6 +166,8 @@ def evaluar(propuesta: Propuesta, modelo: ModeloUsuario, ahora: datetime) -> Cal
     cal = Calculo(claves=claves(propuesta, modelo))
     cal.umbral = umbral(modelo)
     cal.E = euros_por_molestia(modelo, propuesta.tipo_momento)
+    if propuesta.solo_pregunta:
+        cal.E = cal.E * PARAMETROS["factor_E_pregunta"]
     valor = valor_de(propuesta)
     cal.tramo = tramo(valor, cal.umbral)
 
@@ -287,6 +291,8 @@ def decidir(propuesta: Propuesta, modelo: ModeloUsuario, ahora: datetime) -> Dec
         if tope and propuesta.urgencia != "alta":
             return _decision(propuesta, "resumen", cal, [M.tope_diario(n_hoy), valor_txt, aprendido_txt])
         primero = M.URGENTE_SIN_TOPE if tope else None
+        if primero is None and propuesta.solo_pregunta:
+            primero = M.PREGUNTA_UN_TOQUE
         if primero is None and propuesta.tipo_momento in TIPOS_DINERO_DEBIDO:
             primero = M.DINERO_DEBIDO
         return _decision(propuesta, "notificar_ahora", cal, [primero, valor_txt, aprendido_txt])

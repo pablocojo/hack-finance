@@ -353,10 +353,13 @@ def test_demo_lucia_pregunta_por_el_cine_con_texto_combinaciones_y_fuente_sin_re
     assert "2 entradas de sábado" in motivos[0] and "80 %" in motivos[0] and "taquilla.com" in motivos[0]
     caso = next(c for c in orq.casos_usuario("lucia") if c["escenario"] == "pago_individual")
     assert caso["pregunta_nivel"] == 3 and caso["pregunta"]["texto"] == TEXTO_CINE
-    # Pasa por `decidir`: con el umbral de Lucía (37 €), 10,90 € en juego no compensan interrumpir y va al Resumen
-    assert aviso["decision"]["accion"] == "resumen" and caso["aviso"] == "resumen"
+    # Pasa por `decidir`: es una pregunta de un toque (`solo_pregunta`), que molesta una cuarta parte, así que
+    # 10,90 € en juego con un 80 % sí compensan una notificación (decisión de Pablo, 11 nov)
+    assert aviso["decision"]["accion"] == "notificar_ahora" and caso["aviso"] == "notificar"
+    assert any("un toque" in m for m in motivos)
     # Lo de antes sigue igual: la cena avisó el 9/11 y Streamflix el 10/11
-    ahora = {n["propuesta"]["tipo_momento"]: n["propuesta"]["creada"][:10] for n in orq.notificaciones("lucia", "ahora")}
+    ahora = {n["propuesta"]["tipo_momento"]: n["propuesta"]["creada"][:10] for n in orq.notificaciones("lucia", "ahora")
+             if not n["propuesta"]["id"].startswith("prop-preg-")}
     assert ahora == {"gasto_compartido": "2026-11-09", "prueba_gratuita": "2026-11-10"}
 
 

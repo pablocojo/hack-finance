@@ -65,3 +65,5 @@
 3. **¿El −29 % es ruido?** No: la diferencia pareada es de −0,33 (IC95 de −0,41 a −0,24). Pero es un tercio de pregunta por usuario en dos meses, y casi todo de un solo perfil.
 4. **¿Y si la gente no contesta?** Con la mitad de respuestas, las preguntas inútiles bajan de 1,11 a 0,81 y el dinero sigue igual. Sergio, que contesta el 8 %, no mejora en nada.
 5. **¿No lo hace ya Splitwise, o Bizum más WhatsApp?** Esas opciones piden acordarse y apuntarlo; Meisam parte del cargo en tu cuenta. Pero en viajes y cumpleaños de 8 a 10 personas, que es donde se escapa el dinero, hoy no lo hace mejor. No se ha medido con usuarios reales.
+
+> **Nota del orquestador (11 nov, tarde):** después de esta revisión entraron el cine con búsqueda web (K1 ocio) y la regla «una pregunta de un toque molesta una cuarta parte». La curva final se volvió a medir con el código congelado: recordatorios a destiempo 37,6 % → 30,6 % (antes 38,9 % → 31,3 %); preguntas inútiles 1,11 → 0,78 y dinero que se escapa 19,2 % → 19,1 % (dentro del IC). Para el pitch, usar estas cifras: `evals/resultados/amigos-final-2026-11-11.json` y `curva-amigos.svg`.

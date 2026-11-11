@@ -38,6 +38,7 @@ AL_RESUMEN = "Merece la pena verlo, pero no tanto como para interrumpirte: lo de
 EXPLORACION = "Aún sé poco de estos avisos; te lo dejo en el resumen por si te sirve."
 NO_COMPENSA = "Por cómo has respondido a avisos parecidos, no compensa molestarte con esto."
 DINERO_DEBIDO = "Es dinero que te deben: si no se reclama, se olvida."
+PREGUNTA_UN_TOQUE = "Es solo una pregunta que se contesta con un toque: molesta menos que un aviso que pide hacer algo."
 FRIO = "Aún no sé si estos avisos te interesan; decido por lo que te puede ahorrar."
 
 
